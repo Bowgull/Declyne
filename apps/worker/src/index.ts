@@ -15,6 +15,7 @@ import { categoriesRoutes } from './routes/categories.js';
 import { routingRoutes } from './routes/routing.js';
 import { periodsRoutes } from './routes/periods.js';
 import { signalsRoutes, computeAndStoreSignals } from './routes/signals.js';
+import { evaluateAndRecordPhase } from './lib/phase.js';
 import { cronRoutes, logCronRun } from './routes/cron.js';
 import { coachRoutes } from './routes/coach.js';
 import { marketRoutes } from './routes/market.js';
@@ -63,10 +64,18 @@ export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(
-      logCronRun(env, 'signals.compute', async () => {
-        const out = await computeAndStoreSignals(env);
-        return `snapshot ${out.id}`;
-      }).catch((err) => console.error('scheduled signals.compute failed', err)),
+      (async () => {
+        await logCronRun(env, 'signals.compute', async () => {
+          const out = await computeAndStoreSignals(env);
+          return `snapshot ${out.id}`;
+        }).catch((err) => console.error('scheduled signals.compute failed', err));
+        await logCronRun(env, 'phase.recompute', async () => {
+          const out = await evaluateAndRecordPhase(env);
+          return out.transitioned
+            ? `transition ${out.inputs.current_phase}->${out.evaluated.next_phase} (${out.evaluated.rule_triggered})`
+            : `no change, phase ${out.inputs.current_phase}`;
+        }).catch((err) => console.error('scheduled phase.recompute failed', err));
+      })(),
     );
   },
 };
