@@ -204,6 +204,13 @@ export default function Settings() {
       </section>
 
       <section className="card flex flex-col gap-3">
+        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Audit</h2>
+        <Link to="/settings/edit-log" className="btn-outline text-center">
+          View edit log
+        </Link>
+      </section>
+
+      <section className="card flex flex-col gap-3">
         <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Export</h2>
         <a className="btn-outline text-center" href={`${api.baseUrl}/api/export`}>
           Download sectioned CSV
