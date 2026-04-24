@@ -4,6 +4,7 @@ import { evaluatePhase, PHASE_NAMES, type Phase, type PhaseInputs } from '@decly
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { evaluateAndRecordPhase, gatherPhaseInputs } from '../lib/phase.js';
+import { computeAndStoreStreaks } from '../lib/streaks.js';
 
 export const phaseRoutes = new Hono<{ Bindings: Env }>();
 
@@ -52,6 +53,11 @@ phaseRoutes.post('/evaluate', async (c) => {
 
 phaseRoutes.post('/recompute', async (c) => {
   const out = await evaluateAndRecordPhase(c.env);
+  return c.json(out);
+});
+
+phaseRoutes.post('/streaks/recompute', async (c) => {
+  const out = await computeAndStoreStreaks(c.env);
   return c.json(out);
 });
 

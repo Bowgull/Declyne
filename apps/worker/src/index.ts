@@ -16,6 +16,7 @@ import { routingRoutes } from './routes/routing.js';
 import { periodsRoutes } from './routes/periods.js';
 import { signalsRoutes, computeAndStoreSignals } from './routes/signals.js';
 import { evaluateAndRecordPhase } from './lib/phase.js';
+import { computeAndStoreStreaks } from './lib/streaks.js';
 import { cronRoutes, logCronRun } from './routes/cron.js';
 import { coachRoutes } from './routes/coach.js';
 import { marketRoutes } from './routes/market.js';
@@ -69,6 +70,10 @@ export default {
           const out = await computeAndStoreSignals(env);
           return `snapshot ${out.id}`;
         }).catch((err) => console.error('scheduled signals.compute failed', err));
+        await logCronRun(env, 'streaks.recompute', async () => {
+          const out = await computeAndStoreStreaks(env);
+          return `essentials=${out.essentials_covered_streak_periods} util=${out.utilization_under_30_streak_statements} ontime=${out.on_time_streak_days}`;
+        }).catch((err) => console.error('scheduled streaks.recompute failed', err));
         await logCronRun(env, 'phase.recompute', async () => {
           const out = await evaluateAndRecordPhase(env);
           return out.transitioned
