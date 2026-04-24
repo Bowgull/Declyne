@@ -3,6 +3,7 @@ import type { Env } from '../env.js';
 import { evaluatePhase, PHASE_NAMES, type Phase, type PhaseInputs } from '@declyne/shared';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
+import { evaluateAndRecordPhase, gatherPhaseInputs } from '../lib/phase.js';
 
 export const phaseRoutes = new Hono<{ Bindings: Env }>();
 
@@ -47,6 +48,16 @@ phaseRoutes.post('/evaluate', async (c) => {
   }
 
   return c.json(result);
+});
+
+phaseRoutes.post('/recompute', async (c) => {
+  const out = await evaluateAndRecordPhase(c.env);
+  return c.json(out);
+});
+
+phaseRoutes.get('/inputs', async (c) => {
+  const inputs = await gatherPhaseInputs(c.env);
+  return c.json({ inputs });
 });
 
 phaseRoutes.get('/log', async (c) => {

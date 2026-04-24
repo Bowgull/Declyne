@@ -12,8 +12,11 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker: `https://declyne-api.bocas-joshua.workers.dev`
 - D1 database: `declyne` (`0893ada8-cbdb-4b3c-896c-c93c792023f1`)
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
-- Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`
-- Worker secrets still needed: `TWELVE_DATA_KEY`, `FMP_KEY`
+- Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
+
+## Repo state (2026-04-24 handoff, end of session 9)
+
+Working tree clean after session 9. Sessions 1-8 squashed in `67b52f2`; session 9 is its own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`.
 
 ## Key commands
 
@@ -26,7 +29,7 @@ pnpm test             # 33 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 6, 2026-04-24)
+## What's built (through session 9, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -55,19 +58,30 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Investment holdings enriched: `GET /api/investment/holdings` now joins with latest price from `prices` and latest row from `signals` (sma50, sma200, rsi14, momentum_30d)
 - Grow tab: market snapshot card (BoC rate, USD/CAD, XIU, SPY), holdings with market value, gain/loss, RSI + momentum per holding, total portfolio value, Refresh prices button, Get recommendation button (calls `/api/investment/recommend` with current phase). Stays locked at Phase < 4
 - Secrets set in Cloudflare: `TWELVE_DATA_KEY`, `FMP_KEY` (set 2026-04-24)
-- 33 tests passing (19 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version efb3b052)
+- Phase transitions (auto): `apps/worker/src/lib/phase.ts` gathers inputs from settings, behaviour_snapshots, debts, and accounts, runs shared `evaluatePhase`, and writes `phase_log` + `edit_log` + updates `settings.current_phase` on change. On first promotion to phase 2 it snapshots the then-current non-mortgage debt into `phase2_entry_non_mortgage_debt_cents`. Routes: `POST /api/phase/recompute`, `GET /api/phase/inputs`. Nightly cron now runs signals.compute then phase.recompute, both logged in `cron_runs`
+- Vice dashboard in Budget tab: expanded Vice card shows 30d ratio, week-over-week delta, 8-week trend bars, peak weekday (over 90d), and top 5 vice categories (30d). New `GET /api/budget/vice/trend` backs it
+- 33 tests passing (19 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 6f0a4e59)
 
 ## What's NOT built yet (next session priorities)
 
 1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`
 2. **Coach refresh prerequisite** — if `behaviour_snapshots` is empty, `POST /api/coach/summary` returns 404 `no_snapshot`. Seed by importing a CSV or calling `POST /api/signals/compute` first
-3. **Vice dashboard in Budget tab** — slice described in session plan but not yet built. Should surface vice vs lifestyle spend, ratio trend
-4. **Phase transitions** — `phase_log` table exists, no promotion/demotion logic written yet. Phase engine computes current phase but never writes a new row when thresholds cross
+3. **Phase streak inputs not yet computed** — `essentials_covered_streak_periods`, `utilization_under_30_streak_statements`, `on_time_streak_days`, `last_missed_min_payment_date`, and `essentials_monthly_cents` are read from `settings` as-is. Nothing computes or updates them yet. Until wired up, phase will not promote past 1 automatically (conservative by design)
+4. **Local notifications wiring** — 3 notifications (Sun 9am, Tue 9am, Day 6 10am) described but not scheduled via Capacitor LocalNotifications plugin yet
+5. **Export as sectioned CSV** — stub only
+6. **Onboarding flow, merchant review UI, edit log viewer** — not built
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
 Free provisioning expires every 7 days. Day 6 notification fires at 10am.
 When it fires: plug in phone, `pnpm cap:run`, hit play in Xcode. Two minutes.
+
+## Session-end ritual (mandatory, every session)
+
+Every session must end with three steps, in order:
+1. **Memory update** — append a new session entry to `project_declyne.md` in the auto-memory dir with what shipped, files touched, commit hash, deploy version.
+2. **CLAUDE.md update** — move anything new from "NOT built" to "What's built", bump the session number in the heading, update any infra/version strings.
+3. **Debug pass** — `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @declyne/client build`. All three must be green. Worker redeploy only if worker code changed. Commit the result. Do not hand off a session with red tests or uncommitted work.
 
 ## Rules (locked, do not change without explicit instruction)
 
