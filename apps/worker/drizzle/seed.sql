@@ -37,9 +37,7 @@ INSERT OR IGNORE INTO categories (id, name, "group", parent_id) VALUES
 
   ('cat_alcohol', 'Alcohol', 'vice', NULL),
   ('cat_cannabis', 'Cannabis', 'vice', NULL),
-  ('cat_tobacco', 'Tobacco', 'vice', NULL),
-  ('cat_gambling', 'Gambling', 'vice', NULL),
-  ('cat_fastfood', 'Fast food', 'vice', NULL),
+  ('cat_fastfood', 'Takeout', 'vice', NULL),
 
   ('cat_paycheque', 'Paycheque', 'income', NULL),
   ('cat_side_income', 'Side income', 'income', NULL),
