@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 16)
+## Repo state (2026-04-24 handoff, end of session 17)
 
-Working tree clean after session 16. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 17. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,7 +29,7 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 16, 2026-04-24)
+## What's built (through session 17, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -65,7 +65,8 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Test data seed: `apps/worker/drizzle/seed_test.sql` populates remote D1 with 4 accounts (TD Chq/Sav/Visa, Capital One), 90 days of paycheque + bill + vice + CC payment transactions, 3 debts (TD Visa percent-min, Capital One fixed-min, Lindsay Mexico split), 3 credit snapshots, 2 holdings with seeded prices, market snapshot, goal, one uncategorized review row. Verified end-to-end: periods/detect → 7 periods, signals/compute → vice_ratio_bps=6584, streaks/recompute → essentials_streak=2 cc_payoff_streak=1 last_miss=2026-03-21, phase/recompute auto-promoted 1→2 (`essentials_2p_and_cc_streak_1p`)
 - Edit log viewer: new `GET /api/edit-log?entity_type=&entity_id=&limit=` route (`apps/worker/src/routes/editLog.ts`) with entity type allowlist + `GET /api/edit-log/entity-types`. Client page at `/settings/edit-log` with entity-type filter dropdown and last-100 entries; linked from Settings "Audit" card. `merchant` added to the entity-type allowlist in session 16
 - Merchant review UI: new `apps/worker/src/routes/merchants.ts` with `GET /api/merchants?status=unverified|all|verified&q=&limit=` (joins txn count, last_seen, uncategorized count, category name) and `PATCH /api/merchants/:id` (updates display_name, category_default_id, verified; `apply_to_uncategorized: true` backfills category on this merchant's null-category txns + resolves matching review_queue rows; all diffs logged to edit_log). Pure helper `parseMerchantPatch` exported for tests. Client page `apps/client/src/pages/Merchants.tsx` at `/settings/merchants` with status filter buttons (unverified/all/verified), search box, tap-to-edit sheet (display name, grouped category picker by group, verified toggle, backfill checkbox that auto-checks when there are uncategorized txns). Linked from Settings "Data" card
-- 50 tests passing (36 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 805f0748)
+- Credit snapshot entry UI: new `apps/worker/src/routes/credit.ts` with `GET /api/credit/snapshots?limit=` (newest first) and `POST /api/credit/snapshots` (validates `as_of` YYYY-MM-DD, `score` 300..900, `utilization_bps` 0..10000, `on_time_streak_days` 0..100000, `source` manual|equifax; writes edit_log; triggers `computeAndStoreStreaks` so utilization + on-time streaks refresh immediately). `DELETE /api/credit/snapshots/:id` also recomputes streaks. Pure helper `parseCreditInput` exported for tests. `credit_snapshot` added to edit-log allowlist. Client page `apps/client/src/pages/Credit.tsx` at `/settings/credit` — lists snapshots (date, score, util %, on-time days, source) with Delete per row and an Add sheet (date picker, score, utilization %, on-time days, source select). Linked from Settings "Data" card. Verified end-to-end in preview: 3 seeded rows render, Add flow rounds 3→4, Delete rounds back to 3
+- 57 tests passing (43 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 46f30a5a)
 
 ## What's NOT built yet (next session priorities)
 

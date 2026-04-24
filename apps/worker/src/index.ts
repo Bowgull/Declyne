@@ -22,6 +22,7 @@ import { coachRoutes } from './routes/coach.js';
 import { marketRoutes } from './routes/market.js';
 import { editLogRoutes } from './routes/editLog.js';
 import { merchantsRoutes } from './routes/merchants.js';
+import { creditRoutes } from './routes/credit.js';
 import { auth } from './middleware/auth.js';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -57,6 +58,7 @@ api.route('/coach', coachRoutes);
 api.route('/market', marketRoutes);
 api.route('/edit-log', editLogRoutes);
 api.route('/merchants', merchantsRoutes);
+api.route('/credit', creditRoutes);
 
 app.route('/api', api);
 
