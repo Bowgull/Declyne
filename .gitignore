@@ -1,21 +1,36 @@
 node_modules/
+.pnpm-store/
 dist/
-.DS_Store
+build/
+.wrangler/
+.dev.vars
 .env
 .env.local
 .env.*.local
-.wrangler/
-.dev.vars
 *.log
+.DS_Store
 
-ios/App/Pods/
-ios/App/App/public/
-ios/DerivedData/
-ios/App/build/
+# iOS build artifacts
+apps/client/ios/App/Pods/
+apps/client/ios/App/Podfile.lock
+apps/client/ios/App/App/public/
+apps/client/ios/App/build/
+apps/client/ios/DerivedData/
 *.xcuserstate
 
+# Capacitor generated
+apps/client/android/
+
+# Drizzle
+drizzle/meta/
+*.sqlite
+*.sqlite-journal
+
+# Editor
 .vscode/
 .idea/
 
+# Tests
 coverage/
 .vitest/
+apps/client/tsconfig.tsbuildinfo

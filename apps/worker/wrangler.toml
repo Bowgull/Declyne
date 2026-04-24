@@ -1,0 +1,18 @@
+name = "declyne-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "declyne"
+database_id = "REPLACE_AFTER_wrangler_d1_create"
+
+# Secrets (set with `wrangler secret put`):
+#   OPENAI_API_KEY
+#   TWELVE_DATA_KEY
+#   FMP_KEY
+#   API_TOKEN         # shared token between client and worker (single-user app)

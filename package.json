@@ -1,0 +1,31 @@
+{
+  "name": "declyne",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Personal financial reset system. Single user.",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "dev": "pnpm --filter @declyne/client dev",
+    "dev:worker": "pnpm --filter @declyne/worker dev",
+    "build": "pnpm --filter @declyne/client build",
+    "build:worker": "pnpm --filter @declyne/worker build",
+    "cap:sync": "pnpm --filter @declyne/client exec cap sync ios",
+    "cap:open": "pnpm --filter @declyne/client exec cap open ios",
+    "cap:run": "pnpm build && pnpm cap:sync && pnpm cap:open",
+    "worker:deploy": "pnpm --filter @declyne/worker deploy",
+    "db:generate": "pnpm --filter @declyne/worker db:generate",
+    "db:push": "pnpm --filter @declyne/worker db:push",
+    "db:migrate": "pnpm --filter @declyne/worker db:migrate",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "setup": "bash scripts/setup.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "wrangler": "^3.95.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
