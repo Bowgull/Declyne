@@ -13,6 +13,7 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'phase',
   'routing_plan',
   'goal',
+  'merchant',
 ]);
 
 export function clampLimit(raw: string | undefined, fallback = 50, max = 500): number {
