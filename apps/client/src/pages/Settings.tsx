@@ -171,6 +171,9 @@ export default function Settings() {
 
       <section className="card flex flex-col gap-3">
         <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">System</h2>
+        <Link to="/phase" className="btn-outline text-center">
+          Phase journey
+        </Link>
         <Row k="Current phase" v={s.current_phase ?? '—'} />
         <Row k="Merchant norm version" v={s.merchant_norm_version ?? '—'} />
         <Row k="Reconciliation streak" v={s.reconciliation_streak ?? '0'} />

@@ -54,17 +54,17 @@ export default function Today() {
         </Link>
       </header>
 
-      <section className="card card-hero">
+      <Link to="/phase" className="card card-hero block">
         <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Phase</div>
         <div className="mt-1 text-3xl font-semibold">
           {phase.data ? `${phase.data.phase}. ${phase.data.name}` : '—'}
         </div>
         <div className="mt-2 text-sm text-[color:var(--color-text-muted)]">
           {phase.data?.entered_at
-            ? `Since ${new Date(phase.data.entered_at).toLocaleDateString('en-CA')}`
+            ? `Since ${new Date(phase.data.entered_at).toLocaleDateString('en-CA')} · tap for journey`
             : 'Bootstrap phase. No transitions yet.'}
         </div>
-      </section>
+      </Link>
 
       <section className="card">
         <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Vice ratio 30d</div>

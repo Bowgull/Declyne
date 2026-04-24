@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 20)
+## Repo state (2026-04-24 handoff, end of session 21)
 
-Working tree clean after session 20. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 21. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,7 +29,7 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 20, 2026-04-24)
+## What's built (through session 21, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -69,6 +69,7 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Goals UI: new `apps/worker/src/routes/goals.ts` with `GET /api/goals?include_archived=1`, `POST /api/goals`, `PATCH /api/goals/:id` (validates name/target_cents/target_date YYYY-MM-DD/linked_account_id/progress_cents/archived; pure helpers `parseGoalInput` + `parseGoalPatch` exported for tests; all create + per-field updates logged to edit_log). Client page `apps/client/src/pages/Goals.tsx` at `/goals` — list with progress bar (% of target, remaining cents), Add sheet (name, target $, progress $, target date, optional linked-account dropdown), tap-to-edit sheet (same fields plus archived toggle), Show/Hide archived button. Linked from Settings "Data" card. Verified end-to-end in preview: seeded buffer goal renders, POST creates Vacation fund (1→2 rows), PATCH archives/unarchives + edits progress
 - Onboarding flow: new `apps/client/src/pages/Onboarding.tsx` mounted at `/onboarding` — 5-step skippable flow (Welcome, Add account, Paycheque detection, Essentials baseline, Done) with per-step progress bar, Back/Next/Skip-all controls. Each step writes directly to existing routes (`POST /api/accounts`, `POST /api/settings/:key`); no new worker route. Gate in `App.tsx`: when `settings.onboarding_completed !== '1'`, `/today` and `/` redirect to `/onboarding`; once Finish or Skip-all is clicked, posts `onboarding_completed=1` and routes to `/today`. Settings "Data" card gained "Re-run onboarding" link for re-entry. Verified live in preview on localhost:5174: gate redirected fresh load, all 5 steps rendered with seeded values prefilled, Finish flipped flag and reload stayed on Today, no console errors
 - 67 tests passing (53 worker, 14 shared), all packages typecheck clean, client build clean, worker unchanged (no redeploy)
+- Phase journey UI: new `apps/client/src/pages/PhaseJourney.tsx` at `/phase` over existing `GET /api/phase/log` route. Three sections: Current (phase number + name + blurb + entered_at + trigger_rule), Path (5-step list, current ringed in accent gold, future steps dimmed), Transitions (per-row phase/name/date/trigger_rule + grouped metrics from metrics_json with vice_ratio + non_mortgage_ratio rendered as %, buffer_months to 2 decimals). Today phase hero card now wraps in `<Link to="/phase">` with "tap for journey" hint. Settings "System" card gains Phase journey link. No new worker code, no edit_log writes, no tests added (pure UI over existing route)
 - Seed adjustments to unlock Grow: `apps/worker/drizzle/seed_test.sql` now sets `current_phase=4` + `phase2_entry_non_mortgage_debt_cents=580500`, wipes + repopulates `phase_log` with a 3-step trail (P1→P2 2026-02-01, P2→P3 2026-03-01, P3→P4 2026-04-24) so `loadCurrentPhase` reads 4. Holdings unit storage corrected: XIU.TO 50→500000, SPY 8→80000 (units stored as actual_units × 10_000 per the 4-decimal scaling convention). Grow tab opens at Phase 4, portfolio renders $6,496 (XIU 50u @ $36.80 = $1,840 +$130, SPY 8u @ $582 = $4,656 +$496)
 - Holdings entry UI: new `apps/worker/src/routes/holdings.ts` with `GET /api/holdings`, `POST /api/holdings`, `PATCH /api/holdings/:id`, `DELETE /api/holdings/:id`. Validates `symbol` (1..20, uppercased), `account_wrapper` in {tfsa,fhsa,rrsp,nonreg}, `units` 1..1e10 (4-decimal scaled int), `avg_cost_cents` 0..1e11. Pure helpers `parseHoldingInput` + `parseHoldingPatch` exported for tests. PATCH bumps `updated_at`. All create/update/delete diffs written to edit_log; `holding` added to edit-log allowlist in `editLog.ts`. Client page `apps/client/src/pages/Holdings.tsx` at `/holdings` — list (symbol, wrapper, units, avg cost), Add sheet (symbol, wrapper select, units 4-decimal, avg cost $), tap-to-edit sheet with Delete button. Linked from Settings "Data" card. Verified live in preview: 2 seeded rows render, programmatic POST went 2→3, PATCH `changed=1`, DELETE returned ok, list back to 2, no console errors. 75 tests pass (61 worker + 14 shared, +8 new). Worker deployed `3042176e-3793-4a8c-95be-2bf48bc598ff`
 

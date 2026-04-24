@@ -14,6 +14,7 @@ import Credit from './pages/Credit';
 import Goals from './pages/Goals';
 import Holdings from './pages/Holdings';
 import Onboarding from './pages/Onboarding';
+import PhaseJourney from './pages/PhaseJourney';
 import { api } from './lib/api';
 
 export default function App() {
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/settings/credit" element={<Credit />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/holdings" element={<Holdings />} />
+          <Route path="/phase" element={<PhaseJourney />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>
