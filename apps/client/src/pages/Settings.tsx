@@ -91,6 +91,9 @@ export default function Settings() {
         <Link to="/settings/accounts" className="btn-outline text-center">
           Accounts
         </Link>
+        <Link to="/settings/merchants" className="btn-outline text-center">
+          Merchants
+        </Link>
       </section>
 
       <section className="card flex flex-col gap-3">

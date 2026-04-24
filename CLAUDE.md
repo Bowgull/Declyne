@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 15)
+## Repo state (2026-04-24 handoff, end of session 16)
 
-Working tree clean after session 15. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 16. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,7 +29,7 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 15, 2026-04-24)
+## What's built (through session 16, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -63,14 +63,15 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Phase streak computation: `apps/worker/src/lib/streaks.ts` walks pay_periods + transactions to count trailing periods where chequing income ≥ essentials spend (`essentials_covered_streak_periods`), reads `credit_snapshots` newest-first for `utilization_under_30_streak_statements` (threshold 3000 bps) and `on_time_streak_days`, and derives a fallback `essentials_monthly_cents_derived` from rolling 90d essentials / 3 when the manual setting is absent. Writes results to settings, logs changes to `edit_log`. `phase.ts` now falls back to the derived value if manual unset. Route: `POST /api/phase/streaks/recompute`. Nightly cron runs `streaks.recompute` between signals and phase, wrapped in `logCronRun`
 - CC payoff + missed-payment streaks (auto): `streaks.ts` extended with `ccPayoffStreak` (per pay_period, compares `debt_payments` to CC-linked debts vs CC-account spend; period counts when paid > 0 AND paid >= spent) and `findLastMissedMinPayment` (walks last 6 cycles per non-archived debt, sums payments in a 35-day pre-due window against `requiredMinPaymentCents` which honors fixed vs percent-of-principal with a $10 floor). Persists `cc_payoff_streak` and `last_missed_min_payment_date` to settings, deletes the miss key when no miss found, logs changes to `edit_log`. Wired into same nightly cron (signals → streaks → phase). `POST /api/phase/streaks/recompute` now returns both new fields plus `cc_debts_considered`
 - Test data seed: `apps/worker/drizzle/seed_test.sql` populates remote D1 with 4 accounts (TD Chq/Sav/Visa, Capital One), 90 days of paycheque + bill + vice + CC payment transactions, 3 debts (TD Visa percent-min, Capital One fixed-min, Lindsay Mexico split), 3 credit snapshots, 2 holdings with seeded prices, market snapshot, goal, one uncategorized review row. Verified end-to-end: periods/detect → 7 periods, signals/compute → vice_ratio_bps=6584, streaks/recompute → essentials_streak=2 cc_payoff_streak=1 last_miss=2026-03-21, phase/recompute auto-promoted 1→2 (`essentials_2p_and_cc_streak_1p`)
-- Edit log viewer: new `GET /api/edit-log?entity_type=&entity_id=&limit=` route (`apps/worker/src/routes/editLog.ts`) with entity type allowlist + `GET /api/edit-log/entity-types`. Client page at `/settings/edit-log` with entity-type filter dropdown and last-100 entries; linked from Settings "Audit" card
-- 44 tests passing (30 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 74276d73)
+- Edit log viewer: new `GET /api/edit-log?entity_type=&entity_id=&limit=` route (`apps/worker/src/routes/editLog.ts`) with entity type allowlist + `GET /api/edit-log/entity-types`. Client page at `/settings/edit-log` with entity-type filter dropdown and last-100 entries; linked from Settings "Audit" card. `merchant` added to the entity-type allowlist in session 16
+- Merchant review UI: new `apps/worker/src/routes/merchants.ts` with `GET /api/merchants?status=unverified|all|verified&q=&limit=` (joins txn count, last_seen, uncategorized count, category name) and `PATCH /api/merchants/:id` (updates display_name, category_default_id, verified; `apply_to_uncategorized: true` backfills category on this merchant's null-category txns + resolves matching review_queue rows; all diffs logged to edit_log). Pure helper `parseMerchantPatch` exported for tests. Client page `apps/client/src/pages/Merchants.tsx` at `/settings/merchants` with status filter buttons (unverified/all/verified), search box, tap-to-edit sheet (display name, grouped category picker by group, verified toggle, backfill checkbox that auto-checks when there are uncategorized txns). Linked from Settings "Data" card
+- 50 tests passing (36 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 805f0748)
 
 ## What's NOT built yet (next session priorities)
 
 1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`
 2. **Local notifications wiring** — 2 notifications (Sun 9am, Tue 9am) coded in `apps/client/src/native/notifications.ts` but not yet wired to Capacitor LocalNotifications plugin on iOS
-3. **Onboarding flow, merchant review UI** — not built
+3. **Onboarding flow** — not built
 5. **CC statement snapshots** — the `cc_payoff_streak` now derives from txn/payment flows per pay period, not from actual CC statement balance history. If later we want "paid statement balance in full within cycle" semantics, we need a new `cc_statement_snapshots` table tracking balance/min-due per cycle
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)

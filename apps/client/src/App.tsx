@@ -9,6 +9,7 @@ import Accounts from './pages/Accounts';
 import Review from './pages/Review';
 import Routing from './pages/Routing';
 import EditLog from './pages/EditLog';
+import Merchants from './pages/Merchants';
 import { api } from './lib/api';
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/review" element={<Review />} />
           <Route path="/budget/routing" element={<Routing />} />
           <Route path="/settings/edit-log" element={<EditLog />} />
+          <Route path="/settings/merchants" element={<Merchants />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>
