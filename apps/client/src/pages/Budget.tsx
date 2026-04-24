@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
@@ -28,7 +29,10 @@ export default function Budget() {
     <div className="flex flex-col gap-4 pb-6">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Budget</h1>
-        <ImportCsvButton />
+        <div className="flex gap-2">
+          <Link to="/budget/routing" className="btn-outline">Routing</Link>
+          <ImportCsvButton />
+        </div>
       </header>
 
       <section className="card">

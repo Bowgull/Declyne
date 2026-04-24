@@ -5,6 +5,9 @@ import Budget from './pages/Budget';
 import Debts from './pages/Debts';
 import Grow from './pages/Grow';
 import Settings from './pages/Settings';
+import Accounts from './pages/Accounts';
+import Review from './pages/Review';
+import Routing from './pages/Routing';
 import { api } from './lib/api';
 
 export default function App() {
@@ -26,6 +29,9 @@ export default function App() {
           <Route path="/debts" element={<Debts />} />
           <Route path="/grow" element={<Grow unlocked={growUnlocked} />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/accounts" element={<Accounts />} />
+          <Route path="/review" element={<Review />} />
+          <Route path="/budget/routing" element={<Routing />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>
