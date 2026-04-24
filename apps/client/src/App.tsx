@@ -12,6 +12,7 @@ import EditLog from './pages/EditLog';
 import Merchants from './pages/Merchants';
 import Credit from './pages/Credit';
 import Goals from './pages/Goals';
+import Holdings from './pages/Holdings';
 import Onboarding from './pages/Onboarding';
 import { api } from './lib/api';
 
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/settings/merchants" element={<Merchants />} />
           <Route path="/settings/credit" element={<Credit />} />
           <Route path="/goals" element={<Goals />} />
+          <Route path="/holdings" element={<Holdings />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>

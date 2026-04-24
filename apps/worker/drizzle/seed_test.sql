@@ -15,7 +15,8 @@ INSERT OR REPLACE INTO settings (key, value) VALUES
   ('paycheque_min_cents', '150000'),
   ('paycheque_fallback_days', '14'),
   ('essentials_monthly_cents_manual', '260000'),
-  ('current_phase', '1');
+  ('current_phase', '4'),
+  ('phase2_entry_non_mortgage_debt_cents', '580500');
 
 -- Merchants (subset)
 INSERT OR REPLACE INTO merchants (id, display_name, normalized_key, category_default_id, verified) VALUES
@@ -219,8 +220,8 @@ INSERT OR REPLACE INTO credit_snapshots (id, as_of, score, utilization_bps, on_t
 
 -- Holdings (tiny portfolio, mostly to wire Grow tab)
 INSERT OR REPLACE INTO holdings (id, symbol, account_wrapper, units, avg_cost_cents, updated_at) VALUES
-  ('hold_xiu', 'XIU.TO', 'tfsa', 50, 3420, '2026-04-24T00:00:00Z'),
-  ('hold_spy', 'SPY',    'tfsa', 8,  52000,'2026-04-24T00:00:00Z');
+  ('hold_xiu', 'XIU.TO', 'tfsa', 500000, 3420, '2026-04-24T00:00:00Z'),
+  ('hold_spy', 'SPY',    'tfsa', 80000,  52000,'2026-04-24T00:00:00Z');
 
 -- Prices (one latest close each so portfolio values render without live fetch)
 INSERT OR REPLACE INTO prices (symbol, date, close_cents, source) VALUES
@@ -230,6 +231,13 @@ INSERT OR REPLACE INTO prices (symbol, date, close_cents, source) VALUES
 -- Market snapshot
 INSERT OR REPLACE INTO market_snapshots (id, as_of, boc_overnight_bps, cad_usd, tsx_close, sp500_close) VALUES
   ('ms_2026_04_23', '2026-04-23', 275, 7280, 2625000, 520800);
+
+-- Phase log (illustrative trail to phase 4). Wipe prior runs so latest=phase 4.
+DELETE FROM phase_log;
+INSERT INTO phase_log (id, phase, entered_at, trigger_rule, metrics_json) VALUES
+  ('pl_2026_02_01', 2, '2026-02-01T08:00:00Z', 'p1_to_p2:essentials_2p_and_cc_streak_1p', '{}'),
+  ('pl_2026_03_01', 3, '2026-03-01T08:00:00Z', 'p2_to_p3:debt_down_20pct_no_miss_60d', '{}'),
+  ('pl_2026_04_24', 4, '2026-04-24T23:00:00Z', 'p3_to_p4:util_under_30_x3_and_ontime_90d', '{}');
 
 -- Goals
 INSERT OR REPLACE INTO goals (id, name, target_cents, target_date, linked_account_id, progress_cents, archived) VALUES
