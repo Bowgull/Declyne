@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "declyne-client",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@declyne/client", "dev"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}
