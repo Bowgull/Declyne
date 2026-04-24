@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes, Navigate } from 'react-router-dom';
+import { NavLink, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Today from './pages/Today';
 import Budget from './pages/Budget';
@@ -12,23 +12,36 @@ import EditLog from './pages/EditLog';
 import Merchants from './pages/Merchants';
 import Credit from './pages/Credit';
 import Goals from './pages/Goals';
+import Onboarding from './pages/Onboarding';
 import { api } from './lib/api';
 
 export default function App() {
+  const location = useLocation();
   const phase = useQuery({
     queryKey: ['phase'],
     queryFn: () => api.get<{ phase: number; name: string }>('/api/phase'),
   });
+  const settings = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<{ settings: Record<string, string> }>('/api/settings'),
+  });
 
   const currentPhase = phase.data?.phase ?? 1;
   const growUnlocked = currentPhase >= 4;
+  const onboardingDone = settings.data?.settings.onboarding_completed === '1';
+  const needsOnboarding =
+    settings.isSuccess && !onboardingDone && location.pathname !== '/onboarding';
 
   return (
     <div className="app-shell grain">
       <div className="relative z-10 mx-auto max-w-xl px-4 pt-4">
         <Routes>
-          <Route path="/" element={<Navigate to="/today" replace />} />
-          <Route path="/today" element={<Today />} />
+          <Route path="/" element={<Navigate to={needsOnboarding ? '/onboarding' : '/today'} replace />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route
+            path="/today"
+            element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Today />}
+          />
           <Route path="/budget" element={<Budget />} />
           <Route path="/debts" element={<Debts />} />
           <Route path="/grow" element={<Grow unlocked={growUnlocked} />} />

@@ -5,7 +5,7 @@
       "name": "declyne-client",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@declyne/client", "dev"],
-      "port": 5173,
+      "port": 5174,
       "autoPort": true
     }
   ]
