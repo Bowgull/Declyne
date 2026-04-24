@@ -1,9 +1,19 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
+type CoachMessage = {
+  id: string;
+  generated_at: string;
+  phase: number;
+  response_text: string;
+  model: string;
+};
+
 export default function Today() {
+  const qc = useQueryClient();
   const phase = useQuery({
     queryKey: ['phase'],
     queryFn: () => api.get<{ phase: number; name: string; entered_at: string | null }>('/api/phase'),
@@ -15,6 +25,19 @@ export default function Today() {
   const review = useQuery({
     queryKey: ['review'],
     queryFn: () => api.get<{ items: Array<unknown> }>('/api/review'),
+  });
+  const coach = useQuery({
+    queryKey: ['coach-latest'],
+    queryFn: () => api.get<{ message: CoachMessage | null }>('/api/coach/latest'),
+  });
+  const [coachErr, setCoachErr] = useState<string | null>(null);
+  const refreshCoach = useMutation({
+    mutationFn: () => api.post<{ id: string; text: string }>('/api/coach/summary', {}),
+    onSuccess: () => {
+      setCoachErr(null);
+      qc.invalidateQueries({ queryKey: ['coach-latest'] });
+    },
+    onError: (e: Error) => setCoachErr(e.message),
   });
 
   return (
@@ -61,8 +84,34 @@ export default function Today() {
             <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Review queue</div>
             <div className="mt-1 num text-2xl">{review.data?.items.length ?? 0}</div>
           </div>
-          <Link to="/budget" className="btn-outline">Open</Link>
+          <Link to="/review" className="btn-outline">Open</Link>
         </div>
+      </section>
+
+      <section className="card flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Coach</div>
+          <button
+            className="btn-outline text-xs"
+            onClick={() => refreshCoach.mutate()}
+            disabled={refreshCoach.isPending}
+          >
+            {refreshCoach.isPending ? 'Thinking.' : 'Refresh'}
+          </button>
+        </div>
+        {coach.data?.message ? (
+          <>
+            <p className="text-sm leading-snug">{coach.data.message.response_text}</p>
+            <p className="text-xs text-[color:var(--color-text-muted)]">
+              {new Date(coach.data.message.generated_at).toLocaleString('en-CA')} · {coach.data.message.model}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-[color:var(--color-text-muted)]">
+            No coach summary yet. Hit Refresh once signals have computed.
+          </p>
+        )}
+        {coachErr && <p className="text-xs text-[color:var(--color-danger,#b00)]">{coachErr}</p>}
       </section>
     </div>
   );

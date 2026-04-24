@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "typescript": "^5.7.2",
-    "wrangler": "^3.95.0"
+    "wrangler": "^4.85.0"
   },
   "engines": {
     "node": ">=20",

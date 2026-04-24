@@ -11,6 +11,10 @@ binding = "DB"
 database_name = "declyne"
 database_id = "0893ada8-cbdb-4b3c-896c-c93c792023f1"
 
+[triggers]
+# Nightly at 08:00 UTC (roughly 3am-4am ET). Recomputes behaviour signals.
+crons = ["0 8 * * *"]
+
 # Secrets (set with `wrangler secret put`):
 #   OPENAI_API_KEY
 #   TWELVE_DATA_KEY

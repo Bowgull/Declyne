@@ -6,7 +6,18 @@ import { newId, nowIso } from '../lib/ids.js';
 export const investmentRoutes = new Hono<{ Bindings: Env }>();
 
 investmentRoutes.get('/holdings', async (c) => {
-  const { results } = await c.env.DB.prepare(`SELECT * FROM holdings`).all();
+  const { results } = await c.env.DB.prepare(
+    `SELECT h.*,
+            p.close_cents AS latest_price_cents,
+            p.date        AS price_date,
+            s.sma50, s.sma200, s.rsi14, s.momentum_30d
+     FROM holdings h
+     LEFT JOIN prices p
+       ON p.symbol = h.symbol
+      AND p.date = (SELECT MAX(date) FROM prices p2 WHERE p2.symbol = h.symbol)
+     LEFT JOIN signals s
+       ON s.symbol = h.symbol AND s.date = p.date`,
+  ).all();
   return c.json({ holdings: results });
 });
 

@@ -173,4 +173,42 @@
     font-variant-numeric: tabular-nums;
     font-weight: 500;
   }
+
+  .field {
+    background: transparent;
+    color: var(--color-text-primary);
+    border: none;
+    border-bottom: 1px solid var(--color-hairline);
+    border-radius: 0;
+    padding: 10px 0;
+    font: inherit;
+    width: 100%;
+    outline: none;
+  }
+  .field:focus {
+    border-bottom-color: var(--color-accent-purple-soft);
+  }
+  .field-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .stub {
+    position: absolute;
+    inset-inline: 0;
+    height: 8px;
+    background-image: radial-gradient(circle at 4px 0, var(--color-bg-primary) 3px, transparent 3px);
+    background-size: 8px 8px;
+  }
+  .stub-top {
+    top: -4px;
+    background-position: 0 -4px;
+  }
+  .stub-bottom {
+    bottom: -4px;
+    background-position: 0 0;
+  }
 }

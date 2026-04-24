@@ -230,6 +230,25 @@ export const goals = sqliteTable('goals', {
   archived: integer('archived').notNull().default(0),
 });
 
+export const cron_runs = sqliteTable('cron_runs', {
+  id: text('id').primaryKey(),
+  job: text('job').notNull(),
+  started_at: text('started_at').notNull(),
+  finished_at: text('finished_at'),
+  status: text('status', { enum: ['ok', 'error'] }).notNull(),
+  detail: text('detail'),
+});
+
+export const coach_messages = sqliteTable('coach_messages', {
+  id: text('id').primaryKey(),
+  generated_at: text('generated_at').notNull(),
+  snapshot_id: text('snapshot_id').references(() => behaviour_snapshots.id),
+  phase: integer('phase').notNull(),
+  prompt_hash: text('prompt_hash').notNull(),
+  response_text: text('response_text').notNull(),
+  model: text('model').notNull(),
+});
+
 export const review_queue = sqliteTable('review_queue', {
   id: text('id').primaryKey(),
   transaction_id: text('transaction_id').notNull().references(() => transactions.id),

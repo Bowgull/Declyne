@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
+import { detectPeriods, type PaycheckCandidate } from '../lib/payperiods.js';
 
 interface ImportRow {
   posted_at: string;
@@ -104,10 +105,71 @@ importRoutes.post('/transactions', async (c) => {
     },
   ]);
 
+  const periodsInserted = await autoDetectPeriods(c.env);
+
   return c.json({
     inserted,
     skipped_dedup: skipped,
     new_merchants: newMerchants,
     flagged_for_review: flagged,
+    pay_periods_inserted: periodsInserted,
   });
 });
+
+async function autoDetectPeriods(env: import('../env.js').Env): Promise<number> {
+  const { results: settingsRows } = await env.DB.prepare(
+    `SELECT key, value FROM settings WHERE key IN ('paycheque_source_account_id','paycheque_pattern','paycheque_min_cents','paycheque_fallback_days')`,
+  ).all<{ key: string; value: string }>();
+  const s: Record<string, string> = {};
+  for (const r of settingsRows) s[r.key] = r.value;
+  const sourceAccountId = s.paycheque_source_account_id;
+  if (!sourceAccountId) return 0;
+
+  const minCents = Number(s.paycheque_min_cents ?? '100000');
+  const { results: candidates } = await env.DB.prepare(
+    `SELECT posted_at, amount_cents, description_raw FROM transactions
+     WHERE account_id = ? AND amount_cents >= ? ORDER BY posted_at ASC`,
+  )
+    .bind(sourceAccountId, minCents)
+    .all<PaycheckCandidate>();
+
+  const detected = detectPeriods(candidates, {
+    pattern: s.paycheque_pattern ?? '',
+    min_cents: minCents,
+    fallback_days: Number(s.paycheque_fallback_days ?? '14'),
+  });
+  if (detected.length === 0) return 0;
+
+  const { results: existingRows } = await env.DB.prepare(
+    `SELECT start_date FROM pay_periods WHERE source_account_id = ?`,
+  )
+    .bind(sourceAccountId)
+    .all<{ start_date: string }>();
+  const existing = new Set(existingRows.map((r) => r.start_date));
+
+  const fresh = detected.filter((p) => !existing.has(p.start_date));
+  if (fresh.length === 0) return 0;
+
+  const inserts = fresh.map((p) => ({ id: newId('pp'), ...p, source_account_id: sourceAccountId }));
+  await env.DB.batch(
+    inserts.map((r) =>
+      env.DB.prepare(
+        `INSERT INTO pay_periods (id, start_date, end_date, paycheque_cents, source_account_id)
+         VALUES (?,?,?,?,?)`,
+      ).bind(r.id, r.start_date, r.end_date, r.paycheque_cents, r.source_account_id),
+    ),
+  );
+  await writeEditLog(
+    env,
+    inserts.map((r) => ({
+      entity_type: 'pay_period',
+      entity_id: r.id,
+      field: 'create',
+      old_value: null,
+      new_value: JSON.stringify(r),
+      actor: 'rules' as const,
+      reason: 'paycheque_detected',
+    })),
+  );
+  return inserts.length;
+}
