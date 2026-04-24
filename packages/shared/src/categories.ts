@@ -20,9 +20,7 @@ export const DEFAULT_CATEGORIES: Array<{ name: string; group: CategoryGroup }> =
 
   { name: 'Alcohol', group: 'vice' },
   { name: 'Cannabis', group: 'vice' },
-  { name: 'Tobacco', group: 'vice' },
-  { name: 'Gambling', group: 'vice' },
-  { name: 'Fast food', group: 'vice' },
+  { name: 'Takeout', group: 'vice' },
 
   { name: 'Paycheque', group: 'income' },
   { name: 'Side income', group: 'income' },

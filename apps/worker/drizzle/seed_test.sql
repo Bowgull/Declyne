@@ -109,7 +109,7 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   ('tx_v_gas10','acc_td_visa','2026-04-15', -9200, 'ESSO SELF SERVE',    'm_esso',    'cat_transit', 'h_v_gas10', 'csv', '2026-04-15T18:00:00Z'),
   ('tx_v_gas11','acc_td_visa','2026-04-22', -8500, 'ESSO SELF SERVE',    'm_esso',    'cat_transit', 'h_v_gas11', 'csv', '2026-04-22T18:00:00Z'),
 
-  -- Fast food (vice)
+  -- Takeout (vice)
   ('tx_v_ff01','acc_td_visa','2026-02-04',  -1450, 'TIM HORTONS #88',    'm_tim',     'cat_fastfood', 'h_v_ff01', 'csv', '2026-02-04T08:00:00Z'),
   ('tx_v_ff02','acc_td_visa','2026-02-06',  -1695, 'MCDONALDS #44',      'm_mcd',     'cat_fastfood', 'h_v_ff02', 'csv', '2026-02-06T13:00:00Z'),
   ('tx_v_ff03','acc_td_visa','2026-02-10',  -1280, 'TIM HORTONS #88',    'm_tim',     'cat_fastfood', 'h_v_ff03', 'csv', '2026-02-10T08:00:00Z'),
