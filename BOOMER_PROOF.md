@@ -84,8 +84,7 @@ Open the app. Grant notification permission when it asks. Done.
 
 ### 6. Every 7 days, redo step 5
 
-The app will send you a notification on day 6 saying **"Redeploy Declyne"**.
-When you get it:
+Free provisioning expires every 7 days. Set a calendar reminder or just notice when the app stops launching. When it expires:
 
 1. Plug in phone
 2. `pnpm cap:run`

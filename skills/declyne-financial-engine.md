@@ -7,7 +7,7 @@ description: Schema, CSV pipeline, merchant normalization, phase engine, behavio
 
 All money is integer cents. All dates are ISO local (America/Toronto). All mutations write to `edit_log`.
 
-## Schema (24 tables)
+## Schema (26 tables)
 
 ### Core (13)
 
@@ -44,6 +44,11 @@ All money is integer cents. All dates are ISO local (America/Toronto). All mutat
 - `behaviour_snapshots` id, as_of, vice_ratio_bps, days_to_zero, cc_payoff_streak, subscription_creep_pct_bps, savings_increased_bool, vice_peak_day, review_queue_lag_days, reconciliation_streak
 - `goals` id, name, target_cents, target_date, linked_account_id, progress_cents, archived
 - `review_queue` id, transaction_id, reason (uncategorized|new_merchant|unusual_amount|split_candidate), resolved_at
+
+### Observability (2)
+
+- `cron_runs` id, job, started_at, finished_at, status, detail — logs every scheduled handler invocation
+- `coach_messages` id, generated_at, prompt_hash, model, response_text — persists GPT-4o-mini narration; deduped by prompt_hash
 
 ## CSV Pipeline
 
