@@ -53,7 +53,10 @@ export async function gatherPhaseInputs(env: Env): Promise<PhaseInputs> {
   const non_mortgage_debt_ratio_to_phase2_entry =
     phase2EntryDebt <= 0 ? 1.0 : currentNonMortgage / phase2EntryDebt;
 
-  const essentialsMonthly = await readNumberSetting(env, 'essentials_monthly_cents', 0);
+  let essentialsMonthly = await readNumberSetting(env, 'essentials_monthly_cents', 0);
+  if (essentialsMonthly <= 0) {
+    essentialsMonthly = await readNumberSetting(env, 'essentials_monthly_cents_derived', 0);
+  }
   const liquidRow = await env.DB.prepare(
     `SELECT COALESCE(SUM(t.amount_cents), 0) as bal
      FROM transactions t JOIN accounts a ON a.id = t.account_id
