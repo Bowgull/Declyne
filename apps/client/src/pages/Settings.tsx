@@ -97,6 +97,9 @@ export default function Settings() {
         <Link to="/settings/credit" className="btn-outline text-center">
           Credit snapshots
         </Link>
+        <Link to="/goals" className="btn-outline text-center">
+          Goals
+        </Link>
       </section>
 
       <section className="card flex flex-col gap-3">

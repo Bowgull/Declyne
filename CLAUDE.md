@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 17)
+## Repo state (2026-04-24 handoff, end of session 18)
 
-Working tree clean after session 17. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 18. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,7 +29,7 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 17, 2026-04-24)
+## What's built (through session 18, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -66,7 +66,8 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Edit log viewer: new `GET /api/edit-log?entity_type=&entity_id=&limit=` route (`apps/worker/src/routes/editLog.ts`) with entity type allowlist + `GET /api/edit-log/entity-types`. Client page at `/settings/edit-log` with entity-type filter dropdown and last-100 entries; linked from Settings "Audit" card. `merchant` added to the entity-type allowlist in session 16
 - Merchant review UI: new `apps/worker/src/routes/merchants.ts` with `GET /api/merchants?status=unverified|all|verified&q=&limit=` (joins txn count, last_seen, uncategorized count, category name) and `PATCH /api/merchants/:id` (updates display_name, category_default_id, verified; `apply_to_uncategorized: true` backfills category on this merchant's null-category txns + resolves matching review_queue rows; all diffs logged to edit_log). Pure helper `parseMerchantPatch` exported for tests. Client page `apps/client/src/pages/Merchants.tsx` at `/settings/merchants` with status filter buttons (unverified/all/verified), search box, tap-to-edit sheet (display name, grouped category picker by group, verified toggle, backfill checkbox that auto-checks when there are uncategorized txns). Linked from Settings "Data" card
 - Credit snapshot entry UI: new `apps/worker/src/routes/credit.ts` with `GET /api/credit/snapshots?limit=` (newest first) and `POST /api/credit/snapshots` (validates `as_of` YYYY-MM-DD, `score` 300..900, `utilization_bps` 0..10000, `on_time_streak_days` 0..100000, `source` manual|equifax; writes edit_log; triggers `computeAndStoreStreaks` so utilization + on-time streaks refresh immediately). `DELETE /api/credit/snapshots/:id` also recomputes streaks. Pure helper `parseCreditInput` exported for tests. `credit_snapshot` added to edit-log allowlist. Client page `apps/client/src/pages/Credit.tsx` at `/settings/credit` — lists snapshots (date, score, util %, on-time days, source) with Delete per row and an Add sheet (date picker, score, utilization %, on-time days, source select). Linked from Settings "Data" card. Verified end-to-end in preview: 3 seeded rows render, Add flow rounds 3→4, Delete rounds back to 3
-- 57 tests passing (43 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 46f30a5a)
+- Goals UI: new `apps/worker/src/routes/goals.ts` with `GET /api/goals?include_archived=1`, `POST /api/goals`, `PATCH /api/goals/:id` (validates name/target_cents/target_date YYYY-MM-DD/linked_account_id/progress_cents/archived; pure helpers `parseGoalInput` + `parseGoalPatch` exported for tests; all create + per-field updates logged to edit_log). Client page `apps/client/src/pages/Goals.tsx` at `/goals` — list with progress bar (% of target, remaining cents), Add sheet (name, target $, progress $, target date, optional linked-account dropdown), tap-to-edit sheet (same fields plus archived toggle), Show/Hide archived button. Linked from Settings "Data" card. Verified end-to-end in preview: seeded buffer goal renders, POST creates Vacation fund (1→2 rows), PATCH archives/unarchives + edits progress
+- 67 tests passing (53 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 592b2b9a)
 
 ## What's NOT built yet (next session priorities)
 
