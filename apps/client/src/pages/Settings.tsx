@@ -100,6 +100,9 @@ export default function Settings() {
         <Link to="/goals" className="btn-outline text-center">
           Goals
         </Link>
+        <Link to="/onboarding" className="btn-outline text-center">
+          Re-run onboarding
+        </Link>
       </section>
 
       <section className="card flex flex-col gap-3">
