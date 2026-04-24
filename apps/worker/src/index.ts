@@ -24,6 +24,7 @@ import { editLogRoutes } from './routes/editLog.js';
 import { merchantsRoutes } from './routes/merchants.js';
 import { creditRoutes } from './routes/credit.js';
 import { goalsRoutes } from './routes/goals.js';
+import { holdingsRoutes } from './routes/holdings.js';
 import { auth } from './middleware/auth.js';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -61,6 +62,7 @@ api.route('/edit-log', editLogRoutes);
 api.route('/merchants', merchantsRoutes);
 api.route('/credit', creditRoutes);
 api.route('/goals', goalsRoutes);
+api.route('/holdings', holdingsRoutes);
 
 app.route('/api', api);
 
