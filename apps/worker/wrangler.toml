@@ -9,7 +9,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "declyne"
-database_id = "REPLACE_AFTER_wrangler_d1_create"
+database_id = "0893ada8-cbdb-4b3c-896c-c93c792023f1"
 
 # Secrets (set with `wrangler secret put`):
 #   OPENAI_API_KEY
