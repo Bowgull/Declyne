@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 11)
+## Repo state (2026-04-24 handoff, end of session 12)
 
-Working tree clean after session 11. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`.
+Working tree clean after session 12. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -25,11 +25,11 @@ pnpm dev              # client on localhost (preview panel)
 pnpm dev:worker       # worker on localhost:8787
 pnpm --filter @declyne/worker run deploy   # push worker to Cloudflare (pnpm worker:deploy collides with pnpm deploy keyword)
 pnpm db:push          # push schema to remote D1
-pnpm test             # 33 tests, all passing
+pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 11, 2026-04-24)
+## What's built (through session 12, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -61,16 +61,17 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Phase transitions (auto): `apps/worker/src/lib/phase.ts` gathers inputs from settings, behaviour_snapshots, debts, and accounts, runs shared `evaluatePhase`, and writes `phase_log` + `edit_log` + updates `settings.current_phase` on change. On first promotion to phase 2 it snapshots the then-current non-mortgage debt into `phase2_entry_non_mortgage_debt_cents`. Routes: `POST /api/phase/recompute`, `GET /api/phase/inputs`. Nightly cron now runs signals.compute then phase.recompute, both logged in `cron_runs`
 - Vice dashboard in Budget tab: expanded Vice card shows 30d ratio, week-over-week delta, 8-week trend bars, peak weekday (over 90d), and top 5 vice categories (30d). New `GET /api/budget/vice/trend` backs it
 - Phase streak computation: `apps/worker/src/lib/streaks.ts` walks pay_periods + transactions to count trailing periods where chequing income ≥ essentials spend (`essentials_covered_streak_periods`), reads `credit_snapshots` newest-first for `utilization_under_30_streak_statements` (threshold 3000 bps) and `on_time_streak_days`, and derives a fallback `essentials_monthly_cents_derived` from rolling 90d essentials / 3 when the manual setting is absent. Writes results to settings, logs changes to `edit_log`. `phase.ts` now falls back to the derived value if manual unset. Route: `POST /api/phase/streaks/recompute`. Nightly cron runs `streaks.recompute` between signals and phase, wrapped in `logCronRun`
-- 38 tests passing (24 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version a2f8fdb5)
+- CC payoff + missed-payment streaks (auto): `streaks.ts` extended with `ccPayoffStreak` (per pay_period, compares `debt_payments` to CC-linked debts vs CC-account spend; period counts when paid > 0 AND paid >= spent) and `findLastMissedMinPayment` (walks last 6 cycles per non-archived debt, sums payments in a 35-day pre-due window against `requiredMinPaymentCents` which honors fixed vs percent-of-principal with a $10 floor). Persists `cc_payoff_streak` and `last_missed_min_payment_date` to settings, deletes the miss key when no miss found, logs changes to `edit_log`. Wired into same nightly cron (signals → streaks → phase). `POST /api/phase/streaks/recompute` now returns both new fields plus `cc_debts_considered`
+- Test data seed: `apps/worker/drizzle/seed_test.sql` populates remote D1 with 4 accounts (TD Chq/Sav/Visa, Capital One), 90 days of paycheque + bill + vice + CC payment transactions, 3 debts (TD Visa percent-min, Capital One fixed-min, Lindsay Mexico split), 3 credit snapshots, 2 holdings with seeded prices, market snapshot, goal, one uncategorized review row. Verified end-to-end: periods/detect → 7 periods, signals/compute → vice_ratio_bps=6584, streaks/recompute → essentials_streak=2 cc_payoff_streak=1 last_miss=2026-03-21, phase/recompute auto-promoted 1→2 (`essentials_2p_and_cc_streak_1p`)
+- 42 tests passing (28 worker, 14 shared), all packages typecheck clean, client build clean, worker deployed (version 6535d393)
 
 ## What's NOT built yet (next session priorities)
 
 1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`
-2. **Coach refresh prerequisite** — if `behaviour_snapshots` is empty, `POST /api/coach/summary` returns 404 `no_snapshot`. Seed by importing a CSV or calling `POST /api/signals/compute` first
-3. **CC payoff + missed-payment streaks** — `cc_payoff_streak_periods` and `last_missed_min_payment_date` still read from settings as-is. Auto-computing them requires historical CC statement balance snapshots (not currently tracked) and min-payment miss detection. Other three streak inputs are now auto-computed; `credit_snapshots` still needs a seed row before utilization/on-time promote phase 3→4
-4. **Local notifications wiring** — 3 notifications (Sun 9am, Tue 9am, Day 6 10am) described but not scheduled via Capacitor LocalNotifications plugin yet
-5. **Export as sectioned CSV** — stub only
-6. **Onboarding flow, merchant review UI, edit log viewer** — not built
+2. **Local notifications wiring** — 3 notifications (Sun 9am, Tue 9am, Day 6 10am) described but not scheduled via Capacitor LocalNotifications plugin yet
+3. **Export as sectioned CSV** — stub only
+4. **Onboarding flow, merchant review UI, edit log viewer** — not built
+5. **CC statement snapshots** — the `cc_payoff_streak` now derives from txn/payment flows per pay period, not from actual CC statement balance history. If later we want "paid statement balance in full within cycle" semantics, we need a new `cc_statement_snapshots` table tracking balance/min-due per cycle
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
