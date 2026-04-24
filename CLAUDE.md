@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 13)
+## Repo state (2026-04-24 handoff, end of session 14)
 
-Working tree clean after session 13. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 14. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,7 +29,7 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 13, 2026-04-24)
+## What's built (through session 14, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 26-table D1 schema, live and seeded
@@ -42,7 +42,7 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Splits UI in Debts tab: add sheet (counterparty, direction, amount, reason), tap-to-settle sheet (partial or full payment, optional note, posts split_events)
 - Review UI at /review: list items with category dropdown resolve; Today card links here
 - Routing UI at /budget/routing: shows latest pay period plan, regenerate button (avalanche order: min payments by APR descending, any remainder to highest-APR debt), mark-executed per row
-- 3 local notifications: Sunday 9am, Tuesday 9am, Day 6 10am redeploy reminder
+- 2 local notifications: Sunday 9am reconciliation, Tuesday 9am follow-up (anti-scope: no third notification)
 - Phase engine + behaviour signals (deterministic, shared package)
 - Pay period detection: paycheque-anchored, substring-match + min-cents threshold, auto-runs after CSV import, routes at `/api/periods` (GET, GET /current, POST /detect). Config via settings keys: `paycheque_source_account_id`, `paycheque_pattern`, `paycheque_min_cents`, `paycheque_fallback_days`
 - Behaviour signals compute at `/api/signals/compute`: writes `behaviour_snapshots` row with all 8 signals, deterministic SQL inputs, no GPT math
@@ -68,15 +68,15 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ## What's NOT built yet (next session priorities)
 
 1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`
-2. **Local notifications wiring** — 3 notifications (Sun 9am, Tue 9am, Day 6 10am) described but not scheduled via Capacitor LocalNotifications plugin yet
+2. **Local notifications wiring** — 2 notifications (Sun 9am, Tue 9am) coded in `apps/client/src/native/notifications.ts` but not yet wired to Capacitor LocalNotifications plugin on iOS
 3. **Export as sectioned CSV** — stub only
 4. **Onboarding flow, merchant review UI, edit log viewer** — not built
 5. **CC statement snapshots** — the `cc_payoff_streak` now derives from txn/payment flows per pay period, not from actual CC statement balance history. If later we want "paid statement balance in full within cycle" semantics, we need a new `cc_statement_snapshots` table tracking balance/min-due per cycle
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
-Free provisioning expires every 7 days. Day 6 notification fires at 10am.
-When it fires: plug in phone, `pnpm cap:run`, hit play in Xcode. Two minutes.
+Free provisioning expires every 7 days. Set a calendar reminder or notice when the app stops launching.
+When it expires: plug in phone, `pnpm cap:run`, hit play in Xcode. Two minutes.
 
 ## Session-end ritual (mandatory, every session)
 

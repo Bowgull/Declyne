@@ -25,6 +25,3 @@ export type ReviewReason = (typeof REVIEW_REASONS)[number];
 export const ACCOUNT_WRAPPERS = ['tfsa', 'fhsa', 'rrsp', 'nonreg'] as const;
 export type AccountWrapper = (typeof ACCOUNT_WRAPPERS)[number];
 
-// iOS free provisioning profile expires after 7 days.
-// Reminder fires on day 6 so the app is still installed when it pings.
-export const SIDELOAD_REMINDER_DAYS = 6;

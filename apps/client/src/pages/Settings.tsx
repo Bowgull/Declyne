@@ -164,7 +164,7 @@ export default function Settings() {
       <section className="card flex flex-col gap-3">
         <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Notifications</h2>
         <p className="text-sm text-[color:var(--color-text-muted)]">
-          Sunday 9am reconciliation. Tuesday 9am follow-up. Day 6 at 10am redeploy reminder before the free provisioning profile expires.
+          Sunday 9am reconciliation. Tuesday 9am follow-up if Sunday was skipped.
         </p>
         <button className="btn-outline" onClick={() => scheduleAllNotifications()}>
           Re-schedule notifications
