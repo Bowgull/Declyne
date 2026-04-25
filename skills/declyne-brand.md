@@ -22,36 +22,43 @@ Grain overlay 4 to 6% opacity on backgrounds. 8px card radius. 1px hairline bord
 
 ## Type
 
-- Display and nav: Barlow Semibold
-- Body: Barlow Regular
-- Numbers: Barlow Medium, tabular figures on
-- No Cinzel. Cinzel is Waymark. Declyne does not use serif display.
+- Display: Fraunces 600 (literary serif, used ceremonially via the `.display` class)
+- Body and nav: Geist
+- Numbers: Geist Medium with tabular figures on (`.num` class)
+- Mono: Geist Mono (used in `.receipt` and any thermal-paper surface)
+- No Cinzel. Cinzel is Waymark.
 
 ## Mascot
 
-One PNG. Static. No variants, no emotions, no animation. Treat it as a sigil, not a character. Never named in-product. It appears in exactly four places:
+One PNG. Static. No variants, no emotions, no animation. Treat it as a sigil, not a character. Never named in-product.
+
+Primary anchors (always present here):
 
 1. App icon background, centered, muted.
 2. Onboarding screen one, right of the wordmark, small.
 3. Review Queue empty state, centered at 40% opacity.
 4. Grow tab locked state, before Phase 4 unlocks.
 
-Nowhere else. Do not add it to loading spinners, toasts, buttons, or empty states beyond Review Queue.
+**Build-phase note:** Declyne is in active build, not in lockdown. The mascot can appear elsewhere when it earns its place — as a small inline mark in screen headers, a subtle watermark in hero cards, or a quiet anchor in empty states. Use restraint, not a checklist. Do not put it on loading spinners, toasts, buttons, or as a chrome decoration. If a screen has more than one mascot mark, cut one.
 
 ## Receipt as Motif
 
-The receipt is the extensible visual element. Curled paper edge, perforated top, monospace-adjacent alignment. Use in three locations:
+The receipt is the extensible visual element. Curled paper edge, perforated top, monospace-adjacent alignment.
+
+Suggested anchors (the motif lives here without question):
 
 1. Sunday reconciliation summary card
 2. CSV import confirmation
 3. Phase transition card
 
-Receipt is the data motif. Mascot is the identity motif. Do not combine them in one view.
+**Build-phase note:** The receipt motif can extend to any data-dense surface where the thermal-paper feel reinforces the "kept the receipts" voice — Today screen sections, debt cards, vice dashboard, statement lists. It is not locked to those three.
+
+Receipt is the data motif. Mascot is the identity motif. They can share a screen when one clearly leads (e.g. mascot as a small header sigil, receipt as the body). Avoid two equally loud accents fighting in the same view.
 
 ## Layout Rules
 
-- Corner brackets only on hero cards (Today top card, phase transition card). Not on every card.
-- One accent per screen. Either the mascot or a receipt, never both.
+- Corner brackets are a hero-card affordance. Don't sprinkle them on every card; reserve them for what should feel weighted.
+- One *loud* accent per screen. Mascot and receipt can co-exist if one clearly supports and the other clearly leads.
 - Numbers are the loudest element on any screen. Copy supports the number, not the other way around.
 
 ## Voice
