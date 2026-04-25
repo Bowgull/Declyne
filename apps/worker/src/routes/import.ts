@@ -3,6 +3,7 @@ import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { detectPeriods, type PaycheckCandidate } from '../lib/payperiods.js';
+import { runCcStatementDerivation } from './ccStatements.js';
 
 interface ImportRow {
   posted_at: string;
@@ -106,6 +107,11 @@ importRoutes.post('/transactions', async (c) => {
   ]);
 
   const periodsInserted = await autoDetectPeriods(c.env);
+  const ccDerive = await runCcStatementDerivation(c.env).catch(() => ({
+    debts_considered: 0,
+    inserted: 0,
+    inserted_ids: [] as string[],
+  }));
 
   return c.json({
     inserted,
@@ -113,6 +119,7 @@ importRoutes.post('/transactions', async (c) => {
     new_merchants: newMerchants,
     flagged_for_review: flagged,
     pay_periods_inserted: periodsInserted,
+    cc_statements_inserted: ccDerive.inserted,
   });
 });
 

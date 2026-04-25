@@ -63,6 +63,12 @@ export default function CcStatements() {
 
   const rows = snaps.data?.snapshots ?? [];
 
+  const derive = useMutation({
+    mutationFn: () =>
+      api.post<{ debts_considered: number; inserted: number }>('/api/cc-statements/derive', {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cc-statements'] }),
+  });
+
   return (
     <div className="flex flex-col gap-4 pb-6">
       <header className="flex items-center justify-between">
@@ -74,13 +80,27 @@ export default function CcStatements() {
         <p className="text-sm text-[color:var(--color-text-muted)]">
           Log one per cycle per card. Paid-in-full statements drive the CC payoff streak used by phase progression.
         </p>
-        <button
-          className="btn-primary"
-          onClick={() => setAdding(true)}
-          disabled={ccDebts.length === 0}
-        >
-          Add statement
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="btn-primary flex-1"
+            onClick={() => setAdding(true)}
+            disabled={ccDebts.length === 0}
+          >
+            Add statement
+          </button>
+          <button
+            className="btn-outline flex-1"
+            onClick={() => derive.mutate()}
+            disabled={ccDebts.length === 0 || derive.isPending}
+          >
+            {derive.isPending ? 'Deriving.' : 'Derive from txns'}
+          </button>
+        </div>
+        {derive.data ? (
+          <p className="text-xs text-[color:var(--color-text-muted)]">
+            {derive.data.inserted} new statements derived from {derive.data.debts_considered} cards.
+          </p>
+        ) : null}
         {ccDebts.length === 0 && debts.data ? (
           <p className="text-xs text-[color:var(--color-text-muted)]">
             No CC debts. Link a debt to a credit account first.
