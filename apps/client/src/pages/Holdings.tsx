@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
+const perforation: React.CSSProperties = {
+  borderTop: '1px dashed var(--color-hairline)',
+};
+
 type Holding = {
   id: string;
   symbol: string;
@@ -28,46 +32,59 @@ export default function Holdings() {
   const rows = holdings.data?.holdings ?? [];
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Holdings</h1>
-        <Link to="/grow" className="text-sm text-[color:var(--color-text-muted)]">Back</Link>
-      </header>
+    <div className="pb-6">
+      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        <header className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mascot-mark" aria-hidden="true" />
+            <div>
+              <div className="display text-lg tracking-tight">HOLDINGS</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                {holdings.data ? `${rows.length} lots` : 'Loading…'}
+              </div>
+            </div>
+          </div>
+          <Link to="/grow" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+            Close
+          </Link>
+        </header>
 
-      <section className="card flex flex-col gap-3">
-        <p className="text-sm text-[color:var(--color-text-muted)]">
-          Lots of one symbol can live in different wrappers. Prices come from the market fetch.
-        </p>
-        <button className="btn-primary" onClick={() => setAdding(true)}>Add holding</button>
-      </section>
+        <div className="pt-3" style={perforation}>
+          <button className="btn-primary w-full" onClick={() => setAdding(true)}>Add holding</button>
+        </div>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          {holdings.data ? `${rows.length} holdings` : 'Loading.'}
-        </h2>
         {rows.length === 0 && holdings.data ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No holdings yet.</p>
-        ) : null}
-        <ul className="flex flex-col gap-3">
-          {rows.map((h) => (
-            <li
-              key={h.id}
-              className="flex flex-col gap-1 border-b border-[color:var(--color-line)] pb-3"
-              onClick={() => setEditing(h)}
-              role="button"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{h.symbol}</span>
-                <span className="text-xs text-[color:var(--color-text-muted)] num">
-                  {h.account_wrapper.toUpperCase()}
-                </span>
+          <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>
+            No holdings yet.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {rows.map((h) => (
+              <div
+                key={h.id}
+                className="pt-3 mt-3 flex flex-col gap-1 cursor-pointer"
+                style={perforation}
+                onClick={() => setEditing(h)}
+                role="button"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-medium">{h.symbol}</span>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                    {h.account_wrapper.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 text-xs num text-[color:var(--color-text-muted)]">
+                  <span>{(h.units / 10_000).toFixed(4)} units</span>
+                  <span>avg {formatCents(h.avg_cost_cents)}</span>
+                </div>
               </div>
-              <div className="text-xs text-[color:var(--color-text-muted)] num">
-                {(h.units / 10_000).toFixed(4)} u · avg {formatCents(h.avg_cost_cents)}
-              </div>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+          ** End of book **
+        </div>
       </section>
 
       {adding && (

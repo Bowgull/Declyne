@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
+const perforation: React.CSSProperties = {
+  borderTop: '1px dashed var(--color-hairline)',
+};
+
 type Goal = {
   id: string;
   name: string;
@@ -49,17 +53,24 @@ export default function Goals() {
   const rows = goals.data?.goals ?? [];
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Goals</h1>
-        <Link to="/grow" className="text-sm text-[color:var(--color-text-muted)]">Back</Link>
-      </header>
+    <div className="pb-6">
+      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        <header className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mascot-mark" aria-hidden="true" />
+            <div>
+              <div className="display text-lg tracking-tight">GOALS</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                {goals.data ? `${rows.length} on the books` : 'Loading…'}
+              </div>
+            </div>
+          </div>
+          <Link to="/grow" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+            Close
+          </Link>
+        </header>
 
-      <section className="card flex flex-col gap-3">
-        <p className="text-sm text-[color:var(--color-text-muted)]">
-          Buffer first, then anything else worth saving for. Target date drives ordering.
-        </p>
-        <div className="flex gap-2">
+        <div className="pt-3 flex gap-2" style={perforation}>
           <button className="btn-primary flex-1" onClick={() => setAdding(true)}>
             Add goal
           </button>
@@ -70,46 +81,51 @@ export default function Goals() {
             {showArchived ? 'Hide archived' : 'Show archived'}
           </button>
         </div>
-      </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          {goals.data ? `${rows.length} goals` : 'Loading.'}
-        </h2>
         {rows.length === 0 && goals.data ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No goals yet.</p>
-        ) : null}
-        <ul className="flex flex-col gap-3">
-          {rows.map((g) => {
-            const pct = g.target_cents > 0
-              ? Math.min(100, Math.round((g.progress_cents / g.target_cents) * 100))
-              : 0;
-            const remaining = Math.max(0, g.target_cents - g.progress_cents);
-            return (
-              <li
-                key={g.id}
-                className="flex flex-col gap-1 border-b border-[color:var(--color-line)] pb-3"
-                onClick={() => setEditing(g)}
-                role="button"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{g.name}</span>
-                  <span className="text-xs text-[color:var(--color-text-muted)] num">{g.target_date}</span>
+          <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>
+            No goals yet.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {rows.map((g) => {
+              const pct = g.target_cents > 0
+                ? Math.min(100, Math.round((g.progress_cents / g.target_cents) * 100))
+                : 0;
+              const remaining = Math.max(0, g.target_cents - g.progress_cents);
+              return (
+                <div
+                  key={g.id}
+                  className="pt-3 mt-3 flex flex-col gap-1.5 cursor-pointer"
+                  style={perforation}
+                  onClick={() => setEditing(g)}
+                  role="button"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm truncate">{g.name}{g.archived ? ' · archived' : ''}</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] num shrink-0">
+                      {g.target_date}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 text-xs num text-[color:var(--color-text-muted)]">
+                    <span>{formatCents(g.progress_cents)} of {formatCents(g.target_cents)}</span>
+                    <span>{formatCents(remaining)} to go · {pct}%</span>
+                  </div>
+                  <div className="h-1 w-full bg-[color:var(--color-line)] rounded">
+                    <div
+                      className="h-1 bg-[color:var(--color-text)] rounded"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="text-xs text-[color:var(--color-text-muted)] num">
-                  {formatCents(g.progress_cents)} of {formatCents(g.target_cents)} · {formatCents(remaining)} to go
-                  {g.archived ? ' · archived' : ''}
-                </div>
-                <div className="h-1.5 w-full bg-[color:var(--color-line)] rounded">
-                  <div
-                    className="h-1.5 bg-[color:var(--color-text)] rounded"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+          ** End of ledger **
+        </div>
       </section>
 
       {adding && (

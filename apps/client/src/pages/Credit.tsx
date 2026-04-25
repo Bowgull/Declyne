@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
+const perforation: React.CSSProperties = {
+  borderTop: '1px dashed var(--color-hairline)',
+};
+
 type Snapshot = {
   id: string;
   as_of: string;
@@ -36,53 +40,65 @@ export default function Credit() {
   });
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Credit snapshots</h1>
-        <Link to="/settings" className="text-sm text-[color:var(--color-text-muted)]">Back</Link>
-      </header>
+    <div className="pb-6">
+      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        <header className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mascot-mark" aria-hidden="true" />
+            <div>
+              <div className="display text-lg tracking-tight">CREDIT</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                {snaps.data ? `${rows.length} snapshots` : 'Loading…'}
+              </div>
+            </div>
+          </div>
+          <Link to="/settings" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+            Close
+          </Link>
+        </header>
 
-      <section className="card flex flex-col gap-3">
-        <p className="text-sm text-[color:var(--color-text-muted)]">
-          Log one per statement. Feeds utilization and on-time streaks used by phase progression.
-        </p>
-        <button className="btn-primary" onClick={() => setAdding(true)}>
-          Add snapshot
-        </button>
-      </section>
+        <div className="pt-3" style={perforation}>
+          <button className="btn-primary w-full" onClick={() => setAdding(true)}>
+            Add snapshot
+          </button>
+        </div>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          {snaps.data ? `${rows.length} snapshots` : 'Loading.'}
-        </h2>
         {rows.length === 0 && snaps.data ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No snapshots yet.</p>
-        ) : null}
-        <ul className="flex flex-col gap-2">
-          {rows.map((s) => (
-            <li
-              key={s.id}
-              className="flex flex-col gap-1 border-b border-[color:var(--color-line)] pb-2"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium num">{s.as_of}</span>
-                <span className="text-xs text-[color:var(--color-text-muted)]">{s.source}</span>
+          <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>
+            No snapshots yet.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {rows.map((s) => (
+              <div key={s.id} className="pt-3 mt-3 flex flex-col gap-1" style={perforation}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm num">{s.as_of}</span>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                    {s.source}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 text-xs num text-[color:var(--color-text-muted)]">
+                  <span>score {s.score}</span>
+                  <span>util {(s.utilization_bps / 100).toFixed(1)}%</span>
+                  <span>on-time {s.on_time_streak_days}d</span>
+                </div>
+                <button
+                  className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] self-start underline"
+                  onClick={() => {
+                    if (confirm(`Delete snapshot ${s.as_of}?`)) del.mutate(s.id);
+                  }}
+                  disabled={del.isPending}
+                >
+                  Delete
+                </button>
               </div>
-              <div className="text-xs text-[color:var(--color-text-muted)] num">
-                score {s.score} · util {(s.utilization_bps / 100).toFixed(1)}% · on-time {s.on_time_streak_days}d
-              </div>
-              <button
-                className="text-xs text-[color:var(--color-text-muted)] self-start underline"
-                onClick={() => {
-                  if (confirm(`Delete snapshot ${s.as_of}?`)) del.mutate(s.id);
-                }}
-                disabled={del.isPending}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+          ** End of bureau **
+        </div>
       </section>
 
       {adding && (
