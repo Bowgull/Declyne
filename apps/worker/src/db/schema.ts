@@ -87,9 +87,18 @@ export const debt_payments = sqliteTable('debt_payments', {
   posted_at: text('posted_at').notNull(),
 });
 
+export const counterparties = sqliteTable('counterparties', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  default_settlement_method: text('default_settlement_method', { enum: ['etransfer', 'cash', 'other'] }).default('etransfer'),
+  archived_at: text('archived_at'),
+  created_at: text('created_at').notNull(),
+});
+
 export const splits = sqliteTable('splits', {
   id: text('id').primaryKey(),
   counterparty: text('counterparty').notNull(),
+  counterparty_id: text('counterparty_id').references(() => counterparties.id),
   direction: text('direction', { enum: ['josh_owes', 'owes_josh'] }).notNull(),
   original_cents: integer('original_cents').notNull(),
   remaining_cents: integer('remaining_cents').notNull(),
