@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { NavLink, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Today from './pages/Today';
@@ -65,20 +66,85 @@ export default function App() {
 
       <nav className="tab-bar" aria-label="Primary">
         <div className="tab-bar-inner">
-          <TabLink to="/today" label="Today" />
-          <TabLink to="/budget" label="Budget" />
-          <TabLink to="/debts" label="Debts" />
-          <TabLink to="/grow" label="Grow" muted={!growUnlocked} />
+          <TabLink to="/today" label="Today" icon={<TodayIcon />} />
+          <TabLink to="/budget" label="Budget" icon={<BudgetIcon />} />
+          <TabLink to="/debts" label="Debts" icon={<DebtsIcon />} />
+          <TabLink to="/grow" label="Grow" icon={<GrowIcon />} muted={!growUnlocked} />
         </div>
       </nav>
     </div>
   );
 }
 
-function TabLink({ to, label, muted }: { to: string; label: string; muted?: boolean }) {
+function TabLink({
+  to,
+  label,
+  icon,
+  muted,
+}: {
+  to: string;
+  label: string;
+  icon: React.ReactNode;
+  muted?: boolean;
+}) {
   return (
     <NavLink to={to} className="tab-item" style={muted ? { opacity: 0.4 } : {}}>
+      <span className="tab-icon" aria-hidden="true">{icon}</span>
       {label}
     </NavLink>
+  );
+}
+
+const STROKE: React.SVGProps<SVGSVGElement> = {
+  width: 22,
+  height: 22,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+};
+
+function TodayIcon() {
+  return (
+    <svg {...STROKE}>
+      <rect x="3.5" y="5" width="17" height="15" rx="1.5" />
+      <path d="M3.5 9h17" />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+      <circle cx="12" cy="14.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function BudgetIcon() {
+  return (
+    <svg {...STROKE}>
+      <path d="M4 20V11" />
+      <path d="M10 20V6" />
+      <path d="M16 20v-9" />
+      <path d="M3 20h18" />
+    </svg>
+  );
+}
+
+function DebtsIcon() {
+  return (
+    <svg {...STROKE}>
+      <rect x="3" y="6" width="18" height="12" rx="1.5" />
+      <path d="M3 10h18" />
+      <path d="M7 14.5h4" />
+    </svg>
+  );
+}
+
+function GrowIcon() {
+  return (
+    <svg {...STROKE}>
+      <path d="M12 21V11" />
+      <path d="M12 11c0-3 2-5 5-5 0 3-2 5-5 5z" />
+      <path d="M12 13c0-3-2-5-5-5 0 3 2 5 5 5z" />
+    </svg>
   );
 }
