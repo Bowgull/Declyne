@@ -183,7 +183,7 @@ export default function Today() {
   return (
     <div className="px-3 pt-4 pb-6">
       <section className="receipt paper-in flex flex-col gap-5">
-        <header className="relative flex flex-col" style={{ marginBottom: 4 }}>
+        <header className="relative flex items-center" style={{ gap: 10, marginBottom: 4 }}>
           <Link
             to="/settings"
             aria-label="Settings"
@@ -200,25 +200,25 @@ export default function Today() {
             style={{
               width: 168,
               height: 168,
-              marginLeft: -18,
-              marginTop: -10,
-              marginBottom: -8,
+              marginLeft: -22,
+              flexShrink: 0,
             }}
           />
-          <div
-            className="display"
-            style={{
-              color: 'var(--color-ink)',
-              fontSize: 56,
-              lineHeight: 0.92,
-              letterSpacing: '-0.02em',
-              marginTop: 4,
-            }}
-          >
-            DECLYNE
-          </div>
-          <div className="label-tag mt-3">
-            RCPT {pad(rcpt, 4)} &middot; WK {pad(wk, 2)} &middot; {dateLabel}
+          <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 28 }}>
+            <div
+              className="display"
+              style={{
+                color: 'var(--color-ink)',
+                fontSize: 38,
+                lineHeight: 0.95,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              DECLYNE
+            </div>
+            <div className="label-tag mt-2" style={{ fontSize: 9 }}>
+              RCPT {pad(rcpt, 4)} &middot; WK {pad(wk, 2)} &middot; {dateLabel}
+            </div>
           </div>
         </header>
 
