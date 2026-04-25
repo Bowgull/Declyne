@@ -37,13 +37,13 @@ Five-phase reset: **Stabilize → Clear Debt → Build Credit → Build Buffer �
 
 ## Locked Feature Decisions
 
-- Four tabs: **Today / Budget / Debts / Grow**. Plus a cog for settings. No More tab. No Feed tab.
+- Three tabs: **Today / Budget / Yield**. Plus a cog for settings. No More tab. No Feed tab. Debts cards and counterparty tabs live inside Budget below the Tank. (Locked in session 35, shipped in session 41.)
 - Single mascot PNG, static. Used in four places only (see brand skill). No expressions. No animations.
 - No Face ID. No iCloud backup. No Capacitor Badge plugin. No App Store.
 - Sunday reconciliation at **9am**, follow-up Tuesday **9am** if incomplete.
 - Export is one sectioned CSV, not a ZIP.
 - Onboarding is optional. Josh can skip any step and fill later.
-- Vice dashboard lives inside Budget tab. Not a separate screen.
+- Indulgence is observed as one band on the Tank inside Budget. Not a separate screen, not shame-coded. (Renamed from "vice" in session 34.)
 
 ## Corrected Facts
 
