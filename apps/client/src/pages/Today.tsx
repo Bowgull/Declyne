@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { dismissFollowUpThisWeek } from '../native/notifications';
 
 type CoachMessage = {
   id: string;
@@ -29,6 +30,23 @@ export default function Today() {
   const coach = useQuery({
     queryKey: ['coach-latest'],
     queryFn: () => api.get<{ message: CoachMessage | null }>('/api/coach/latest'),
+  });
+  const reconciliation = useQuery({
+    queryKey: ['reconciliation-status'],
+    queryFn: () =>
+      api.get<{
+        last_reconciliation_at: string | null;
+        reconciliation_streak: number;
+        completed_this_week: boolean;
+        week_starts_on: string;
+      }>('/api/reconciliation/status'),
+  });
+  const completeReconciliation = useMutation({
+    mutationFn: () => api.post<{ ok: true; reconciliation_streak: number }>('/api/reconciliation/complete', {}),
+    onSuccess: async () => {
+      await dismissFollowUpThisWeek().catch(() => {});
+      qc.invalidateQueries({ queryKey: ['reconciliation-status'] });
+    },
   });
   const [coachErr, setCoachErr] = useState<string | null>(null);
   const refreshCoach = useMutation({
@@ -85,6 +103,36 @@ export default function Today() {
             <div className="mt-1 num text-2xl">{review.data?.items.length ?? 0}</div>
           </div>
           <Link to="/review" className="btn-outline">Open</Link>
+        </div>
+      </section>
+
+      <section className="card flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Reconciliation</div>
+            <div className="mt-1 num text-2xl">
+              {reconciliation.data ? `${reconciliation.data.reconciliation_streak} wk` : '—'}
+            </div>
+            <div className="mt-1 text-xs text-[color:var(--color-text-muted)]">
+              {reconciliation.data?.last_reconciliation_at
+                ? `Last ${new Date(reconciliation.data.last_reconciliation_at).toLocaleDateString('en-CA')}`
+                : 'No completions yet.'}
+            </div>
+          </div>
+          <button
+            className="btn-outline text-xs"
+            onClick={() => completeReconciliation.mutate()}
+            disabled={
+              completeReconciliation.isPending ||
+              reconciliation.data?.completed_this_week === true
+            }
+          >
+            {reconciliation.data?.completed_this_week
+              ? 'Done this week'
+              : completeReconciliation.isPending
+                ? 'Saving.'
+                : 'Mark done'}
+          </button>
         </div>
       </section>
 
