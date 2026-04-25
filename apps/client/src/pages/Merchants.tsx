@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import LedgerHeader from '../components/LedgerHeader';
 
 type Merchant = {
   id: string;
@@ -44,11 +45,13 @@ export default function Merchants() {
   const rows = merchants.data?.merchants ?? [];
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Merchants</h1>
-        <Link to="/settings" className="text-sm text-[color:var(--color-text-muted)]">Back</Link>
-      </header>
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker="§ MERCHANTS"
+        title="Merchants"
+        subtitle="verify + recategorize"
+        action={<Link to="/settings" className="stamp">Back</Link>}
+      />
 
       <section className="card flex flex-col gap-3">
         <label className="field-label">Filter</label>

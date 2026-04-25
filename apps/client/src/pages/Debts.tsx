@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents, parseMoneyToCents } from '@declyne/shared';
 import type { Account } from './Accounts';
+import LedgerHeader from '../components/LedgerHeader';
 
 interface Debt {
   id: string;
@@ -45,23 +46,23 @@ export default function Debts() {
   const qc = useQueryClient();
   const list = debts.data?.debts ?? [];
 
-  return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Debts</h1>
-        <button className="btn-primary px-4 py-2 text-sm" onClick={() => setEditing('new')}>
-          Add debt
-        </button>
-      </header>
+  const totalOwed = list.filter((d) => !d.archived).reduce((s, d) => s + d.principal_cents, 0);
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Balances</h2>
+  return (
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker="§ DEBTS"
+        title={formatCents(totalOwed)}
+        subtitle={`${list.filter((d) => !d.archived).length} open · total balance`}
+        action={<button className="stamp stamp-purple" onClick={() => setEditing('new')}>Add debt</button>}
+      />
+
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">01</span>Balances</span>
         {list.length === 0 && !debts.isLoading && (
-          <div className="card">
-            <p className="text-sm text-[color:var(--color-text-muted)]">No debts tracked.</p>
-          </div>
+          <p className="text-sm text-[color:var(--color-text-muted)] py-4">No debts tracked.</p>
         )}
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3 pt-4 pb-2">
           {list.map((d) => (
             <li key={d.id}>
               <DebtCard debt={d} onClick={() => setEditing(d)} />
@@ -70,32 +71,32 @@ export default function Debts() {
         </ul>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Splits</h2>
-          <button className="btn-outline px-3 py-1 text-xs" onClick={() => setSplitEditing('new')}>
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">02</span>Splits</span>
+        <span className="ledger-section-meta">
+          <button className="stamp" style={{ padding: '4px 8px', fontSize: 10 }} onClick={() => setSplitEditing('new')}>
             Add split
           </button>
-        </div>
-        <div className="card flex flex-col gap-3">
+        </span>
+        <div className="pt-4 pb-2">
           {splits.data?.splits.length === 0 && (
-            <div className="text-sm text-[color:var(--color-text-muted)]">Nothing outstanding.</div>
+            <p className="text-sm text-[color:var(--color-text-muted)]">Nothing outstanding.</p>
           )}
           {splits.data?.splits.map((s) => (
             <button
               key={s.id}
               onClick={() => setSettling(s)}
-              className="flex items-center justify-between text-left"
+              className="ledger-row tap text-left w-full"
               aria-label={`Settle ${s.counterparty}`}
             >
-              <div>
-                <div>{s.counterparty}</div>
-                <div className="text-xs text-[color:var(--color-text-muted)]">
+              <div className="ledger-row-main">
+                <span className="ledger-row-label">{s.counterparty}</span>
+                <span className="ledger-row-hint">
                   {s.direction === 'josh_owes' ? 'You owe' : 'Owes you'} · {s.reason}
-                </div>
+                </span>
               </div>
               <div
-                className="num text-lg"
+                className="num text-lg shrink-0"
                 style={{ color: s.direction === 'josh_owes' ? 'var(--color-danger)' : 'var(--color-ok)' }}
               >
                 {formatCents(s.remaining_cents)}
@@ -197,7 +198,7 @@ function SplitSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
               className="field"
               value={counterparty}
               onChange={(e) => setCounterparty(e.target.value)}
-              placeholder="Lindsay"
+              placeholder="Counterparty"
               autoFocus
             />
           </label>

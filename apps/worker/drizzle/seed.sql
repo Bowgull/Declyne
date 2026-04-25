@@ -35,9 +35,9 @@ INSERT OR IGNORE INTO categories (id, name, "group", parent_id) VALUES
   ('cat_travel', 'Travel', 'lifestyle', NULL),
   ('cat_fitness', 'Fitness', 'lifestyle', NULL),
 
-  ('cat_alcohol', 'Alcohol', 'vice', NULL),
-  ('cat_cannabis', 'Cannabis', 'vice', NULL),
-  ('cat_fastfood', 'Takeout', 'vice', NULL),
+  ('cat_alcohol', 'Alcohol', 'indulgence', NULL),
+  ('cat_cannabis', 'Cannabis', 'indulgence', NULL),
+  ('cat_fastfood', 'Takeout', 'indulgence', NULL),
 
   ('cat_paycheque', 'Paycheque', 'income', NULL),
   ('cat_side_income', 'Side income', 'income', NULL),
@@ -52,6 +52,6 @@ INSERT OR IGNORE INTO categories (id, name, "group", parent_id) VALUES
 INSERT OR IGNORE INTO phase_log (id, phase, entered_at, trigger_rule, metrics_json)
   VALUES ('phase_init', 1, datetime('now'), 'bootstrap', '{}');
 
--- Lindsay split (Mexico). Directional per locked decisions.
+-- Bowgull split (Mexico). Directional per locked decisions.
 INSERT OR IGNORE INTO splits (id, counterparty, direction, original_cents, remaining_cents, reason, created_at)
-  VALUES ('split_lindsay_mexico', 'Lindsay', 'josh_owes', 0, 0, 'Mexico trip', datetime('now'));
+  VALUES ('split_bowgull_mexico', 'Bowgull', 'josh_owes', 0, 0, 'Mexico trip', datetime('now'));

@@ -83,7 +83,7 @@ Bottom bar, four items plus cog:
 
 1. **Today** default
 2. **Budget** includes vice dashboard
-3. **Debts** includes splits with Lindsay
+3. **Debts** includes splits with Bowgull
 4. **Grow** locked until Phase 4
 
 Cog at top right of Today. Settings is not a tab.

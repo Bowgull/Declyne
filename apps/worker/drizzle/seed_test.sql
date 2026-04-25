@@ -110,7 +110,7 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   ('tx_v_gas10','acc_td_visa','2026-04-15', -9200, 'ESSO SELF SERVE',    'm_esso',    'cat_transit', 'h_v_gas10', 'csv', '2026-04-15T18:00:00Z'),
   ('tx_v_gas11','acc_td_visa','2026-04-22', -8500, 'ESSO SELF SERVE',    'm_esso',    'cat_transit', 'h_v_gas11', 'csv', '2026-04-22T18:00:00Z'),
 
-  -- Takeout (vice)
+  -- Takeout (indulgence)
   ('tx_v_ff01','acc_td_visa','2026-02-04',  -1450, 'TIM HORTONS #88',    'm_tim',     'cat_fastfood', 'h_v_ff01', 'csv', '2026-02-04T08:00:00Z'),
   ('tx_v_ff02','acc_td_visa','2026-02-06',  -1695, 'MCDONALDS #44',      'm_mcd',     'cat_fastfood', 'h_v_ff02', 'csv', '2026-02-06T13:00:00Z'),
   ('tx_v_ff03','acc_td_visa','2026-02-10',  -1280, 'TIM HORTONS #88',    'm_tim',     'cat_fastfood', 'h_v_ff03', 'csv', '2026-02-10T08:00:00Z'),
@@ -135,7 +135,7 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   ('tx_v_ff22','acc_td_visa','2026-04-19',  -1950, 'MCDONALDS #44',      'm_mcd',     'cat_fastfood', 'h_v_ff22', 'csv', '2026-04-19T13:00:00Z'),
   ('tx_v_ff23','acc_td_visa','2026-04-23',  -1540, 'TIM HORTONS #88',    'm_tim',     'cat_fastfood', 'h_v_ff23', 'csv', '2026-04-23T08:00:00Z'),
 
-  -- Alcohol (vice)
+  -- Alcohol (indulgence)
   ('tx_v_al01','acc_td_visa','2026-02-07',  -5400, 'LCBO #150',          'm_lcbo',    'cat_alcohol', 'h_v_al01', 'csv', '2026-02-07T19:00:00Z'),
   ('tx_v_al02','acc_td_visa','2026-02-14',  -6200, 'THE BEER STORE',     'm_beer',    'cat_alcohol', 'h_v_al02', 'csv', '2026-02-14T19:00:00Z'),
   ('tx_v_al03','acc_td_visa','2026-02-21',  -4800, 'LCBO #150',          'm_lcbo',    'cat_alcohol', 'h_v_al03', 'csv', '2026-02-21T19:00:00Z'),
@@ -172,7 +172,7 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   ('tx_v_am02','acc_td_visa','2026-03-10',  -6200, 'AMAZON.CA',          'm_amazon',  'cat_shopping', 'h_v_am02', 'csv', '2026-03-10T14:00:00Z'),
   ('tx_v_am03','acc_td_visa','2026-04-03', -11900, 'AMAZON.CA',          'm_amazon',  'cat_shopping', 'h_v_am03', 'csv', '2026-04-03T14:00:00Z'),
 
-  -- Capital One: smaller vice mix
+  -- Capital One: smaller indulgence mix
   ('tx_c_al01','acc_capone','2026-02-05',   -4200, 'LCBO #88',           'm_lcbo',    'cat_alcohol', 'h_c_al01', 'csv', '2026-02-05T19:00:00Z'),
   ('tx_c_al02','acc_capone','2026-03-03',   -3800, 'LCBO #88',           'm_lcbo',    'cat_alcohol', 'h_c_al02', 'csv', '2026-03-03T19:00:00Z'),
   ('tx_c_al03','acc_capone','2026-04-02',   -4600, 'LCBO #88',           'm_lcbo',    'cat_alcohol', 'h_c_al03', 'csv', '2026-04-02T19:00:00Z'),
@@ -195,7 +195,7 @@ INSERT OR REPLACE INTO review_queue (id, transaction_id, reason, resolved_at) VA
 INSERT OR REPLACE INTO debts (id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value, statement_date, payment_due_date, account_id_linked, archived) VALUES
   ('debt_td_visa', 'TD Visa',     312000, 1999, 'percent', 300, 10, 3,  'acc_td_visa', 0),
   ('debt_capone',  'Capital One', 148500, 2499, 'fixed',  5000, 18, 11, 'acc_capone',  0),
-  ('debt_lindsay', 'Lindsay (Mexico)', 120000, 0, 'fixed', 10000, 1, 1, NULL, 0);
+  ('debt_bowgull', 'Bowgull (Mexico)', 120000, 0, 'fixed', 10000, 1, 1, NULL, 0);
 
 -- Debt payments mirror of CC payments
 INSERT OR REPLACE INTO debt_payments (id, debt_id, transaction_id, amount_cents, posted_at) VALUES
@@ -206,11 +206,11 @@ INSERT OR REPLACE INTO debt_payments (id, debt_id, transaction_id, amount_cents,
   ('dp_c_03','debt_capone','tx_ccp_c_03',6000,'2026-03-25'),
   ('dp_c_04','debt_capone','tx_ccp_c_04',6000,'2026-04-25');
 
--- Lindsay split (update the bootstrap row with real amounts)
-UPDATE splits SET original_cents = 150000, remaining_cents = 120000 WHERE id = 'split_lindsay_mexico';
+-- Bowgull split (update the bootstrap row with real amounts)
+UPDATE splits SET original_cents = 150000, remaining_cents = 120000 WHERE id = 'split_bowgull_mexico';
 INSERT OR REPLACE INTO split_events (id, split_id, delta_cents, transaction_id, note, created_at) VALUES
-  ('se_lind_01','split_lindsay_mexico',-20000,NULL,'etransfer to Lindsay Feb','2026-02-20T12:00:00Z'),
-  ('se_lind_02','split_lindsay_mexico',-10000,NULL,'etransfer to Lindsay Mar','2026-03-19T12:00:00Z');
+  ('se_bg_01','split_bowgull_mexico',-20000,NULL,'etransfer to Bowgull Feb','2026-02-20T12:00:00Z'),
+  ('se_bg_02','split_bowgull_mexico',-10000,NULL,'etransfer to Bowgull Mar','2026-03-19T12:00:00Z');
 
 -- Credit snapshot
 INSERT OR REPLACE INTO credit_snapshots (id, as_of, score, utilization_bps, on_time_streak_days, source) VALUES

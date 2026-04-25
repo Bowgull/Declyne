@@ -12,7 +12,7 @@ export interface PhaseInputs {
   utilization_under_30_streak_statements: number;
   on_time_streak_days: number;
   buffer_months_essentials: number;
-  vice_ratio_trailing_30d: number;
+  indulgence_ratio_trailing_30d: number;
 }
 
 export interface PhaseEvaluation {
@@ -30,7 +30,7 @@ export function evaluatePhase(i: PhaseInputs): PhaseEvaluation {
     util_streak: i.utilization_under_30_streak_statements,
     on_time_days: i.on_time_streak_days,
     buffer_months: i.buffer_months_essentials,
-    vice_ratio: i.vice_ratio_trailing_30d,
+    indulgence_ratio: i.indulgence_ratio_trailing_30d,
   };
 
   // No demotion.
@@ -60,8 +60,8 @@ export function evaluatePhase(i: PhaseInputs): PhaseEvaluation {
   }
 
   if (i.current_phase === 4) {
-    if (i.buffer_months_essentials >= 3 && i.vice_ratio_trailing_30d < 0.15) {
-      return { next_phase: 5, rule_triggered: 'p4_to_p5:buffer_3mo_and_vice_under_15', metrics };
+    if (i.buffer_months_essentials >= 3 && i.indulgence_ratio_trailing_30d < 0.15) {
+      return { next_phase: 5, rule_triggered: 'p4_to_p5:buffer_3mo_and_indulgence_under_15', metrics };
     }
     return noop;
   }

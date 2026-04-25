@@ -47,7 +47,7 @@ Five-phase reset: **Stabilize → Clear Debt → Build Credit → Build Buffer �
 
 ## Corrected Facts
 
-- Lindsay debt: Mexico trip, **Josh owes Lindsay**. Not Cuba, not receivable.
+- Bowgull debt: Mexico trip, **Josh owes Bowgull**. Not Cuba, not receivable.
 - Schema includes `interest_rate`, `min_payment_type`, `min_payment_value`, `statement_date`, `payment_due_date`. These are required on any debt row.
 
 ## Voice

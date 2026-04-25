@@ -28,9 +28,12 @@ export default function Today() {
     queryKey: ['phase'],
     queryFn: () => api.get<{ phase: number; name: string; entered_at: string | null }>('/api/phase'),
   });
-  const vice = useQuery({
-    queryKey: ['vice'],
-    queryFn: () => api.get<{ vice_cents: number; lifestyle_cents: number; ratio_bps: number }>('/api/budget/vice'),
+  const indulgence = useQuery({
+    queryKey: ['indulgence'],
+    queryFn: () =>
+      api.get<{ indulgence_cents: number; lifestyle_cents: number; ratio_bps: number }>(
+        '/api/budget/indulgence',
+      ),
   });
   const review = useQuery({
     queryKey: ['review'],
@@ -54,8 +57,8 @@ export default function Today() {
   });
 
   const reviewCount = review.data?.items.length ?? 0;
-  const viceRatioPct = vice.data ? vice.data.ratio_bps / 100 : 0;
-  const animatedVice = useCountUp(viceRatioPct);
+  const indulgenceRatioPct = indulgence.data ? indulgence.data.ratio_bps / 100 : 0;
+  const animatedIndulgence = useCountUp(indulgenceRatioPct);
   const streak = reconciliation.data?.reconciliation_streak ?? 0;
 
   return (
@@ -94,13 +97,15 @@ export default function Today() {
 
         <div className="perf pt-4 flex items-end justify-between gap-3">
           <div>
-            <div className="label-tag mb-1">Vice 30d</div>
+            <div className="label-tag mb-1 flex items-center gap-1.5">
+              <span className="cat-dot indulgence" /> Indulgence 30d
+            </div>
             <div className="hero-num">
-              {animatedVice.toFixed(1)}<span style={{ fontSize: 24, opacity: 0.55 }}>%</span>
+              {animatedIndulgence.toFixed(1)}<span style={{ fontSize: 24, opacity: 0.55 }}>%</span>
             </div>
             <div className="text-xs ink-muted mt-1">
-              {vice.data
-                ? `${formatCents(vice.data.vice_cents)} of ${formatCents(vice.data.vice_cents + vice.data.lifestyle_cents)}`
+              {indulgence.data
+                ? `${formatCents(indulgence.data.indulgence_cents)} of ${formatCents(indulgence.data.indulgence_cents + indulgence.data.lifestyle_cents)}`
                 : ''}
             </div>
           </div>

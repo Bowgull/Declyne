@@ -91,12 +91,12 @@ export interface PayPeriod {
 export interface BehaviourSnapshot {
   id: string;
   as_of: string;
-  vice_ratio_bps: number;
+  indulgence_ratio_bps: number;
   days_to_zero: number;
   cc_payoff_streak: number;
   subscription_creep_pct_bps: number;
   savings_increased_bool: number;
-  vice_peak_day: number;
+  indulgence_peak_day: number;
   review_queue_lag_days: number;
   reconciliation_streak: number;
 }

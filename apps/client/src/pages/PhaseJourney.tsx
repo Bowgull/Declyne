@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import LedgerHeader from '../components/LedgerHeader';
 
 type PhaseLogEntry = {
   id: string;
@@ -40,28 +41,30 @@ export default function PhaseJourney() {
   const entries = log.data?.entries ?? [];
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Phase journey</h1>
-        <Link to="/today" className="btn-outline">Done</Link>
-      </header>
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker={`§ PHASE 0${current}`}
+        title="Phase journey"
+        action={<Link to="/today" className="stamp">Done</Link>}
+      />
 
-      <section className="card flex flex-col gap-3">
-        <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Current</div>
-        <div className="text-3xl font-semibold">
-          {current}. {PHASE_NAMES[current]}
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">01</span>Current</span>
+        <div className="pt-4 pb-4">
+          <div className="hero-num-dark-label">Phase 0{current}</div>
+          <div className="hero-num-dark gold">{current}. {PHASE_NAMES[current]}</div>
+          <p className="text-sm text-[color:var(--color-text-muted)] mt-3">{PHASE_BLURB[current]}</p>
+          {phase.data?.entered_at && (
+            <p className="text-xs text-[color:var(--color-text-muted)] mt-2 font-mono tracking-wider">
+              Since {new Date(phase.data.entered_at).toLocaleDateString('en-CA')} · {phase.data.trigger_rule}
+            </p>
+          )}
         </div>
-        <p className="text-sm text-[color:var(--color-text-muted)]">{PHASE_BLURB[current]}</p>
-        {phase.data?.entered_at && (
-          <p className="text-xs text-[color:var(--color-text-muted)]">
-            Since {new Date(phase.data.entered_at).toLocaleDateString('en-CA')} · {phase.data.trigger_rule}
-          </p>
-        )}
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Path</div>
-        <ol className="flex flex-col gap-2">
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">02</span>Path</span>
+        <ol className="flex flex-col gap-2 pt-4 pb-2">
           {[1, 2, 3, 4, 5].map((p) => {
             const reached = current >= p;
             const isCurrent = current === p;
@@ -91,12 +94,12 @@ export default function PhaseJourney() {
         </ol>
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Transitions</div>
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">03</span>Transitions</span>
         {entries.length === 0 ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No transitions logged yet.</p>
+          <p className="text-sm text-[color:var(--color-text-muted)] pt-4">No transitions logged yet.</p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-3 pt-4 pb-2">
             {entries.map((e) => {
               const metrics = parseMetrics(e.metrics_json);
               return (
@@ -142,7 +145,7 @@ function parseMetrics(raw: string | null): Array<[string, string]> {
 
 function formatMetric(key: string, v: number | null): string {
   if (v === null || v === undefined) return '—';
-  if (key === 'vice_ratio' || key === 'non_mortgage_ratio') {
+  if (key === 'indulgence_ratio' || key === 'non_mortgage_ratio') {
     return `${(v * 100).toFixed(1)}%`;
   }
   if (key === 'buffer_months') return v.toFixed(2);

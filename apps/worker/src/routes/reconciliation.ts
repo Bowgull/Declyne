@@ -71,7 +71,7 @@ reconciliationRoutes.get('/week', async (c) => {
     income_cents: 0,
     essentials_cents: 0,
     lifestyle_cents: 0,
-    vice_cents: 0,
+    indulgence_cents: 0,
     debt_cents: 0,
     transfer_cents: 0,
     uncategorized_cents: 0,
@@ -91,8 +91,8 @@ reconciliationRoutes.get('/week', async (c) => {
       case 'lifestyle':
         totals.lifestyle_cents += spend;
         break;
-      case 'vice':
-        totals.vice_cents += spend;
+      case 'indulgence':
+        totals.indulgence_cents += spend;
         break;
       case 'debt':
         totals.debt_cents += spend;

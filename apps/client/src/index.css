@@ -15,8 +15,29 @@
   --color-accent-gold-soft: #e3c994;
   --color-danger: #c45b5b;
   --color-ok: #6f9e7a;
+
+  /* Category palette. Tuned for the dark ledger desk; slightly more saturated
+     versions auto-apply inside .receipt overrides below. Income owns the
+     mascot purple (the brand inflow). Indulgence is the watched outflow. */
+  --cat-income: #9a8bc4;             /* mascot purple-soft, the brand inflow */
+  --cat-indulgence: #c97a4a;         /* burnt sienna, attention without shame */
+  --cat-essentials: #7a8595;         /* slate-blue, foundational */
+  --cat-lifestyle: #b88e7a;          /* warm clay, human wants */
+  --cat-savings: #94a888;            /* sage, growing/kept */
+  --cat-debt: #c8a96a;               /* gold, paying down is a win */
+  --cat-uncategorized: rgba(255, 255, 255, 0.22); /* dashed only */
+
+  --cat-income-soft: color-mix(in oklab, var(--cat-income) 55%, transparent);
+  --cat-indulgence-soft: color-mix(in oklab, var(--cat-indulgence) 55%, transparent);
+  --cat-essentials-soft: color-mix(in oklab, var(--cat-essentials) 55%, transparent);
+  --cat-lifestyle-soft: color-mix(in oklab, var(--cat-lifestyle) 55%, transparent);
+  --cat-savings-soft: color-mix(in oklab, var(--cat-savings) 55%, transparent);
+  --cat-debt-soft: color-mix(in oklab, var(--cat-debt) 55%, transparent);
   --color-hairline: rgba(255, 255, 255, 0.1);
   --color-hairline-ink: rgba(26, 20, 29, 0.18);
+  --rule-ink: rgba(255, 255, 255, 0.08);
+  --rule-ink-strong: rgba(255, 255, 255, 0.18);
+  --stamp-frame: rgba(232, 228, 236, 0.55);
 
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
@@ -118,22 +139,262 @@
   .btn-primary {
     background: var(--color-accent-purple);
     color: var(--color-text-primary);
-    border-radius: 8px;
-    padding: 12px 16px;
+    border-radius: 2px;
+    padding: 11px 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     border: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
   .btn-primary:active {
     background: var(--color-accent-purple-soft);
+    transform: translateY(1px);
   }
 
+  .stamp,
   .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     background: transparent;
     color: var(--color-text-primary);
-    border-radius: 8px;
-    padding: 12px 16px;
+    border-radius: 2px;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
     font-weight: 600;
-    border: 1px solid var(--color-hairline);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: none;
+    box-shadow:
+      inset 0 0 0 1px var(--stamp-frame),
+      inset 0 0 0 3px var(--color-bg-primary),
+      inset 0 0 0 4px var(--stamp-frame);
+    transform: rotate(-0.6deg);
+    transition: transform 100ms ease, box-shadow 100ms ease, color 100ms ease;
+  }
+  .stamp:active,
+  .btn-outline:active {
+    transform: rotate(-0.6deg) translateY(1px) scale(0.985);
+    box-shadow:
+      inset 0 0 0 1px var(--color-text-primary),
+      inset 0 0 0 3px var(--color-bg-primary),
+      inset 0 0 0 4px var(--color-text-primary);
+  }
+  .stamp:disabled,
+  .btn-outline:disabled {
+    opacity: 0.4;
+  }
+  .stamp-square {
+    transform: none;
+  }
+  .stamp-square:active {
+    transform: translateY(1px) scale(0.985);
+  }
+  .stamp-gold {
+    color: var(--color-accent-gold);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--color-accent-gold) 70%, transparent),
+      inset 0 0 0 3px var(--color-bg-primary),
+      inset 0 0 0 4px color-mix(in oklab, var(--color-accent-gold) 70%, transparent);
+  }
+  .stamp-purple {
+    color: var(--color-accent-purple-soft);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--color-accent-purple) 70%, transparent),
+      inset 0 0 0 3px var(--color-bg-primary),
+      inset 0 0 0 4px color-mix(in oklab, var(--color-accent-purple) 70%, transparent);
+  }
+  .stamp-danger {
+    color: var(--color-danger);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--color-danger) 70%, transparent),
+      inset 0 0 0 3px var(--color-bg-primary),
+      inset 0 0 0 4px color-mix(in oklab, var(--color-danger) 70%, transparent);
+  }
+  /* Stamps inside cream receipts: invert frame color so it reads on paper */
+  .receipt .stamp,
+  .receipt .btn-outline {
+    box-shadow:
+      inset 0 0 0 1px var(--color-hairline-ink),
+      inset 0 0 0 3px var(--color-paper),
+      inset 0 0 0 4px var(--color-hairline-ink);
+    color: var(--color-ink);
+  }
+  .receipt .stamp:active,
+  .receipt .btn-outline:active {
+    box-shadow:
+      inset 0 0 0 1px var(--color-ink),
+      inset 0 0 0 3px var(--color-paper),
+      inset 0 0 0 4px var(--color-ink);
+  }
+
+  /* Ledger Desk — page chrome on dark */
+  .ledger-page {
+    padding: 18px 18px 24px;
+  }
+  .ledger-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule-ink-strong);
+    margin-bottom: 18px;
+  }
+  .ledger-header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .ledger-kicker {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .ledger-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .ledger-subtitle {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-top: 6px;
+  }
+
+  .ledger-section {
+    border-top: 1px solid var(--rule-ink);
+    padding: 18px 0 4px;
+    margin-top: 18px;
+    position: relative;
+  }
+  .ledger-section:first-of-type {
+    margin-top: 0;
+  }
+  .ledger-section-kicker {
+    position: absolute;
+    top: -7px;
+    left: 0;
+    background: var(--color-bg-primary);
+    padding-right: 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .ledger-section-kicker .num {
+    color: var(--color-accent-gold);
+    margin-right: 8px;
+  }
+  .ledger-section-meta {
+    position: absolute;
+    top: -7px;
+    right: 0;
+    background: var(--color-bg-primary);
+    padding-left: 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--color-text-muted);
+  }
+  .ledger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-ink);
+    color: var(--color-text-primary);
+    transition: background-color 120ms ease, padding 120ms ease;
+  }
+  .ledger-row:last-child {
+    border-bottom: none;
+  }
+  .ledger-row.tap:active {
+    background-color: rgba(255, 255, 255, 0.02);
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .ledger-row-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+  .ledger-row-label {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .ledger-row-hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+  }
+  .ledger-row-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .ledger-row-chevron {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    margin-left: 8px;
+    transition: transform 120ms ease, color 120ms ease;
+  }
+  .ledger-row.tap:active .ledger-row-chevron {
+    color: var(--color-accent-purple-soft);
+    transform: translateX(2px);
+  }
+
+  .hero-num-dark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 56px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+  .hero-num-dark.gold {
+    color: var(--color-accent-gold);
+  }
+  .hero-num-dark .unit {
+    font-size: 28px;
+    opacity: 0.55;
+    font-weight: 500;
+    margin-left: 2px;
+  }
+  .hero-num-dark-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
   }
 
   .tab-bar {
@@ -385,26 +646,80 @@
     flex-direction: column;
     justify-content: flex-end;
   }
-  .tank-band-other {
-    background: linear-gradient(180deg,
-      color-mix(in oklab, var(--color-accent-purple) 30%, transparent) 0%,
-      color-mix(in oklab, var(--color-accent-purple) 55%, transparent) 100%);
-  }
-  .tank-band-vice {
-    background:
-      repeating-linear-gradient(
-        135deg,
-        var(--color-danger) 0 6px,
-        color-mix(in oklab, var(--color-danger) 70%, black) 6px 12px
-      );
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.25);
-  }
   .tank-band-fill {
     background: linear-gradient(180deg,
       color-mix(in oklab, var(--color-paper) 90%, transparent) 0%,
       color-mix(in oklab, var(--color-paper) 75%, transparent) 100%);
+  }
+  .tank-band-essentials {
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--cat-essentials) 38%, transparent) 0%,
+      color-mix(in oklab, var(--cat-essentials) 62%, transparent) 100%);
+  }
+  .tank-band-lifestyle {
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--cat-lifestyle) 38%, transparent) 0%,
+      color-mix(in oklab, var(--cat-lifestyle) 62%, transparent) 100%);
+  }
+  .tank-band-debt {
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--cat-debt) 38%, transparent) 0%,
+      color-mix(in oklab, var(--cat-debt) 62%, transparent) 100%);
+  }
+  .tank-band-savings {
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--cat-savings) 38%, transparent) 0%,
+      color-mix(in oklab, var(--cat-savings) 62%, transparent) 100%);
+  }
+  .tank-band-indulgence {
+    background: linear-gradient(180deg,
+      color-mix(in oklab, var(--cat-indulgence) 70%, transparent) 0%,
+      color-mix(in oklab, var(--cat-indulgence) 95%, transparent) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.10),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.20);
+  }
+  .tank-band-uncategorized {
+    background:
+      repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.10) 0 4px,
+        transparent 4px 8px
+      );
+  }
+  .cat-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    flex: none;
+  }
+  .cat-dot.income { background: var(--cat-income); }
+  .cat-dot.indulgence { background: var(--cat-indulgence); }
+  .cat-dot.essentials { background: var(--cat-essentials); }
+  .cat-dot.lifestyle { background: var(--cat-lifestyle); }
+  .cat-dot.savings { background: var(--cat-savings); }
+  .cat-dot.debt { background: var(--cat-debt); }
+  .cat-dot.uncategorized {
+    background: transparent;
+    border: 1px dashed var(--cat-uncategorized);
+  }
+  .cat-rule {
+    width: 3px;
+    align-self: stretch;
+    border-radius: 2px;
+    flex: none;
+  }
+  .cat-rule.income { background: var(--cat-income); }
+  .cat-rule.indulgence { background: var(--cat-indulgence); }
+  .cat-rule.essentials { background: var(--cat-essentials); }
+  .cat-rule.lifestyle { background: var(--cat-lifestyle); }
+  .cat-rule.savings { background: var(--cat-savings); }
+  .cat-rule.debt { background: var(--cat-debt); }
+  .cat-rule.uncategorized {
+    background: transparent;
+    border-left: 2px dashed var(--cat-uncategorized);
+    width: 2px;
   }
   .tank-overlay {
     position: absolute;

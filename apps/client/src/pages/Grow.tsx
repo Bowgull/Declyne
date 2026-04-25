@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import LedgerHeader from '../components/LedgerHeader';
 
 type Holding = {
   id: string;
@@ -103,12 +104,14 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
 
   if (!unlocked) {
     return (
-      <div className="flex flex-col gap-4 pb-6">
-        <h1 className="text-2xl font-semibold">Grow</h1>
-        <div className="card">
-          <div className="text-sm text-[color:var(--color-text-muted)]">Locked until Phase 4.</div>
-          <p className="mt-2">Buffer first. Markets do not care how early you start from zero.</p>
-        </div>
+      <div className="ledger-page">
+        <LedgerHeader kicker="§ GROW" title="Locked" subtitle="unlocks at phase 4" />
+        <section className="ledger-section">
+          <span className="ledger-section-kicker"><span className="num">×</span>Sealed</span>
+          <p className="text-sm text-[color:var(--color-text-muted)] pt-4 pb-2">
+            Buffer first. Markets do not care how early you start from zero.
+          </p>
+        </section>
       </div>
     );
   }
@@ -119,154 +122,168 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
   const totalGl = hs.reduce((sum, h) => sum + (gainLoss(h) ?? 0), 0);
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Grow</h1>
-        <button
-          className="btn-outline text-xs"
-          onClick={() => fetchPrices.mutate()}
-          disabled={fetchPrices.isPending}
-        >
-          {fetchPrices.isPending ? 'Fetching.' : 'Refresh prices'}
-        </button>
-      </header>
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker="§ GROW"
+        title="Portfolio"
+        subtitle={snap ? `as of ${snap.as_of}` : undefined}
+        action={
+          <button
+            className="stamp"
+            onClick={() => fetchPrices.mutate()}
+            disabled={fetchPrices.isPending}
+          >
+            {fetchPrices.isPending ? 'Fetching.' : 'Refresh'}
+          </button>
+        }
+      />
 
       {fetchPrices.data?.errors.length ? (
-        <p className="text-xs text-[color:var(--color-danger,#b00)]">
+        <p className="text-xs text-[color:var(--color-danger,#b00)] pb-2">
           {fetchPrices.data.errors.join(', ')}
         </p>
       ) : null}
 
-      {snap && (
-        <section className="card flex flex-col gap-2">
-          <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-            Market
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">Σ</span>Total value</span>
+        <div className="pt-5 pb-5">
+          <div className="hero-num-dark gold">{formatCents(totalMv)}</div>
+          <div
+            className="num mt-2"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: totalGl >= 0 ? 'var(--color-ok)' : 'var(--color-danger)',
+            }}
+          >
+            {totalGl >= 0 ? '+' : ''}{formatCents(totalGl)} unrealized
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        </div>
+      </section>
+
+      {snap && (
+        <section className="ledger-section">
+          <span className="ledger-section-kicker"><span className="num">01</span>Market</span>
+          <div className="pt-3 pb-2">
             {snap.boc_overnight_bps != null && (
-              <>
-                <span className="text-[color:var(--color-text-muted)]">BoC overnight</span>
-                <span className="num text-right">{(snap.boc_overnight_bps / 100).toFixed(2)}%</span>
-              </>
+              <div className="ledger-row">
+                <span className="ledger-row-label" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>BoC overnight</span>
+                <span className="ledger-row-value" style={{ color: 'var(--color-text-primary)' }}>{(snap.boc_overnight_bps / 100).toFixed(2)}%</span>
+              </div>
             )}
             {snap.cad_usd != null && (
-              <>
-                <span className="text-[color:var(--color-text-muted)]">USD/CAD</span>
-                <span className="num text-right">{(snap.cad_usd / 10_000).toFixed(4)}</span>
-              </>
+              <div className="ledger-row">
+                <span className="ledger-row-label" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>USD/CAD</span>
+                <span className="ledger-row-value" style={{ color: 'var(--color-text-primary)' }}>{(snap.cad_usd / 10_000).toFixed(4)}</span>
+              </div>
             )}
             {snap.tsx_close != null && (
-              <>
-                <span className="text-[color:var(--color-text-muted)]">XIU (TSX proxy)</span>
-                <span className="num text-right">{formatCents(snap.tsx_close)}</span>
-              </>
+              <div className="ledger-row">
+                <span className="ledger-row-label" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>XIU (TSX proxy)</span>
+                <span className="ledger-row-value" style={{ color: 'var(--color-text-primary)' }}>{formatCents(snap.tsx_close)}</span>
+              </div>
             )}
             {snap.sp500_close != null && (
-              <>
-                <span className="text-[color:var(--color-text-muted)]">SPY (S&P proxy)</span>
-                <span className="num text-right">{formatCents(snap.sp500_close)}</span>
-              </>
+              <div className="ledger-row">
+                <span className="ledger-row-label" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>SPY (S&P proxy)</span>
+                <span className="ledger-row-value" style={{ color: 'var(--color-text-primary)' }}>{formatCents(snap.sp500_close)}</span>
+              </div>
             )}
           </div>
-          <p className="text-xs text-[color:var(--color-text-muted)]">As of {snap.as_of}</p>
         </section>
       )}
 
-      <section className="card flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-            Holdings
-          </div>
-          {hs.length > 0 && (
-            <div className="text-right">
-              <div className="num">{formatCents(totalMv)}</div>
-              <div
-                className={`text-xs num ${totalGl >= 0 ? 'text-[color:var(--color-text-muted)]' : 'text-[color:var(--color-danger,#b00)]'}`}
-              >
-                {totalGl >= 0 ? '+' : ''}{formatCents(totalGl)}
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">02</span>Holdings</span>
+
+        {hs.length === 0 && (
+          <p className="text-sm text-[color:var(--color-text-muted)] pt-4">No positions yet.</p>
+        )}
+
+        <div className="pt-3 pb-2">
+          {hs.map((h) => {
+            const mv = marketValue(h);
+            const gl = gainLoss(h);
+            const rsiVal = h.rsi14 != null ? h.rsi14 / 100 : null;
+            const momVal = h.momentum_30d != null ? h.momentum_30d / 100 : null;
+
+            return (
+              <div key={h.id} className="ledger-row">
+                <div className="ledger-row-main">
+                  <span className="ledger-row-label">
+                    {h.symbol}
+                    <span className="ml-2 text-xs ink-muted" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>
+                      {h.account_wrapper.toUpperCase()}
+                    </span>
+                  </span>
+                  <span className="ledger-row-hint">
+                    {(h.units / 10_000).toFixed(4)} u
+                    {rsiVal != null && (
+                      <> · RSI {rsiVal.toFixed(1)}{rsiLabel(h.rsi14)}</>
+                    )}
+                    {momVal != null && (
+                      <> · mom {momVal >= 0 ? '+' : ''}{momVal.toFixed(1)}%</>
+                    )}
+                  </span>
+                </div>
+                <div className="text-right flex flex-col gap-0.5">
+                  <div className="num" style={{ color: 'var(--color-text-primary)' }}>{mv != null ? formatCents(mv) : '—'}</div>
+                  {gl != null && (
+                    <div
+                      className="text-xs num"
+                      style={{ color: gl >= 0 ? 'var(--color-ok)' : 'var(--color-danger)' }}
+                    >
+                      {gl >= 0 ? '+' : ''}{formatCents(gl)}
+                    </div>
+                  )}
+                  {h.latest_price_cents != null && (
+                    <div className="text-xs num" style={{ color: 'var(--color-text-muted)' }}>
+                      {formatCents(h.latest_price_cents)}/u
+                    </div>
+                  )}
+                </div>
               </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">03</span>Recommendation</span>
+        <div className="pt-4 pb-2 flex flex-col gap-3">
+          <p className="text-sm text-[color:var(--color-text-muted)]">
+            Requires fresh prices and computed signals. Hit Refresh first.
+          </p>
+          <button
+            className="btn-primary"
+            onClick={() => recommend.mutate()}
+            disabled={recommend.isPending}
+          >
+            {recommend.isPending ? 'Thinking.' : 'Get recommendation'}
+          </button>
+          {recErr && (
+            <p className="text-xs text-[color:var(--color-danger,#b00)]">{recErr}</p>
+          )}
+          {rec && (
+            <div className="flex flex-col gap-1 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium uppercase">{rec.action}</span>
+                <span className="num">{rec.symbol}</span>
+                <span className="text-xs text-[color:var(--color-text-muted)] uppercase">
+                  {rec.wrapper}
+                </span>
+              </div>
+              <p>{rec.reason}</p>
+              {rec.cited_signals?.length > 0 && (
+                <p className="text-xs text-[color:var(--color-text-muted)]">
+                  Cited: {rec.cited_signals.join(', ')}
+                </p>
+              )}
             </div>
           )}
         </div>
-
-        {hs.length === 0 && (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No positions yet.</p>
-        )}
-
-        {hs.map((h) => {
-          const mv = marketValue(h);
-          const gl = gainLoss(h);
-          const rsiVal = h.rsi14 != null ? h.rsi14 / 100 : null;
-          const momVal = h.momentum_30d != null ? h.momentum_30d / 100 : null;
-
-          return (
-            <div key={h.id} className="flex items-start justify-between gap-2">
-              <div className="flex flex-col gap-0.5">
-                <div className="font-medium">{h.symbol}</div>
-                <div className="text-xs text-[color:var(--color-text-muted)]">
-                  {h.account_wrapper.toUpperCase()} · {(h.units / 10_000).toFixed(4)} u
-                </div>
-                {rsiVal != null && (
-                  <div className="text-xs text-[color:var(--color-text-muted)] num">
-                    RSI {rsiVal.toFixed(1)}{rsiLabel(h.rsi14)}
-                    {momVal != null ? ` · mom ${momVal >= 0 ? '+' : ''}${momVal.toFixed(1)}%` : ''}
-                  </div>
-                )}
-              </div>
-              <div className="text-right flex flex-col gap-0.5">
-                <div className="num">{mv != null ? formatCents(mv) : '—'}</div>
-                {gl != null && (
-                  <div
-                    className={`text-xs num ${gl >= 0 ? 'text-[color:var(--color-text-muted)]' : 'text-[color:var(--color-danger,#b00)]'}`}
-                  >
-                    {gl >= 0 ? '+' : ''}{formatCents(gl)}
-                  </div>
-                )}
-                {h.latest_price_cents != null && (
-                  <div className="text-xs text-[color:var(--color-text-muted)] num">
-                    {formatCents(h.latest_price_cents)}/u
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      <section className="card flex flex-col gap-3">
-        <div className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          Recommendation
-        </div>
-        <p className="text-sm text-[color:var(--color-text-muted)]">
-          Requires fresh prices and computed signals. Hit Refresh prices first.
-        </p>
-        <button
-          className="btn-primary"
-          onClick={() => recommend.mutate()}
-          disabled={recommend.isPending}
-        >
-          {recommend.isPending ? 'Thinking.' : 'Get recommendation'}
-        </button>
-        {recErr && (
-          <p className="text-xs text-[color:var(--color-danger,#b00)]">{recErr}</p>
-        )}
-        {rec && (
-          <div className="flex flex-col gap-1 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="font-medium uppercase">{rec.action}</span>
-              <span className="num">{rec.symbol}</span>
-              <span className="text-xs text-[color:var(--color-text-muted)] uppercase">
-                {rec.wrapper}
-              </span>
-            </div>
-            <p>{rec.reason}</p>
-            {rec.cited_signals?.length > 0 && (
-              <p className="text-xs text-[color:var(--color-text-muted)]">
-                Cited: {rec.cited_signals.join(', ')}
-              </p>
-            )}
-          </div>
-        )}
       </section>
     </div>
   );
