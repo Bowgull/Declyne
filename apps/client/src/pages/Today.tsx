@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { DeclyneWordmark } from '../components/DeclyneWordmark';
 
 type TankResp = {
   period: { start_date: string; end_date: string } | null;
@@ -205,17 +206,7 @@ export default function Today() {
             }}
           />
           <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 28 }}>
-            <div
-              className="display"
-              style={{
-                color: 'var(--color-ink)',
-                fontSize: 38,
-                lineHeight: 0.95,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              DECLYNE
-            </div>
+            <DeclyneWordmark fontSize={38} />
             <div className="label-tag mt-2" style={{ fontSize: 9 }}>
               RCPT {pad(rcpt, 4)} &middot; WK {pad(wk, 2)} &middot; {dateLabel}
             </div>

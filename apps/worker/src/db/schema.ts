@@ -57,13 +57,18 @@ export const pay_periods = sqliteTable('pay_periods', {
   source_account_id: text('source_account_id').notNull().references(() => accounts.id),
 });
 
-export const routing_plan = sqliteTable('routing_plan', {
+export const period_allocations = sqliteTable('period_allocations', {
   id: text('id').primaryKey(),
   pay_period_id: text('pay_period_id').notNull().references(() => pay_periods.id),
-  target_type: text('target_type', { enum: ['account', 'category', 'debt'] }).notNull(),
-  target_id: text('target_id').notNull(),
-  amount_cents: integer('amount_cents').notNull(),
-  executed_at: text('executed_at'),
+  category_group: text('category_group', {
+    enum: ['essentials', 'lifestyle', 'debt', 'savings', 'indulgence'],
+  }).notNull(),
+  label: text('label').notNull(),
+  planned_cents: integer('planned_cents').notNull(),
+  matched_txn_id: text('matched_txn_id').references(() => transactions.id),
+  stamped_at: text('stamped_at'),
+  stamped_by: text('stamped_by', { enum: ['user', 'csv_match'] }),
+  created_at: text('created_at').notNull(),
 });
 
 export const debts = sqliteTable('debts', {

@@ -11,7 +11,7 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'review_item',
   'settings',
   'phase',
-  'routing_plan',
+  'period_allocation',
   'goal',
   'merchant',
   'credit_snapshot',

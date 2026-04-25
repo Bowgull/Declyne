@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
+import AllocationSheet, { type AllocationRow } from '../components/AllocationSheet';
 
 interface TankPeriod {
   id: string;
@@ -30,13 +32,15 @@ interface HistoryRow {
 interface TrendResp {
   weeks: { week_start: string; indulgence_cents: number; lifestyle_cents: number; ratio_bps: number }[];
 }
-interface PlanRow {
-  id: string;
-  target_type: 'account' | 'category' | 'debt';
-  target_id: string;
-  target_name: string | null;
-  amount_cents: number;
-  executed_at: string | null;
+interface AllocationsResp {
+  period: TankPeriod | null;
+  rows: AllocationRow[];
+  totals: {
+    paycheque_cents: number;
+    assigned_cents: number;
+    unassigned_cents: number;
+    stamped_cents: number;
+  } | null;
 }
 interface Goal {
   id: string;
@@ -45,14 +49,27 @@ interface Goal {
   progress_cents: number;
   archived: number;
 }
+interface Debt {
+  id: string;
+  name: string;
+  principal_cents: number;
+  archived: number;
+}
+interface Counterparty {
+  id: string;
+  name: string;
+  net_cents: number;
+  direction: 'owes_you' | 'you_owe' | 'settled';
+  open_tab_count: number;
+}
 
-type Hue = 'income' | 'essentials' | 'lifestyle' | 'indulgence' | 'debt' | 'savings' | 'uncategorized';
+type AllocGroup = AllocationRow['category_group'];
 
 function fmtRange(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
   const m = (d: Date) => d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }).toUpperCase();
-  return `${m(s)} -> ${m(e)}`;
+  return `${m(s)} → ${m(e)}`;
 }
 
 function pct(num: number, denom: number): number {
@@ -81,6 +98,9 @@ function MiniTank({ row }: { row: HistoryRow }) {
 }
 
 export default function Budget() {
+  const qc = useQueryClient();
+  const [openGroup, setOpenGroup] = useState<AllocGroup | null>(null);
+
   const tank = useQuery({
     queryKey: ['budget-tank'],
     queryFn: () => api.get<TankResp>('/api/budget/tank'),
@@ -93,13 +113,26 @@ export default function Budget() {
     queryKey: ['budget-indulgence-trend'],
     queryFn: () => api.get<TrendResp>('/api/budget/indulgence/trend'),
   });
-  const plan = useQuery({
-    queryKey: ['routing'],
-    queryFn: () => api.get<{ period: TankPeriod | null; rows: PlanRow[] }>('/api/routing'),
+  const allocations = useQuery({
+    queryKey: ['allocations'],
+    queryFn: () => api.get<AllocationsResp>('/api/allocations'),
   });
   const goals = useQuery({
     queryKey: ['goals-active'],
     queryFn: () => api.get<{ goals: Goal[] }>('/api/goals'),
+  });
+  const debts = useQuery({
+    queryKey: ['debts'],
+    queryFn: () => api.get<{ debts: Debt[] }>('/api/debts'),
+  });
+  const counterparties = useQuery({
+    queryKey: ['counterparties'],
+    queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
+  });
+
+  const draft = useMutation({
+    mutationFn: () => api.post<{ inserted: number }>('/api/allocations/draft'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['allocations'] }),
   });
 
   const t = tank.data;
@@ -136,16 +169,23 @@ export default function Budget() {
   const recentPct = recentRatio * 100;
   const indulgenceDollars = sumIndulgence(recent4);
 
-  const planRows = plan.data?.rows ?? [];
-  const planTotal = planRows.reduce((s, r) => s + r.amount_cents, 0);
+  const allocRows = allocations.data?.rows ?? [];
+  const totals = allocations.data?.totals ?? null;
+  const assigned = totals?.assigned_cents ?? 0;
+  const unassigned = totals?.unassigned_cents ?? 0;
   const activeGoals = (goals.data?.goals ?? []).filter((g) => !g.archived).slice(0, 3);
   const historyRows = history.data?.rows ?? [];
+  const activeDebts = (debts.data?.debts ?? []).filter((d) => !d.archived);
+  const totalOwed = activeDebts.reduce((s, d) => s + d.principal_cents, 0);
+  const openTabs = (counterparties.data?.counterparties ?? []).filter((c) => c.direction !== 'settled');
+
+  const subtitle = period ? fmtRange(period.start_date, period.end_date) : 'No paycheque yet';
 
   return (
     <div className="ledger-page flex flex-col gap-6 pb-8">
       <LedgerHeader
-        kicker="The Plan"
-        title={period ? fmtRange(period.start_date, period.end_date) : 'No pay period yet'}
+        kicker="This paycheque"
+        title={subtitle}
         action={<ImportCsvButton />}
       />
 
@@ -187,12 +227,37 @@ export default function Budget() {
             <span className="tank-tick right" style={{ top: '75%' }} />
             <div className="tank-fill">
               <div className="tank-band-fill" style={{ height: `${fillPctV}%`, transition: 'height 600ms ease' }} />
-              <div className="tank-band-savings" style={{ height: `${savingsPctV}%`, transition: 'height 600ms ease' }} />
-              <div className="tank-band-essentials" style={{ height: `${essentialsPctV}%`, transition: 'height 600ms ease' }} />
-              <div className="tank-band-debt" style={{ height: `${debtPctV}%`, transition: 'height 600ms ease' }} />
-              <div className="tank-band-lifestyle" style={{ height: `${lifestylePctV}%`, transition: 'height 600ms ease' }} />
+              <button
+                aria-label="Open savings"
+                className="tank-band-savings tank-band-tap"
+                style={{ height: `${savingsPctV}%`, transition: 'height 600ms ease' }}
+                onClick={() => setOpenGroup('savings')}
+              />
+              <button
+                aria-label="Open essentials"
+                className="tank-band-essentials tank-band-tap"
+                style={{ height: `${essentialsPctV}%`, transition: 'height 600ms ease' }}
+                onClick={() => setOpenGroup('essentials')}
+              />
+              <button
+                aria-label="Open debt"
+                className="tank-band-debt tank-band-tap"
+                style={{ height: `${debtPctV}%`, transition: 'height 600ms ease' }}
+                onClick={() => setOpenGroup('debt')}
+              />
+              <button
+                aria-label="Open lifestyle"
+                className="tank-band-lifestyle tank-band-tap"
+                style={{ height: `${lifestylePctV}%`, transition: 'height 600ms ease' }}
+                onClick={() => setOpenGroup('lifestyle')}
+              />
               <div className="tank-band-uncategorized" style={{ height: `${uncatPctV}%`, transition: 'height 600ms ease' }} />
-              <div className="tank-band-indulgence" style={{ height: `${indulgencePctV}%`, transition: 'height 600ms ease' }} />
+              <button
+                aria-label="Open indulgence"
+                className="tank-band-indulgence tank-band-tap"
+                style={{ height: `${indulgencePctV}%`, transition: 'height 600ms ease' }}
+                onClick={() => setOpenGroup('indulgence')}
+              />
             </div>
             <div className="tank-overlay">
               <div className="tank-overlay-top">
@@ -204,7 +269,15 @@ export default function Budget() {
                   Left to spend
                 </div>
                 <div className="tank-number text-5xl mt-1">{formatCents(remaining)}</div>
-                <div className="tank-overlay-bottom mt-3">
+                {totals && (
+                  <div className="tank-overlay-bottom mt-2 font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: '#2a2228' }}>
+                    <span>Assigned {formatCents(assigned)}</span>
+                    <span style={{ color: unassigned < 0 ? 'var(--cat-indulgence)' : '#2a2228' }}>
+                      Unassigned {formatCents(unassigned)}
+                    </span>
+                  </div>
+                )}
+                <div className="tank-overlay-bottom mt-2">
                   <span style={{ color: indulgenceSpend > 0 ? 'var(--cat-indulgence)' : '#2a2228' }}>
                     Indulgence {formatCents(indulgenceSpend)}
                   </span>
@@ -217,40 +290,15 @@ export default function Budget() {
       )}
 
       {period && (
-        <section className="ledger-section pt-4">
-          <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Where it goes
-          </span>
-          <span className="ledger-section-meta">
-            {planRows.length > 0 ? `${formatCents(planTotal)} / ${formatCents(paycheque)}` : 'No plan'}
-          </span>
-          {planRows.length > 0 ? (
-            <div className="flex flex-col">
-              {planRows.slice(0, 5).map((r) => (
-                <Link key={r.id} to="/budget/routing" className="ledger-row">
-                  <div className="flex items-center gap-3 ledger-row-main">
-                    <span className="cat-rule debt" />
-                    <div>
-                      <div className="text-sm">{r.target_name ?? r.target_id}</div>
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-                        {r.executed_at ? 'sent' : 'planned'}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="num ledger-row-value">{formatCents(r.amount_cents)}</span>
-                  <span className="ledger-row-chevron">&rsaquo;</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <Link to="/budget/routing" className="ledger-row">
-              <span className="ledger-row-main text-sm text-[color:var(--color-text-muted)]">
-                No plan yet for this paycheque. Tap to build one.
-              </span>
-              <span className="ledger-row-chevron">&rsaquo;</span>
-            </Link>
-          )}
-        </section>
+        <div className="flex justify-end">
+          <button
+            className="stamp stamp-purple"
+            onClick={() => draft.mutate()}
+            disabled={draft.isPending}
+          >
+            {draft.isPending ? 'Drafting…' : 'Draft this paycheque'}
+          </button>
+        </div>
       )}
 
       {historyRows.length > 0 && (
@@ -297,6 +345,81 @@ export default function Budget() {
             })}
           </div>
         </section>
+      )}
+
+      {activeDebts.length > 0 && (
+        <section className="ledger-section pt-4">
+          <span className="ledger-section-kicker">
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>06</span> Debts
+          </span>
+          <Link to="/debts" className="ledger-section-meta hover:underline">manage &rsaquo;</Link>
+          <div className="flex flex-col">
+            {activeDebts.slice(0, 4).map((d) => (
+              <Link key={d.id} to="/debts" className="ledger-row">
+                <div className="flex items-center gap-3 ledger-row-main">
+                  <span className="cat-rule debt" />
+                  <div className="text-sm truncate">{d.name}</div>
+                </div>
+                <span className="num ledger-row-value">{formatCents(d.principal_cents)}</span>
+                <span className="ledger-row-chevron">&rsaquo;</span>
+              </Link>
+            ))}
+            <div className="ledger-row">
+              <span className="ledger-row-main text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                Total owed
+              </span>
+              <span className="num ledger-row-value">{formatCents(totalOwed)}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {openTabs.length > 0 && (
+        <section className="ledger-section pt-4">
+          <span className="ledger-section-kicker">
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>07</span> Open tabs
+          </span>
+          <div className="flex flex-col">
+            {openTabs.slice(0, 4).map((c) => (
+              <Link key={c.id} to={`/budget/tabs/${c.id}`} className="ledger-row">
+                <div className="flex items-center gap-3 ledger-row-main">
+                  <span
+                    className="cat-rule"
+                    style={{
+                      background:
+                        c.direction === 'owes_you' ? 'var(--cat-savings)' : 'var(--cat-indulgence)',
+                    }}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm truncate">{c.name}</div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                      {c.open_tab_count} {c.open_tab_count === 1 ? 'chit' : 'chits'} ·{' '}
+                      {c.direction === 'owes_you' ? 'owes you' : 'you owe'}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className="num ledger-row-value"
+                  style={{
+                    color: c.direction === 'owes_you' ? 'var(--cat-savings)' : 'var(--cat-indulgence)',
+                  }}
+                >
+                  {c.direction === 'owes_you' ? '+' : '-'}
+                  {formatCents(Math.abs(c.net_cents))}
+                </span>
+                <span className="ledger-row-chevron">&rsaquo;</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {openGroup && (
+        <AllocationSheet
+          group={openGroup}
+          rows={allocRows}
+          onClose={() => setOpenGroup(null)}
+        />
       )}
     </div>
   );

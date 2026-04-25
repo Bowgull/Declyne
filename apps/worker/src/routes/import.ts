@@ -4,6 +4,7 @@ import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { detectPeriods, type PaycheckCandidate } from '../lib/payperiods.js';
 import { runCcStatementDerivation } from './ccStatements.js';
+import { draftForPeriod, autoMatchAllocations } from './allocations.js';
 
 interface ImportRow {
   posted_at: string;
@@ -113,6 +114,17 @@ importRoutes.post('/transactions', async (c) => {
     inserted_ids: [] as string[],
   }));
 
+  // Allocations: draft for current period (additive), then auto-match.
+  let allocationsDrafted = 0;
+  let allocationsMatched = 0;
+  const currentPeriod = await c.env.DB.prepare(
+    `SELECT id FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+  ).first<{ id: string }>();
+  if (currentPeriod) {
+    allocationsDrafted = await draftForPeriod(c.env, currentPeriod.id).catch(() => 0);
+    allocationsMatched = await autoMatchAllocations(c.env, currentPeriod.id).catch(() => 0);
+  }
+
   return c.json({
     inserted,
     skipped_dedup: skipped,
@@ -120,6 +132,8 @@ importRoutes.post('/transactions', async (c) => {
     flagged_for_review: flagged,
     pay_periods_inserted: periodsInserted,
     cc_statements_inserted: ccDerive.inserted,
+    allocations_drafted: allocationsDrafted,
+    allocations_matched: allocationsMatched,
   });
 });
 
