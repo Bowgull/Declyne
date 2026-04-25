@@ -1,39 +1,53 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
-function useCountUp(target: number, durationMs = 700) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!Number.isFinite(target)) return;
-    let raf = 0;
-    const start = performance.now();
-    const from = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setV(from + (target - from) * eased);
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, durationMs]);
-  return v;
+type TankResp = {
+  period: { start_date: string; end_date: string } | null;
+  paycheque_cents?: number;
+  remaining_cents?: number;
+  days_remaining?: number;
+};
+
+type SplitRow = {
+  id: string;
+  counterparty: string;
+  direction: 'josh_owes' | 'owes_josh';
+  remaining_cents: number;
+  created_at: string;
+};
+
+function pad(n: number, w: number) {
+  return String(n).padStart(w, '0');
+}
+
+function isoWeek(d: Date) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+}
+
+function daysUntilNextSunday(today: Date) {
+  const d = today.getDay(); // 0 = Sunday
+  if (d === 0) return 0;
+  return 7 - d;
+}
+
+function daysSince(iso: string, today: Date) {
+  const ms = today.getTime() - Date.parse(iso.slice(0, 10));
+  return Math.max(0, Math.floor(ms / 86_400_000));
 }
 
 export default function Today() {
+  const [heroIdx, setHeroIdx] = useState(0);
+
   const phase = useQuery({
     queryKey: ['phase'],
     queryFn: () => api.get<{ phase: number; name: string; entered_at: string | null }>('/api/phase'),
-  });
-  const indulgence = useQuery({
-    queryKey: ['indulgence'],
-    queryFn: () =>
-      api.get<{ indulgence_cents: number; lifestyle_cents: number; ratio_bps: number }>(
-        '/api/budget/indulgence',
-      ),
   });
   const review = useQuery({
     queryKey: ['review'],
@@ -46,25 +60,71 @@ export default function Today() {
         last_reconciliation_at: string | null;
         reconciliation_streak: number;
         completed_this_week: boolean;
-        week_starts_on: string;
       }>('/api/reconciliation/status'),
   });
-  const today = new Date().toLocaleDateString('en-CA', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  const tank = useQuery({
+    queryKey: ['budget-tank'],
+    queryFn: () => api.get<TankResp>('/api/budget/tank'),
+  });
+  const splits = useQuery({
+    queryKey: ['splits'],
+    queryFn: () => api.get<{ splits: SplitRow[] }>('/api/splits'),
+  });
+  const todayExtras = useQuery({
+    queryKey: ['today-extras'],
+    queryFn: () =>
+      api.get<{
+        rcpt_days: number;
+        last_indulgence: {
+          posted_at: string;
+          amount_cents: number;
+          description_raw: string;
+          days_ago: number;
+        } | null;
+      }>('/api/today'),
   });
 
+  const now = new Date();
+  const today = new Date(now.toISOString().slice(0, 10));
+  const wk = isoWeek(now);
+  const dateLabel = now
+    .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    .toUpperCase();
+
+  const rcpt = todayExtras.data?.rcpt_days ?? 0;
   const reviewCount = review.data?.items.length ?? 0;
-  const indulgenceRatioPct = indulgence.data ? indulgence.data.ratio_bps / 100 : 0;
-  const animatedIndulgence = useCountUp(indulgenceRatioPct);
   const streak = reconciliation.data?.reconciliation_streak ?? 0;
+  const remaining = tank.data?.remaining_cents ?? 0;
+  const daysLeft = tank.data?.days_remaining ?? 0;
+  const sundayDays = daysUntilNextSunday(now);
+
+  const heroStates = [
+    {
+      label: 'Left in tank',
+      value: formatCents(remaining),
+      sub: `${daysLeft}d to payday`,
+    },
+    {
+      label: 'Days to payday',
+      value: `${daysLeft}d`,
+      sub: tank.data?.period?.end_date ?? '',
+    },
+    {
+      label: 'Reconciliation streak',
+      value: `${streak}`,
+      sub: streak === 1 ? 'week kept' : 'weeks kept',
+    },
+  ];
+  const hero = heroStates[heroIdx % heroStates.length]!;
+
+  const openSplits = splits.data?.splits ?? [];
+  const lastInd = todayExtras.data?.last_indulgence ?? null;
 
   return (
     <div className="px-3 pt-4 pb-6">
       <section className="receipt paper-in flex flex-col gap-5">
-        <header className="relative flex flex-col items-center text-center">
+        {/* Header */}
+        <header className="relative flex flex-col items-start">
           <Link
             to="/settings"
             aria-label="Settings"
@@ -75,88 +135,143 @@ export default function Today() {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </Link>
-          <img
-            src="/brand/mascot-charcoal.png"
-            alt=""
-            aria-hidden="true"
-            style={{
-              width: 180,
-              height: 180,
-              objectFit: 'contain',
-              filter: 'drop-shadow(0 2px 6px rgba(26, 20, 29, 0.18))',
-            }}
-          />
           <div
-            className="display tracking-tight mt-2"
-            style={{ color: 'var(--color-ink)', fontSize: 36, lineHeight: 1 }}
+            className="display tracking-tight"
+            style={{ color: 'var(--color-ink)', fontSize: 30, lineHeight: 1 }}
           >
-            Declyne
+            DECLYNE
           </div>
-          <div className="label-tag mt-2">{today}</div>
+          <div className="label-tag mt-2">
+            RCPT {pad(rcpt, 4)} &middot; WK {pad(wk, 2)} &middot; {dateLabel}
+          </div>
         </header>
 
-        <div className="perf pt-4 flex items-end justify-between gap-3">
-          <div>
-            <div className="label-tag mb-1 flex items-center gap-1.5">
-              <span className="cat-dot indulgence" /> Indulgence 30d
-            </div>
-            <div className="hero-num">
-              {animatedIndulgence.toFixed(1)}<span style={{ fontSize: 24, opacity: 0.55 }}>%</span>
-            </div>
-            <div className="text-xs ink-muted mt-1">
-              {indulgence.data
-                ? `${formatCents(indulgence.data.indulgence_cents)} of ${formatCents(indulgence.data.indulgence_cents + indulgence.data.lifestyle_cents)}`
-                : ''}
-            </div>
+        {/* Hero (tap-cycle) */}
+        <button
+          type="button"
+          onClick={() => setHeroIdx((i) => (i + 1) % heroStates.length)}
+          className="perf pt-4 text-left"
+          style={{ background: 'transparent', border: 0, padding: 0, paddingTop: '1rem', cursor: 'pointer' }}
+        >
+          <div className="label-tag mb-1">{hero.label}</div>
+          <div className="hero-num" style={{ color: 'var(--color-ink)' }}>
+            {hero.value}
           </div>
-          <span className="pill-purple">30 day</span>
+          {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
+        </button>
+
+        {/* NEXT block (placeholder until recurring detection ships) */}
+        <div className="perf pt-4">
+          <div className="label-tag mb-1">Next</div>
+          <div className="text-sm ink-muted">
+            Bill detection coming next. Until then, watch the tank.
+          </div>
         </div>
 
+        {/* Single line: next reconciliation */}
+        <div className="perf pt-3 pb-1 flex items-baseline justify-between">
+          <div className="label-tag">Next reconciliation</div>
+          <div className="num text-xs" style={{ color: 'var(--color-ink)' }}>
+            sunday &middot; {sundayDays === 0 ? 'today' : `${sundayDays}d`}
+          </div>
+        </div>
+
+        {/* PRINTING AHEAD */}
+        <div className="perf pt-4">
+          <div className="label-tag mb-2">Printing ahead</div>
+          <div className="text-sm ink-muted">
+            14d horizon will print here once recurring bills + payday cadence are detected.
+          </div>
+        </div>
+
+        {/* OPEN TABS */}
+        <div className="perf pt-4">
+          <div className="flex items-baseline justify-between mb-2">
+            <div className="label-tag">Open tabs</div>
+            <div className="label-tag">{openSplits.length}</div>
+          </div>
+          {openSplits.length === 0 ? (
+            <div className="text-sm ink-muted">No open tabs. Clean slate.</div>
+          ) : (
+            <ul className="flex flex-col">
+              {openSplits.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-baseline justify-between py-2"
+                  style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}
+                >
+                  <div className="flex flex-col">
+                    <div className="text-sm" style={{ color: 'var(--color-ink)' }}>{s.counterparty}</div>
+                    <div className="label-tag mt-0.5">
+                      {s.direction === 'josh_owes' ? 'you owe' : 'owes you'} &middot; {daysSince(s.created_at, today)}d
+                    </div>
+                  </div>
+                  <div className="num text-sm" style={{ color: 'var(--color-ink)' }}>
+                    {formatCents(s.remaining_cents)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link
+            to="/debts"
+            className="label-tag mt-2 inline-block"
+            style={{ color: 'var(--color-ink-muted)' }}
+          >
+            + tear from scratch
+          </Link>
+        </div>
+
+        {/* Signals */}
         <Link to="/phase" className="row-tap perf">
           <div className="flex items-baseline justify-between gap-3">
             <div className="label-tag">Phase</div>
             <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
-              {phase.data ? `${phase.data.phase}. ${phase.data.name}` : '--'}
+              {phase.data ? `${phase.data.phase}. ${phase.data.name}` : '--'} &rsaquo;
             </div>
           </div>
-          <div className="mt-1 text-xs ink-muted">
-            {phase.data?.entered_at
-              ? `Since ${new Date(phase.data.entered_at).toLocaleDateString('en-CA')} -> tap for journey`
-              : 'Bootstrap phase. No transitions yet.'}
+        </Link>
+
+        <Link to="/budget" className="row-tap perf">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="label-tag flex items-center gap-1.5">
+              <span className="cat-dot indulgence" /> Indulgence
+            </div>
+            <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
+              {lastInd
+                ? `last ${lastInd.days_ago === 0 ? 'today' : `${lastInd.days_ago}d ago`} · ${formatCents(lastInd.amount_cents)}`
+                : 'none recorded'}{' '}
+              &rsaquo;
+            </div>
           </div>
         </Link>
 
         <Link to="/review" className="row-tap perf">
           <div className="flex items-baseline justify-between gap-3">
-            <div className="label-tag">Review queue</div>
+            <div className="label-tag">Review</div>
             <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
-              {reviewCount} {reviewCount === 1 ? 'item' : 'items'} &gt;
+              {reviewCount} {reviewCount === 1 ? 'item' : 'items'} &rsaquo;
             </div>
-          </div>
-          <div className="mt-1 text-xs ink-muted">
-            {reviewCount === 0 ? 'Nothing to triage.' : 'Tap to resolve uncategorized.'}
           </div>
         </Link>
 
         <Link to="/reconcile" className="row-tap perf">
           <div className="flex items-baseline justify-between gap-3">
-            <div className="label-tag">Reconciliation</div>
+            <div className="label-tag">Streak</div>
             <div className="flex items-center gap-2">
               {streak > 0 && <span className="pill-gold">{streak} wk</span>}
-              <div className="num text-base" style={{ color: 'var(--color-ink)' }}>&gt;</div>
+              {streak === 0 && (
+                <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
+                  reset
+                </div>
+              )}
+              <div className="num text-base" style={{ color: 'var(--color-ink)' }}>&rsaquo;</div>
             </div>
-          </div>
-          <div className="mt-1 text-xs ink-muted">
-            {reconciliation.data?.completed_this_week
-              ? 'Sealed for the week. Tap to review.'
-              : reconciliation.data?.last_reconciliation_at
-                ? `Last ${new Date(reconciliation.data.last_reconciliation_at).toLocaleDateString('en-CA')} -> tap to seal`
-                : 'Tap to walk the week.'}
           </div>
         </Link>
 
         <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
-          ** End of day **
+          * * between receipts * *
         </div>
       </section>
     </div>
