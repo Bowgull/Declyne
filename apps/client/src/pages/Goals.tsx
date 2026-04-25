@@ -57,7 +57,7 @@ export default function Goals() {
       <section className="receipt stub-top stub-bottom flex flex-col gap-4">
         <header className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <span className="mascot-mark" aria-hidden="true" />
+            <span className="mascot-sigil" aria-hidden="true" />
             <div>
               <div className="display text-lg tracking-tight">GOALS</div>
               <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">

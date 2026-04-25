@@ -44,7 +44,7 @@ export default function Routing() {
     <div className="flex flex-col gap-4 pb-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Routing plan</h1>
+          <h1 className="text-2xl font-semibold">The Plan</h1>
           <p className="text-sm text-[color:var(--color-text-muted)]">
             {period
               ? `${period.start_date} → ${period.end_date} · ${formatCents(period.paycheque_cents)}`
@@ -60,14 +60,14 @@ export default function Routing() {
           onClick={() => generate.mutate()}
           disabled={generate.isPending}
         >
-          {generate.isPending ? 'Generating…' : 'Regenerate plan'}
+          {generate.isPending ? 'Building…' : 'Rebuild the plan'}
         </button>
       )}
 
       {!period && (
         <section className="card">
           <p className="text-sm text-[color:var(--color-text-muted)]">
-            Import a pay deposit to unlock routing.
+            Import a pay deposit to build a plan.
           </p>
         </section>
       )}
@@ -75,7 +75,7 @@ export default function Routing() {
       {period && rows.length === 0 && (
         <section className="card">
           <p className="text-sm text-[color:var(--color-text-muted)]">
-            No allocations yet. Tap Regenerate.
+            No plan yet. Tap Rebuild.
           </p>
         </section>
       )}
@@ -88,7 +88,7 @@ export default function Routing() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-text-muted)]">
-                    {r.target_type} {r.executed_at ? '· executed' : ''}
+                    {r.target_type} {r.executed_at ? '· sent' : ''}
                   </div>
                   <div className="mt-1 truncate text-base font-semibold">
                     {r.target_name ?? r.target_id}
@@ -103,7 +103,7 @@ export default function Routing() {
                     onClick={() => execute.mutate(r.id)}
                     disabled={execute.isPending}
                   >
-                    Mark executed
+                    Mark sent
                   </button>
                 </div>
               )}
@@ -116,7 +116,7 @@ export default function Routing() {
       {rows.length > 0 && period && (
         <section className="card">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-[color:var(--color-text-muted)]">Allocated</span>
+            <span className="text-[color:var(--color-text-muted)]">Planned</span>
             <span className="num">{formatCents(total)} / {formatCents(period.paycheque_cents)}</span>
           </div>
         </section>

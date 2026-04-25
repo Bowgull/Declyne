@@ -68,6 +68,100 @@ budgetRoutes.get('/vice/trend', async (c) => {
   });
 });
 
+budgetRoutes.get('/tank', async (c) => {
+  // Current pay period tank state: paycheque in, spend by category group, days remaining.
+  const period = await c.env.DB.prepare(
+    `SELECT id, start_date, end_date, paycheque_cents
+     FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+  ).first<{ id: string; start_date: string; end_date: string; paycheque_cents: number }>();
+  if (!period) return c.json({ period: null });
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT COALESCE(c."group", 'uncategorized') as g,
+            COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) as s
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE t.posted_at BETWEEN ? AND ?
+     GROUP BY g`,
+  ).bind(period.start_date, period.end_date).all<{ g: string; s: number }>();
+
+  const by_group: Record<string, number> = {
+    essentials: 0,
+    lifestyle: 0,
+    vice: 0,
+    debt: 0,
+    transfer: 0,
+    uncategorized: 0,
+  };
+  for (const r of results) {
+    if (r.g in by_group) by_group[r.g] = r.s;
+    else by_group.uncategorized = (by_group.uncategorized ?? 0) + r.s;
+  }
+  const total_spent_cents =
+    (by_group.essentials ?? 0) +
+    (by_group.lifestyle ?? 0) +
+    (by_group.vice ?? 0) +
+    (by_group.debt ?? 0) +
+    (by_group.uncategorized ?? 0);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const end = period.end_date;
+  const msPerDay = 86_400_000;
+  const days_remaining = Math.max(
+    0,
+    Math.ceil((Date.parse(end) - Date.parse(today)) / msPerDay),
+  );
+
+  return c.json({
+    period,
+    paycheque_cents: period.paycheque_cents,
+    by_group,
+    total_spent_cents,
+    remaining_cents: Math.max(0, period.paycheque_cents - total_spent_cents),
+    days_remaining,
+  });
+});
+
+budgetRoutes.get('/tank/history', async (c) => {
+  // Last N closed pay periods with totals for sparkline-of-tanks visual.
+  const limit = Math.min(8, Math.max(1, Number(c.req.query('limit') ?? '4')));
+  const { results: periods } = await c.env.DB.prepare(
+    `SELECT id, start_date, end_date, paycheque_cents
+     FROM pay_periods ORDER BY start_date DESC LIMIT ?`,
+  ).bind(limit + 1).all<{ id: string; start_date: string; end_date: string; paycheque_cents: number }>();
+  // Drop the most recent (current) period; we only want history.
+  const closed = periods.slice(1);
+  if (closed.length === 0) return c.json({ rows: [] });
+
+  const rows: {
+    id: string;
+    start_date: string;
+    end_date: string;
+    paycheque_cents: number;
+    vice_cents: number;
+    other_cents: number;
+  }[] = [];
+  for (const p of closed) {
+    const r = await c.env.DB.prepare(
+      `SELECT COALESCE(c."group", 'uncategorized') as g,
+              COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) as s
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.posted_at BETWEEN ? AND ?
+       GROUP BY g`,
+    ).bind(p.start_date, p.end_date).all<{ g: string; s: number }>();
+    let vice = 0;
+    let other = 0;
+    for (const x of r.results) {
+      if (x.g === 'vice') vice += x.s;
+      else if (x.g === 'transfer') continue;
+      else other += x.s;
+    }
+    rows.push({ ...p, vice_cents: vice, other_cents: other });
+  }
+  return c.json({ rows });
+});
+
 budgetRoutes.get('/vice', async (c) => {
   // Vice ratio trailing 30 days: vice / (vice + lifestyle).
   const { results } = await c.env.DB.prepare(

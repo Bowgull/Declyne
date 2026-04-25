@@ -1,11 +1,27 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
-const perforation: React.CSSProperties = {
-  borderTop: '1px dashed var(--color-hairline)',
-};
+function useCountUp(target: number, durationMs = 700) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    if (!Number.isFinite(target)) return;
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setV(from + (target - from) * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+  return v;
+}
 
 export default function Today() {
   const phase = useQuery({
@@ -38,21 +54,24 @@ export default function Today() {
   });
 
   const reviewCount = review.data?.items.length ?? 0;
+  const viceRatioPct = vice.data ? vice.data.ratio_bps / 100 : 0;
+  const animatedVice = useCountUp(viceRatioPct);
+  const streak = reconciliation.data?.reconciliation_streak ?? 0;
 
   return (
-    <div className="pb-6">
-      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+    <div className="px-3 pt-4 pb-6">
+      <section className="receipt-paper paper-in flex flex-col gap-5">
+        <span className="mascot-watermark" aria-hidden="true" />
+
         <header className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <span className="mascot-mark" aria-hidden="true" />
+            <span className="mascot-sigil" aria-hidden="true" />
             <div>
-              <div className="display text-lg tracking-tight">DECLYNE</div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-                {today}
-              </div>
+              <div className="display text-xl tracking-tight" style={{ color: 'var(--color-ink)' }}>DECLYNE</div>
+              <div className="label-tag mt-0.5">{today}</div>
             </div>
           </div>
-          <Link to="/settings" aria-label="Settings" className="text-[color:var(--color-text-muted)] mt-1">
+          <Link to="/settings" aria-label="Settings" style={{ color: 'var(--color-ink-muted)' }} className="mt-1">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -60,61 +79,65 @@ export default function Today() {
           </Link>
         </header>
 
-        <Link to="/phase" className="block pt-3" style={perforation}>
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">Phase</div>
-            <div className="num text-base">{phase.data ? `${phase.data.phase}. ${phase.data.name}` : '--'}</div>
+        <div className="perf pt-4 flex items-end justify-between gap-3">
+          <div>
+            <div className="label-tag mb-1">Vice 30d</div>
+            <div className="hero-num">
+              {animatedVice.toFixed(1)}<span style={{ fontSize: 24, opacity: 0.55 }}>%</span>
+            </div>
+            <div className="text-xs ink-muted mt-1">
+              {vice.data
+                ? `${formatCents(vice.data.vice_cents)} of ${formatCents(vice.data.vice_cents + vice.data.lifestyle_cents)}`
+                : ''}
+            </div>
           </div>
-          <div className="mt-1 text-xs text-[color:var(--color-text-muted)]">
+          <span className="pill-purple">30 day</span>
+        </div>
+
+        <Link to="/phase" className="row-tap perf">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="label-tag">Phase</div>
+            <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
+              {phase.data ? `${phase.data.phase}. ${phase.data.name}` : '--'}
+            </div>
+          </div>
+          <div className="mt-1 text-xs ink-muted">
             {phase.data?.entered_at
               ? `Since ${new Date(phase.data.entered_at).toLocaleDateString('en-CA')} -> tap for journey`
               : 'Bootstrap phase. No transitions yet.'}
           </div>
         </Link>
 
-        <div className="pt-3" style={perforation}>
+        <Link to="/review" className="row-tap perf">
           <div className="flex items-baseline justify-between gap-3">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">Vice 30d</div>
-            <div className="num text-base">
-              {vice.data ? `${(vice.data.ratio_bps / 100).toFixed(1)}%` : '--'}
-            </div>
-          </div>
-          <div className="mt-1 text-xs text-[color:var(--color-text-muted)]">
-            {vice.data
-              ? `${formatCents(vice.data.vice_cents)} vice of ${formatCents(vice.data.vice_cents + vice.data.lifestyle_cents)}`
-              : ''}
-          </div>
-        </div>
-
-        <Link to="/review" className="block pt-3" style={perforation}>
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">Review queue</div>
-            <div className="num text-base">
+            <div className="label-tag">Review queue</div>
+            <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
               {reviewCount} {reviewCount === 1 ? 'item' : 'items'} &gt;
             </div>
           </div>
-          <div className="mt-1 text-xs text-[color:var(--color-text-muted)]">
+          <div className="mt-1 text-xs ink-muted">
             {reviewCount === 0 ? 'Nothing to triage.' : 'Tap to resolve uncategorized.'}
           </div>
         </Link>
 
-        <Link to="/reconcile" className="block pt-3" style={perforation}>
+        <Link to="/reconcile" className="row-tap perf">
           <div className="flex items-baseline justify-between gap-3">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">Reconciliation</div>
-            <div className="num text-base">
-              {reconciliation.data ? `${reconciliation.data.reconciliation_streak} wk >` : '--'}
+            <div className="label-tag">Reconciliation</div>
+            <div className="flex items-center gap-2">
+              {streak > 0 && <span className="pill-gold">{streak} wk</span>}
+              <div className="num text-base" style={{ color: 'var(--color-ink)' }}>&gt;</div>
             </div>
           </div>
-          <div className="mt-1 text-xs text-[color:var(--color-text-muted)]">
+          <div className="mt-1 text-xs ink-muted">
             {reconciliation.data?.completed_this_week
               ? 'Sealed for the week. Tap to review.'
               : reconciliation.data?.last_reconciliation_at
-                ? `Last ${new Date(reconciliation.data.last_reconciliation_at).toLocaleDateString('en-CA')} -> tap to seal this week`
+                ? `Last ${new Date(reconciliation.data.last_reconciliation_at).toLocaleDateString('en-CA')} -> tap to seal`
                 : 'Tap to walk the week.'}
           </div>
         </Link>
 
-        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+        <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
           ** End of day **
         </div>
       </section>
