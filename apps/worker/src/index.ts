@@ -26,6 +26,7 @@ import { goalsRoutes } from './routes/goals.js';
 import { holdingsRoutes } from './routes/holdings.js';
 import { ccStatementsRoutes } from './routes/ccStatements.js';
 import { reconciliationRoutes } from './routes/reconciliation.js';
+import { todayRoutes } from './routes/today.js';
 import { auth } from './middleware/auth.js';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -65,6 +66,7 @@ api.route('/goals', goalsRoutes);
 api.route('/holdings', holdingsRoutes);
 api.route('/cc-statements', ccStatementsRoutes);
 api.route('/reconciliation', reconciliationRoutes);
+api.route('/today', todayRoutes);
 
 app.route('/api', api);
 
