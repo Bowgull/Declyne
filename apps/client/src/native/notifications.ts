@@ -27,14 +27,14 @@ export async function scheduleAllNotifications(): Promise<void> {
     notifications: [
       {
         id: 1,
-        title: 'Sunday reconciliation',
-        body: 'Receipts are waiting. Ten minutes.',
+        title: 'I kept the receipts.',
+        body: 'All week. Every one. Sit down with me.',
         schedule: { on: { weekday: 1, hour: 9, minute: 0 }, repeats: true },
       },
       {
         id: 2,
-        title: 'You skipped Sunday',
-        body: 'Last soft reminder before the week runs away.',
+        title: "Still pretending Sunday didn't happen?",
+        body: "I'll wait. The numbers won't.",
         schedule: { on: { weekday: 3, hour: 9, minute: 0 }, repeats: true },
       },
     ],
@@ -54,8 +54,8 @@ export async function dismissFollowUpThisWeek(): Promise<void> {
     notifications: [
       {
         id: 2,
-        title: 'You skipped Sunday',
-        body: 'Last soft reminder before the week runs away.',
+        title: "Still pretending Sunday didn't happen?",
+        body: "I'll wait. The numbers won't.",
         schedule: { on: { weekday: 3, hour: 9, minute: 0 }, repeats: true },
       },
     ],

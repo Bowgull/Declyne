@@ -15,9 +15,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `df0566cb-5296-4cd3-91e8-7bc69f1323b3`
 
-## Repo state (2026-04-24 handoff, end of session 24)
+## Repo state (2026-04-25 handoff, end of session 25)
 
-Working tree clean after session 24. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 25. Sessions 1-8 squashed in `67b52f2`; sessions 9-25 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -26,17 +26,19 @@ pnpm dev              # client on localhost (preview panel)
 pnpm dev:worker       # worker on localhost:8787
 pnpm --filter @declyne/worker run deploy   # push worker to Cloudflare (pnpm worker:deploy collides with pnpm deploy keyword)
 pnpm db:push          # push schema to remote D1
-pnpm test             # 42 tests, all passing
+pnpm test             # 99 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 24, 2026-04-24)
+## What's built (through session 25, 2026-04-25)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 27-table D1 schema, live and seeded
 - All worker routes: accounts, import, phase, budget, debts, splits, investment, review, settings, export, categories, routing, periods, signals
 - Four-tab client: Today / Budget / Debts / Grow + Settings cog
-- Brand system: Tailwind v4 CSS vars, grain, receipt motif with stub perforations (.stub-top/.stub-bottom), .field/.field-label form primitives
+- Brand foundation (session 25): mascot wired in. App icon + favicon (`apps/client/public/brand/{icon-1024,icon-512,apple-touch-icon,favicon-32,favicon-16,mascot-head,mascot-full}.png`) cropped from `assets/Mascot Full image.PNG` via PIL — head+wings square padded with sampled bg color. Linked from `index.html`. Display font Fraunces (serif, ceremonial/literary), body Geist, mono Geist Mono, all via Google Fonts CDN. CSS vars `--font-display`, `--font-mono`, `--color-paper`. New utility classes `.display` (Fraunces 600) + `.mascot-mark` (28px inline icon). Today h1 now uses `.display` + `.mascot-mark` in header. Grain upgraded from radial-dot to inline SVG fractalNoise with warm-tinted color matrix + mix-blend-mode overlay; added edge vignette via `.grain::after`
+- Brand system: Tailwind v4 CSS vars, SVG-noise grain + edge vignette, receipt motif with stub perforations (.stub-top/.stub-bottom), .field/.field-label form primitives
+- Devil-voice notifications (session 25): `apps/client/src/native/notifications.ts` — Sunday id 1 "I kept the receipts." / "All week. Every one. Sit down with me."; Tuesday id 2 "Still pretending Sunday didn't happen?" / "I'll wait. The numbers won't."
 - CSV pipeline: Web Worker, format autodetect (TD Chequing/Visa, Capital One), merchant normalization, real account picker sheet (no more window.prompt)
 - Accounts UI at /settings/accounts: list + add/edit bottom sheet + archive/restore, receipt-card rendering
 - Debts UI: tap-to-edit receipt cards, add/edit bottom sheet (principal, APR, min payment fixed/percent, statement day, due day, optional linked account), archive
@@ -51,10 +53,9 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Nightly cron trigger at `0 8 * * *` UTC runs `computeAndStoreSignals` via `scheduled()` handler in `apps/worker/src/index.ts`. Registered at deploy: `schedule: 0 8 * * *`
 - Paycheque detection settings UI on `/settings`: source account dropdown (filters to chequing + unarchived), pattern, min cents, fallback days, Save + Detect-now buttons
 - Cron observability: `cron_runs` table logs every scheduled run (started_at, finished_at, status, detail). Scheduled handler wraps `computeAndStoreSignals` in `logCronRun`. Route `GET /api/cron/runs?limit=30` returns recent rows
-- AI coach narration: `POST /api/coach/summary` pulls latest `behaviour_snapshots` + current phase, calls GPT-4o-mini with deterministic payload (no math in prompt), strips em dashes from response, persists to `coach_messages` with prompt hash. `GET /api/coach/latest`, `GET /api/coach/history`. System prompt enforces no arithmetic, no em dashes, under 80 words, cite signal verbatim
+- ~~AI coach narration~~ **Removed in session 25.** Worker route, helper, tests, Today UI, queries all deleted. `coach_messages` table left dormant on remote D1 (no destructive migration). `OPENAI_API_KEY` secret left set but unused by client-facing code. The investment-recommendation GPT call in `apps/worker/src/routes/investment.ts` (Grow tab, locked behind Phase 4) is unrelated and intact
 - Migration `apps/worker/drizzle/0001_cron_coach.sql` applied to remote D1
 - Wrangler 4.85.0 at root and worker
-- Today tab Coach card: pulls `/api/coach/latest`, Refresh button posts `/api/coach/summary` and invalidates the query. Renders response text, generated_at, model. Shows empty-state copy if no snapshot exists, surfaces error inline on 404
 - Settings Cron runs card: pulls `/api/cron/runs?limit=5`, renders started_at, job, detail, status per row. Confirms nightly firing without tailing Worker logs
 - Market data fetch: `POST /api/market/fetch` fetches Twelve Data time_series for all holding symbols (FMP fallback), BoC overnight rate (Valet API), USD/CAD + XIU.TO + SPY spot prices. Stores in `prices` + `market_snapshots`, recomputes signals. `GET /api/market/snapshot` returns latest row
 - Investment holdings enriched: `GET /api/investment/holdings` now joins with latest price from `prices` and latest row from `signals` (sma50, sma200, rsi14, momentum_30d)
@@ -79,7 +80,12 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install
+1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon (use `apps/client/public/brand/icon-1024.png` or feed mascot to capacitor-assets) deferred until then
+2. **Tab bar iconography** — Today/Budget/Debts/Grow are still text-only uppercase labels. Replace ⚙ settings affordance with a real icon (or mascot mark). Pick lucide vs hand-drawn-SVG to match the mascot's woodcut feel
+3. **Today screen receipt-motif rebuild** — `.receipt`/`.stub-top`/`.stub-bottom` CSS exists but Today.tsx still uses `.card`. Rebuild Today as one continuous thermal receipt with perforations between sections; commit to the motif end-to-end
+4. **Full category icon set** — sibling pattern from Waymark's `/assets/brand/`. Need PNG+SVG pairs for: Vice, Essentials, Lifestyle, Income, Debt, Credit, Holdings, Reconciliation, plus per-category marks (Alcohol, Takeout, Subscriptions, etc). Lives in `apps/client/public/brand/icons/`
+5. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready
+6. **Drop coach_messages table** — currently dormant on remote D1. Ship a migration when convenient (`DROP TABLE coach_messages;` + remove `coach_messages` from `apps/worker/src/db/schema.ts`)
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
