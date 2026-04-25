@@ -9,7 +9,7 @@ const base = {
   utilization_under_30_streak_statements: 0,
   on_time_streak_days: 0,
   buffer_months_essentials: 0,
-  vice_ratio_trailing_30d: 0.5,
+  indulgence_ratio_trailing_30d: 0.5,
 };
 
 describe('evaluatePhase', () => {
@@ -39,12 +39,12 @@ describe('evaluatePhase', () => {
     expect(r.next_phase).toBe(3);
   });
 
-  it('promotes 4 → 5 on buffer and vice thresholds', () => {
+  it('promotes 4 → 5 on buffer and indulgence thresholds', () => {
     const r = evaluatePhase({
       ...base,
       current_phase: 4,
       buffer_months_essentials: 3,
-      vice_ratio_trailing_30d: 0.14,
+      indulgence_ratio_trailing_30d: 0.14,
     });
     expect(r.next_phase).toBe(5);
   });

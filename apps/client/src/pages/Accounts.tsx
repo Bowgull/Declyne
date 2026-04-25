@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import LedgerHeader from '../components/LedgerHeader';
 
 export type AccountType = 'chequing' | 'savings' | 'credit' | 'loan';
 
@@ -45,21 +46,20 @@ export default function Accounts() {
   const list = accounts.data?.accounts ?? [];
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
-          <p className="text-sm text-[color:var(--color-text-muted)]">Ledgers feeding the pipeline.</p>
-        </div>
-        <Link to="/settings" className="btn-outline">Back</Link>
-      </header>
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker="§ ACCOUNTS"
+        title="Accounts"
+        subtitle="ledgers feeding the pipeline"
+        action={<Link to="/settings" className="stamp">Back</Link>}
+      />
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pb-3">
         <button className="btn-primary flex-1" onClick={() => setEditing('new')}>
           Add account
         </button>
         <button
-          className="btn-outline"
+          className="stamp"
           onClick={() => setShowArchived((v) => !v)}
           aria-pressed={showArchived}
         >

@@ -2,7 +2,7 @@
 
 export interface BehaviourInputs {
   as_of: string;
-  vice_spend_cents_30d: number;
+  indulgence_spend_cents_30d: number;
   lifestyle_spend_cents_30d: number;
   chequing_balance_cents: number;
   avg_daily_burn_cents: number;
@@ -11,19 +11,19 @@ export interface BehaviourInputs {
   subs_3mo_avg_cents: number;
   savings_7d_cents: number;
   savings_prior_7d_cents: number;
-  vice_by_weekday_cents: number[]; // length 7, Sunday = 0
+  indulgence_by_weekday_cents: number[]; // length 7, Sunday = 0
   oldest_unresolved_review_created_at: string | null;
   reconciliation_streak: number;
 }
 
 export interface BehaviourSnapshot {
   as_of: string;
-  vice_ratio_bps: number;
+  indulgence_ratio_bps: number;
   days_to_zero: number;
   cc_payoff_streak: number;
   subscription_creep_pct_bps: number;
   savings_increased_bool: number;
-  vice_peak_day: number;
+  indulgence_peak_day: number;
   review_queue_lag_days: number;
   reconciliation_streak: number;
 }
@@ -35,8 +35,9 @@ function daysBetween(a: string, b: string): number {
 }
 
 export function computeBehaviour(i: BehaviourInputs): BehaviourSnapshot {
-  const viceDenom = i.vice_spend_cents_30d + i.lifestyle_spend_cents_30d;
-  const vice_ratio_bps = viceDenom === 0 ? 0 : Math.round((i.vice_spend_cents_30d / viceDenom) * 10_000);
+  const denom = i.indulgence_spend_cents_30d + i.lifestyle_spend_cents_30d;
+  const indulgence_ratio_bps =
+    denom === 0 ? 0 : Math.round((i.indulgence_spend_cents_30d / denom) * 10_000);
 
   const days_to_zero =
     i.avg_daily_burn_cents <= 0 ? 9999 : Math.max(0, Math.floor(i.chequing_balance_cents / i.avg_daily_burn_cents));
@@ -50,8 +51,8 @@ export function computeBehaviour(i: BehaviourInputs): BehaviourSnapshot {
 
   let peakIdx = 0;
   let peakVal = -1;
-  for (let d = 0; d < i.vice_by_weekday_cents.length; d++) {
-    const v = i.vice_by_weekday_cents[d] ?? 0;
+  for (let d = 0; d < i.indulgence_by_weekday_cents.length; d++) {
+    const v = i.indulgence_by_weekday_cents[d] ?? 0;
     if (v > peakVal) {
       peakVal = v;
       peakIdx = d;
@@ -62,12 +63,12 @@ export function computeBehaviour(i: BehaviourInputs): BehaviourSnapshot {
 
   return {
     as_of: i.as_of,
-    vice_ratio_bps,
+    indulgence_ratio_bps,
     days_to_zero,
     cc_payoff_streak: i.cc_payoff_streak,
     subscription_creep_pct_bps: creep,
     savings_increased_bool,
-    vice_peak_day: peakIdx,
+    indulgence_peak_day: peakIdx,
     review_queue_lag_days: lag,
     reconciliation_streak: i.reconciliation_streak,
   };

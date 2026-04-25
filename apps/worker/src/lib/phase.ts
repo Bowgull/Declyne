@@ -66,9 +66,9 @@ export async function gatherPhaseInputs(env: Env): Promise<PhaseInputs> {
   const buffer_months_essentials = essentialsMonthly <= 0 ? 0 : liquid / essentialsMonthly;
 
   const snapRow = await env.DB.prepare(
-    `SELECT vice_ratio_bps FROM behaviour_snapshots ORDER BY as_of DESC LIMIT 1`,
-  ).first<{ vice_ratio_bps: number }>();
-  const vice_ratio_trailing_30d = snapRow ? (snapRow.vice_ratio_bps ?? 0) / 10_000 : 1.0;
+    `SELECT indulgence_ratio_bps FROM behaviour_snapshots ORDER BY as_of DESC LIMIT 1`,
+  ).first<{ indulgence_ratio_bps: number }>();
+  const indulgence_ratio_trailing_30d = snapRow ? (snapRow.indulgence_ratio_bps ?? 0) / 10_000 : 1.0;
 
   return {
     current_phase,
@@ -79,7 +79,7 @@ export async function gatherPhaseInputs(env: Env): Promise<PhaseInputs> {
     utilization_under_30_streak_statements,
     on_time_streak_days,
     buffer_months_essentials,
-    vice_ratio_trailing_30d,
+    indulgence_ratio_trailing_30d,
   };
 }
 

@@ -38,7 +38,7 @@ export const merchants = sqliteTable('merchants', {
 export const categories = sqliteTable('categories', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  group: text('group', { enum: ['essentials', 'lifestyle', 'vice', 'income', 'transfer', 'debt'] }).notNull(),
+  group: text('group', { enum: ['essentials', 'lifestyle', 'indulgence', 'income', 'transfer', 'debt'] }).notNull(),
   parent_id: text('parent_id'),
 });
 
@@ -210,12 +210,12 @@ export const phase_log = sqliteTable('phase_log', {
 export const behaviour_snapshots = sqliteTable('behaviour_snapshots', {
   id: text('id').primaryKey(),
   as_of: text('as_of').notNull(),
-  vice_ratio_bps: integer('vice_ratio_bps').notNull(),
+  indulgence_ratio_bps: integer('indulgence_ratio_bps').notNull(),
   days_to_zero: integer('days_to_zero').notNull(),
   cc_payoff_streak: integer('cc_payoff_streak').notNull(),
   subscription_creep_pct_bps: integer('subscription_creep_pct_bps').notNull(),
   savings_increased_bool: integer('savings_increased_bool').notNull(),
-  vice_peak_day: integer('vice_peak_day').notNull(),
+  indulgence_peak_day: integer('indulgence_peak_day').notNull(),
   review_queue_lag_days: integer('review_queue_lag_days').notNull(),
   reconciliation_streak: integer('reconciliation_streak').notNull(),
 });

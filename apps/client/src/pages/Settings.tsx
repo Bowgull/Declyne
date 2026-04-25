@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { scheduleAllNotifications } from '../native/notifications';
+import LedgerHeader from '../components/LedgerHeader';
 
 type Account = {
   id: string;
@@ -20,6 +21,16 @@ type CronRun = {
   status: string;
   detail: string | null;
 };
+
+const NAV_ITEMS: Array<{ to: string; label: string; hint: string }> = [
+  { to: '/settings/accounts', label: 'Accounts', hint: 'institutions, types, archive' },
+  { to: '/settings/merchants', label: 'Merchants', hint: 'verify + recategorize' },
+  { to: '/settings/credit', label: 'Credit snapshots', hint: 'score, utilization, on-time' },
+  { to: '/settings/cc-statements', label: 'CC statements', hint: 'per-cycle balances + due' },
+  { to: '/goals', label: 'Goals', hint: 'targets + progress' },
+  { to: '/holdings', label: 'Holdings', hint: 'lots, wrappers, costs' },
+  { to: '/onboarding', label: 'Re-run onboarding', hint: '5 steps, skippable' },
+];
 
 export default function Settings() {
   const qc = useQueryClient();
@@ -80,165 +91,176 @@ export default function Settings() {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <Link to="/today" className="btn-outline">Done</Link>
-      </header>
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker="§ SETTINGS"
+        title="Settings"
+        action={<Link to="/today" className="stamp">Done</Link>}
+      />
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Data</h2>
-        <Link to="/settings/accounts" className="btn-outline text-center">
-          Accounts
-        </Link>
-        <Link to="/settings/merchants" className="btn-outline text-center">
-          Merchants
-        </Link>
-        <Link to="/settings/credit" className="btn-outline text-center">
-          Credit snapshots
-        </Link>
-        <Link to="/settings/cc-statements" className="btn-outline text-center">
-          CC statements
-        </Link>
-        <Link to="/goals" className="btn-outline text-center">
-          Goals
-        </Link>
-        <Link to="/holdings" className="btn-outline text-center">
-          Holdings
-        </Link>
-        <Link to="/onboarding" className="btn-outline text-center">
-          Re-run onboarding
-        </Link>
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">01</span>Data</span>
+        {NAV_ITEMS.map((it) => (
+          <Link key={it.to} to={it.to} className="ledger-row tap">
+            <div className="ledger-row-main">
+              <span className="ledger-row-label">{it.label}</span>
+              <span className="ledger-row-hint">{it.hint}</span>
+            </div>
+            <span className="ledger-row-chevron">&rsaquo;</span>
+          </Link>
+        ))}
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Paycheque detection</h2>
-        <p className="text-sm text-[color:var(--color-text-muted)]">
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">02</span>Paycheque detection</span>
+        <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Anchors pay periods to real deposits. Runs after every CSV import.
         </p>
 
-        <label className="field-label">Source account</label>
-        <select
-          className="field"
-          value={sourceId}
-          onChange={(e) => setSourceId(e.target.value)}
-        >
-          <option value="">Not set</option>
-          {(accounts.data?.accounts ?? [])
-            .filter((a) => a.archived === 0 && a.type === 'chequing')
-            .map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.institution} · {a.name}
-              </option>
-            ))}
-        </select>
+        <div className="flex flex-col gap-3 pb-4">
+          <label className="field-label">Source account</label>
+          <select
+            className="field"
+            value={sourceId}
+            onChange={(e) => setSourceId(e.target.value)}
+          >
+            <option value="">Not set</option>
+            {(accounts.data?.accounts ?? [])
+              .filter((a) => a.archived === 0 && a.type === 'chequing')
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.institution} · {a.name}
+                </option>
+              ))}
+          </select>
 
-        <label className="field-label">Description pattern (substring, case-insensitive)</label>
-        <input
-          className="field"
-          value={pattern}
-          onChange={(e) => setPattern(e.target.value)}
-          placeholder="PAYROLL"
-        />
+          <label className="field-label">Description pattern (substring, case-insensitive)</label>
+          <input
+            className="field"
+            value={pattern}
+            onChange={(e) => setPattern(e.target.value)}
+            placeholder="PAYROLL"
+          />
 
-        <label className="field-label">Minimum deposit (cents)</label>
-        <input
-          className="field"
-          inputMode="numeric"
-          value={minCents}
-          onChange={(e) => setMinCents(e.target.value.replace(/\D/g, ''))}
-          placeholder="100000"
-        />
+          <label className="field-label">Minimum deposit (cents)</label>
+          <input
+            className="field"
+            inputMode="numeric"
+            value={minCents}
+            onChange={(e) => setMinCents(e.target.value.replace(/\D/g, ''))}
+            placeholder="100000"
+          />
 
-        <label className="field-label">Fallback period length (days)</label>
-        <input
-          className="field"
-          inputMode="numeric"
-          value={fallbackDays}
-          onChange={(e) => setFallbackDays(e.target.value.replace(/\D/g, ''))}
-          placeholder="14"
-        />
+          <label className="field-label">Fallback period length (days)</label>
+          <input
+            className="field"
+            inputMode="numeric"
+            value={fallbackDays}
+            onChange={(e) => setFallbackDays(e.target.value.replace(/\D/g, ''))}
+            placeholder="14"
+          />
 
-        <div className="flex gap-2">
-          <button className="btn-primary flex-1" onClick={savePaycheque} disabled={saving}>
-            {saving ? 'Saving.' : 'Save'}
-          </button>
-          <button className="btn-outline flex-1" onClick={detectNow}>
-            Detect now
-          </button>
+          <div className="flex gap-2 pt-2">
+            <button className="btn-primary flex-1" onClick={savePaycheque} disabled={saving}>
+              {saving ? 'Saving.' : 'Save'}
+            </button>
+            <button className="stamp flex-1" onClick={detectNow}>
+              Detect now
+            </button>
+          </div>
+          {savedAt && (
+            <p className="text-xs text-[color:var(--color-text-muted)]">Last action at {savedAt}</p>
+          )}
         </div>
-        {savedAt && (
-          <p className="text-xs text-[color:var(--color-text-muted)]">Last action at {savedAt}</p>
-        )}
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">System</h2>
-        <Link to="/phase" className="btn-outline text-center">
-          Phase journey
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">03</span>System</span>
+        <Link to="/phase" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Phase journey</span>
+            <span className="ledger-row-hint">5 steps, current ringed</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
-        <Link to="/reconcile" className="btn-outline text-center">
-          Reconciliation
+        <Link to="/reconcile" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Reconciliation</span>
+            <span className="ledger-row-hint">walk the week, seal it</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
         <Row k="Current phase" v={s.current_phase ?? '—'} />
         <Row k="Merchant norm version" v={s.merchant_norm_version ?? '—'} />
         <Row k="Reconciliation streak" v={s.reconciliation_streak ?? '0'} />
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Notifications</h2>
-        <p className="text-sm text-[color:var(--color-text-muted)]">
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">04</span>Notifications</span>
+        <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Sunday 9am reconciliation. Tuesday 9am follow-up if Sunday was skipped.
         </p>
-        <button className="btn-outline" onClick={() => scheduleAllNotifications()}>
-          Re-schedule notifications
-        </button>
+        <div className="pb-4">
+          <button className="stamp" onClick={() => scheduleAllNotifications()}>
+            Re-schedule notifications
+          </button>
+        </div>
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Cron runs</h2>
-        <p className="text-sm text-[color:var(--color-text-muted)]">
-          Nightly signals compute at 08:00 UTC. Last 5 shown.
-        </p>
-        {cronRuns.data?.runs.length ? (
-          <ul className="flex flex-col gap-2">
-            {cronRuns.data.runs.map((r) => (
-              <li key={r.id} className="flex items-start justify-between gap-2 text-sm">
-                <div className="flex flex-col">
-                  <span className="num">{new Date(r.started_at).toLocaleString('en-CA')}</span>
-                  <span className="text-xs text-[color:var(--color-text-muted)]">
-                    {r.job}{r.detail ? ` · ${r.detail}` : ''}
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">05</span>Cron runs</span>
+        <span className="ledger-section-meta">last 5</span>
+        <div className="pt-3 pb-1">
+          {cronRuns.data?.runs.length ? (
+            <ul className="flex flex-col">
+              {cronRuns.data.runs.map((r) => (
+                <li key={r.id} className="ledger-row">
+                  <div className="ledger-row-main">
+                    <span className="ledger-row-label" style={{ fontSize: 13 }}>
+                      {new Date(r.started_at).toLocaleString('en-CA')}
+                    </span>
+                    <span className="ledger-row-hint">
+                      {r.job}{r.detail ? ` · ${r.detail}` : ''}
+                    </span>
+                  </div>
+                  <span
+                    className="ledger-row-value"
+                    style={{
+                      color:
+                        r.status === 'ok'
+                          ? 'var(--color-ok)'
+                          : 'var(--color-danger)',
+                    }}
+                  >
+                    {r.status}
                   </span>
-                </div>
-                <span
-                  className={
-                    r.status === 'ok'
-                      ? 'text-xs text-[color:var(--color-text-muted)]'
-                      : 'text-xs text-[color:var(--color-danger,#b00)]'
-                  }
-                >
-                  {r.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No runs logged yet.</p>
-        )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-[color:var(--color-text-muted)]">No runs logged yet.</p>
+          )}
+        </div>
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Audit</h2>
-        <Link to="/settings/edit-log" className="btn-outline text-center">
-          View edit log
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">06</span>Audit</span>
+        <Link to="/settings/edit-log" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">View edit log</span>
+            <span className="ledger-row-hint">every mutation, every actor</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">Export</h2>
-        <a className="btn-outline text-center" href={`${api.baseUrl}/api/export`}>
-          Download sectioned CSV
-        </a>
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">07</span>Export</span>
+        <div className="pt-3 pb-2">
+          <a className="stamp" href={`${api.baseUrl}/api/export`}>
+            Download sectioned CSV
+          </a>
+        </div>
       </section>
     </div>
   );
@@ -246,9 +268,9 @@ export default function Settings() {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-[color:var(--color-text-muted)]">{k}</span>
-      <span className="num">{v}</span>
+    <div className="ledger-row">
+      <span className="ledger-row-label" style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{k}</span>
+      <span className="ledger-row-value" style={{ color: 'var(--color-text-primary)' }}>{v}</span>
     </div>
   );
 }

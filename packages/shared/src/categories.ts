@@ -1,4 +1,4 @@
-export const CATEGORY_GROUPS = ['essentials', 'lifestyle', 'vice', 'income', 'transfer', 'debt'] as const;
+export const CATEGORY_GROUPS = ['essentials', 'lifestyle', 'indulgence', 'income', 'transfer', 'debt'] as const;
 export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
 export const DEFAULT_CATEGORIES: Array<{ name: string; group: CategoryGroup }> = [
@@ -18,9 +18,9 @@ export const DEFAULT_CATEGORIES: Array<{ name: string; group: CategoryGroup }> =
   { name: 'Travel', group: 'lifestyle' },
   { name: 'Fitness', group: 'lifestyle' },
 
-  { name: 'Alcohol', group: 'vice' },
-  { name: 'Cannabis', group: 'vice' },
-  { name: 'Takeout', group: 'vice' },
+  { name: 'Alcohol', group: 'indulgence' },
+  { name: 'Cannabis', group: 'indulgence' },
+  { name: 'Takeout', group: 'indulgence' },
 
   { name: 'Paycheque', group: 'income' },
   { name: 'Side income', group: 'income' },

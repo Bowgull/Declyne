@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import LedgerHeader from '../components/LedgerHeader';
 
 interface RoutingRow {
   id: string;
@@ -41,43 +42,40 @@ export default function Routing() {
   const total = rows.reduce((sum, r) => sum + r.amount_cents, 0);
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">The Plan</h1>
-          <p className="text-sm text-[color:var(--color-text-muted)]">
-            {period
-              ? `${period.start_date} → ${period.end_date} · ${formatCents(period.paycheque_cents)}`
-              : 'No pay period yet'}
-          </p>
-        </div>
-        <Link to="/budget" className="btn-outline">Back</Link>
-      </header>
+    <div className="ledger-page">
+      <LedgerHeader
+        kicker="§ THE PLAN"
+        title="The Plan"
+        subtitle={
+          period
+            ? `${period.start_date} → ${period.end_date} · ${formatCents(period.paycheque_cents)}`
+            : 'No pay period yet'
+        }
+        action={<Link to="/budget" className="stamp">Back</Link>}
+      />
 
       {period && (
-        <button
-          className="btn-outline"
-          onClick={() => generate.mutate()}
-          disabled={generate.isPending}
-        >
-          {generate.isPending ? 'Building…' : 'Rebuild the plan'}
-        </button>
+        <div className="pb-4">
+          <button
+            className="stamp stamp-purple"
+            onClick={() => generate.mutate()}
+            disabled={generate.isPending}
+          >
+            {generate.isPending ? 'Building…' : 'Rebuild the plan'}
+          </button>
+        </div>
       )}
 
       {!period && (
-        <section className="card">
-          <p className="text-sm text-[color:var(--color-text-muted)]">
-            Import a pay deposit to build a plan.
-          </p>
-        </section>
+        <p className="text-sm text-[color:var(--color-text-muted)] py-4">
+          Import a pay deposit to build a plan.
+        </p>
       )}
 
       {period && rows.length === 0 && (
-        <section className="card">
-          <p className="text-sm text-[color:var(--color-text-muted)]">
-            No plan yet. Tap Rebuild.
-          </p>
-        </section>
+        <p className="text-sm text-[color:var(--color-text-muted)] py-4">
+          No plan yet. Tap Rebuild.
+        </p>
       )}
 
       <ul className="flex flex-col gap-3">
@@ -114,12 +112,15 @@ export default function Routing() {
       </ul>
 
       {rows.length > 0 && period && (
-        <section className="card">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-[color:var(--color-text-muted)]">Planned</span>
-            <span className="num">{formatCents(total)} / {formatCents(period.paycheque_cents)}</span>
+        <div className="ledger-section">
+          <span className="ledger-section-kicker"><span className="num">Σ</span>Planned</span>
+          <div className="ledger-row">
+            <span className="ledger-row-label" style={{ color: 'var(--color-text-muted)' }}>Total routed</span>
+            <span className="ledger-row-value" style={{ color: 'var(--color-text-primary)', fontSize: 14 }}>
+              {formatCents(total)} / {formatCents(period.paycheque_cents)}
+            </span>
           </div>
-        </section>
+        </div>
       )}
     </div>
   );

@@ -29,7 +29,7 @@ type WeekResponse = {
     income_cents: number;
     essentials_cents: number;
     lifestyle_cents: number;
-    vice_cents: number;
+    indulgence_cents: number;
     debt_cents: number;
     transfer_cents: number;
     uncategorized_cents: number;
@@ -134,16 +134,16 @@ export default function Reconciliation() {
           <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] mb-2">
             Summary
           </div>
-          <SummaryRow label="Income" value={totals.income_cents} sign="in" />
-          <SummaryRow label="Essentials" value={totals.essentials_cents} sign="out" />
-          <SummaryRow label="Lifestyle" value={totals.lifestyle_cents} sign="out" />
-          <SummaryRow label="Vice" value={totals.vice_cents} sign="out" emphasize={totals.vice_cents > 0} />
-          <SummaryRow label="Debt" value={totals.debt_cents} sign="out" />
+          <SummaryRow label="Income" value={totals.income_cents} sign="in" hue="income" />
+          <SummaryRow label="Essentials" value={totals.essentials_cents} sign="out" hue="essentials" />
+          <SummaryRow label="Lifestyle" value={totals.lifestyle_cents} sign="out" hue="lifestyle" />
+          <SummaryRow label="Indulgence" value={totals.indulgence_cents} sign="out" hue="indulgence" />
+          <SummaryRow label="Debt" value={totals.debt_cents} sign="out" hue="debt" />
           {totals.transfer_cents > 0 && (
-            <SummaryRow label="Transfer" value={totals.transfer_cents} sign="out" />
+            <SummaryRow label="Transfer" value={totals.transfer_cents} sign="out" hue="savings" />
           )}
           {totals.uncategorized_cents > 0 && (
-            <SummaryRow label="Uncategorized" value={totals.uncategorized_cents} sign="out" />
+            <SummaryRow label="Uncategorized" value={totals.uncategorized_cents} sign="out" hue="uncategorized" />
           )}
           <div className="mt-2 flex items-baseline justify-between text-xs uppercase tracking-[0.14em]">
             <span className="text-[color:var(--color-text-muted)]">Net</span>
@@ -152,7 +152,7 @@ export default function Reconciliation() {
                 totals.income_cents -
                   totals.essentials_cents -
                   totals.lifestyle_cents -
-                  totals.vice_cents -
+                  totals.indulgence_cents -
                   totals.debt_cents -
                   totals.transfer_cents -
                   totals.uncategorized_cents,
@@ -211,20 +211,42 @@ export default function Reconciliation() {
   );
 }
 
+type Hue = 'income' | 'essentials' | 'lifestyle' | 'indulgence' | 'debt' | 'savings' | 'uncategorized';
+
+function hueFor(group: string | null): Hue {
+  switch (group) {
+    case 'income':
+      return 'income';
+    case 'essentials':
+      return 'essentials';
+    case 'lifestyle':
+      return 'lifestyle';
+    case 'indulgence':
+      return 'indulgence';
+    case 'debt':
+      return 'debt';
+    case 'transfer':
+      return 'savings';
+    default:
+      return 'uncategorized';
+  }
+}
+
 function SummaryRow({
   label,
   value,
   sign,
-  emphasize,
+  hue,
 }: {
   label: string;
   value: number;
   sign: 'in' | 'out';
-  emphasize?: boolean;
+  hue: Hue;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5">
-      <span className={`text-sm ${emphasize ? 'text-[color:var(--color-accent)]' : ''}`}>
+      <span className="text-sm flex items-center gap-2">
+        <span className={`cat-dot ${hue}`} />
         {label}
       </span>
       <span className="num text-sm">
@@ -237,17 +259,20 @@ function SummaryRow({
 
 function LineItem({ t }: { t: Txn }) {
   const isIncome = t.amount_cents > 0;
-  const isVice = t.category_group === 'vice';
+  const hue = hueFor(t.category_group);
   return (
     <div className="flex items-baseline justify-between gap-3 text-xs">
-      <div className="min-w-0 flex-1">
-        <div className="truncate">{t.merchant_name}</div>
-        <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
-          {t.account_name}
-          {t.category_name ? ` · ${t.category_name}` : ' · uncategorized'}
+      <div className="min-w-0 flex-1 flex items-baseline gap-2">
+        <span className={`cat-dot ${hue}`} style={{ marginTop: 4 }} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{t.merchant_name}</div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
+            {t.account_name}
+            {t.category_name ? ` · ${t.category_name}` : ' · uncategorized'}
+          </div>
         </div>
       </div>
-      <div className={`num shrink-0 ${isVice ? 'text-[color:var(--color-accent)]' : ''}`}>
+      <div className="num shrink-0">
         {isIncome ? '+' : '−'}
         {formatCents(Math.abs(t.amount_cents))}
       </div>
