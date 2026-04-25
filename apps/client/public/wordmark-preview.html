@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wordmark system preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=DM+Serif+Display&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0c11;
+    --ink: #f2ece0;
+    --muted: #8a8378;
+    --rule: rgba(255,255,255,0.08);
+    --waymark-gold: #E8C860;
+    --declyne-purple: #6b5a9e;
+    --declyne-purple-soft: #9a8bc4;
+    --sygnalist-green: #6AD7A3;
+    --bridgefour-gold: #c9a961;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 64px 32px 96px;
+  }
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  .kicker {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 48px;
+  }
+  .row {
+    border-top: 1px solid var(--rule);
+    padding: 56px 0 48px;
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+  .row:last-child { border-bottom: 1px solid var(--rule); }
+  .label {
+    font-family: ui-monospace, 'SF Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .label .hex {
+    display: block;
+    margin-top: 6px;
+    color: var(--ink);
+    opacity: 0.5;
+  }
+  .wordmark {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    line-height: 1;
+  }
+  .tail {
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  /* Waymark */
+  .wm-tail {
+    font-family: 'Cinzel', serif;
+    font-size: 38px;
+    letter-spacing: 0.04em;
+  }
+  .wm-glyph {
+    fill: var(--waymark-gold);
+    width: 44px; height: 36px;
+    position: relative; top: 4px;
+  }
+
+  /* Declyne */
+  .dc-tail {
+    font-family: 'Fraunces', serif;
+    font-size: 42px;
+    letter-spacing: 0.01em;
+    font-weight: 600;
+    text-transform: none;
+  }
+  .dc-glyph {
+    fill: var(--declyne-purple);
+    width: 38px; height: 42px;
+    position: relative; top: 2px;
+  }
+  .dc-glyph .perf { stroke: var(--declyne-purple-soft); }
+
+  /* Sygnalist */
+  .sg-tail {
+    font-family: 'DM Serif Display', serif;
+    font-size: 40px;
+    letter-spacing: 0.01em;
+    text-transform: none;
+  }
+  .sg-glyph {
+    fill: none;
+    stroke: var(--sygnalist-green);
+    stroke-width: 6;
+    width: 36px; height: 42px;
+    position: relative; top: 2px;
+  }
+
+  /* Bridgefour */
+  .bf-tail {
+    font-family: 'Cinzel', serif;
+    font-size: 36px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .bf-glyph {
+    fill: var(--bridgefour-gold);
+    width: 34px; height: 40px;
+    position: relative; top: 3px;
+  }
+
+  .notes {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    grid-column: 2;
+  }
+
+  /* big preview at top */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    padding: 32px 0 48px;
+  }
+  .hero .wordmark { gap: 2px; }
+  .hero .wm-glyph { width: 60px; height: 50px; top: 6px; }
+  .hero .wm-tail { font-size: 56px; }
+  .hero .dc-glyph { width: 56px; height: 60px; top: 4px; }
+  .hero .dc-tail { font-size: 60px; }
+  .hero .sg-glyph { width: 50px; height: 60px; top: 4px; stroke-width: 7; }
+  .hero .sg-tail { font-size: 56px; }
+  .hero .bf-glyph { width: 48px; height: 56px; top: 4px; }
+  .hero .bf-tail { font-size: 50px; }
+</style>
+</head>
+<body>
+  <main class="page">
+    <h1>Wordmark family</h1>
+    <p class="kicker">Waymark · Declyne · Sygnalist · Bridgefour</p>
+
+    <section class="hero">
+      <!-- WAYMARK -->
+      <div class="wordmark">
+        <svg class="wm-glyph" viewBox="0 0 40 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M0 3 L1.5 0 L7 3 L7 5 L14 30 L20 12 L26 30 L33 5 L33 3 L38.5 0 L40 3 L38 5 L30 32 L26 32 L20 16 L14 32 L10 32 L2 5 Z" />
+        </svg>
+        <span class="wm-tail tail">aymark</span>
+      </div>
+
+      <!-- DECLYNE -->
+      <div class="wordmark">
+        <svg class="dc-glyph" viewBox="0 0 38 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- High-contrast serif D, slab-ish, with horizontal perforation across the counter -->
+          <!-- Outer shape -->
+          <path d="
+            M2 2
+            L20 2
+            C 32 2, 36 12, 36 22
+            C 36 32, 32 42, 20 42
+            L2 42
+            L2 38
+            L6 38
+            L6 6
+            L2 6
+            Z
+            M11 6
+            L11 38
+            L19 38
+            C 27 38, 30 30, 30 22
+            C 30 14, 27 6, 19 6
+            Z
+          " fill-rule="evenodd"/>
+          <!-- Perforation hairline across the counter (receipt motif) -->
+          <line class="perf" x1="13" y1="22" x2="28" y2="22" stroke-width="1.2" stroke-dasharray="2 2"/>
+        </svg>
+        <span class="dc-tail tail">eclyne</span>
+      </div>
+
+      <!-- SYGNALIST -->
+      <div class="wordmark">
+        <svg class="sg-glyph" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- Stroke S with flatline signal ticks at top-right and bottom-left terminals -->
+          <path d="
+            M30 9
+            C 28 4, 22 3, 16 3
+            C 9 3, 4 6, 4 12
+            C 4 18, 10 20, 17 22
+            C 25 24, 32 26, 32 32
+            C 32 38, 26 41, 18 41
+            C 11 41, 5 39, 3 34
+          " stroke-linecap="round" />
+          <!-- Top-right flatline tick -->
+          <line x1="30" y1="9" x2="36" y2="9" stroke-linecap="round" stroke-width="3" />
+          <!-- Bottom-left flatline tick -->
+          <line x1="3" y1="34" x2="0" y2="34" stroke-linecap="round" stroke-width="3" />
+        </svg>
+        <span class="sg-tail tail">ygnalist</span>
+      </div>
+
+      <!-- BRIDGEFOUR -->
+      <div class="wordmark">
+        <svg class="bf-glyph" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- Geometric serif B with 4 horizontal strut ticks on the spine inside the counters -->
+          <!-- Outer B path with two bowls -->
+          <path d="
+            M3 2
+            L18 2
+            C 26 2, 30 6, 30 11
+            C 30 16, 26 19, 22 20
+            C 27 21, 32 24, 32 30
+            C 32 36, 28 40, 19 40
+            L3 40
+            L3 36
+            L7 36
+            L7 6
+            L3 6
+            Z
+            M12 6
+            L12 18
+            L18 18
+            C 22 18, 24 15, 24 12
+            C 24 8, 22 6, 18 6
+            Z
+            M12 22
+            L12 36
+            L19 36
+            C 24 36, 26 33, 26 29
+            C 26 25, 24 22, 19 22
+            Z
+          " fill-rule="evenodd"/>
+          <!-- Four strut ticks on the spine, two per counter -->
+          <rect x="9" y="9"  width="2" height="1.4"/>
+          <rect x="9" y="14" width="2" height="1.4"/>
+          <rect x="9" y="26" width="2" height="1.4"/>
+          <rect x="9" y="32" width="2" height="1.4"/>
+        </svg>
+        <span class="bf-tail tail">ridgefour</span>
+      </div>
+    </section>
+
+    <section style="margin-top:24px">
+      <div class="row">
+        <div class="label">Waymark<span class="hex">#E8C860</span></div>
+        <div>
+          <div class="wordmark">
+            <svg class="wm-glyph" viewBox="0 0 40 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M0 3 L1.5 0 L7 3 L7 5 L14 30 L20 12 L26 30 L33 5 L33 3 L38.5 0 L40 3 L38 5 L30 32 L26 32 L20 16 L14 32 L10 32 L2 5 Z" />
+            </svg>
+            <span class="wm-tail tail">aymark</span>
+          </div>
+          <p class="notes">Existing. Custom W with winged serif tips. Cinzel tail, uppercase, tracked. Reference for the system.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">Declyne<span class="hex">#6b5a9e</span></div>
+        <div>
+          <div class="wordmark">
+            <svg class="dc-glyph" viewBox="0 0 38 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M2 2 L20 2 C 32 2, 36 12, 36 22 C 36 32, 32 42, 20 42 L2 42 L2 38 L6 38 L6 6 L2 6 Z M11 6 L11 38 L19 38 C 27 38, 30 30, 30 22 C 30 14, 27 6, 19 6 Z" fill-rule="evenodd"/>
+              <line class="perf" x1="13" y1="22" x2="28" y2="22" stroke-width="1.2" stroke-dasharray="2 2"/>
+            </svg>
+            <span class="dc-tail tail">eclyne</span>
+          </div>
+          <p class="notes">Custom D with a dashed perforation crossing the counter (echoes the receipt-motif perforations already used in Declyne). Mascot purple. Fraunces tail, mixed case to match the existing &ldquo;Declyne&rdquo; word treatment.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">Sygnalist<span class="hex">#6AD7A3</span></div>
+        <div>
+          <div class="wordmark">
+            <svg class="sg-glyph" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M30 9 C 28 4, 22 3, 16 3 C 9 3, 4 6, 4 12 C 4 18, 10 20, 17 22 C 25 24, 32 26, 32 32 C 32 38, 26 41, 18 41 C 11 41, 5 39, 3 34" stroke-linecap="round" />
+              <line x1="30" y1="9" x2="36" y2="9" stroke-linecap="round" stroke-width="3" />
+              <line x1="3" y1="34" x2="0" y2="34" stroke-linecap="round" stroke-width="3" />
+            </svg>
+            <span class="sg-tail tail">ygnalist</span>
+          </div>
+          <p class="notes">Custom S drawn as a single curved stroke with two small flatline ticks extending past the terminals (signal pulse / monitor read). Radar green. DM Serif Display tail (proposed display font for Sygnalist — high-contrast modern serif).</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="label">Bridgefour<span class="hex">#c9a961</span></div>
+        <div>
+          <div class="wordmark">
+            <svg class="bf-glyph" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3 2 L18 2 C 26 2, 30 6, 30 11 C 30 16, 26 19, 22 20 C 27 21, 32 24, 32 30 C 32 36, 28 40, 19 40 L3 40 L3 36 L7 36 L7 6 L3 6 Z M12 6 L12 18 L18 18 C 22 18, 24 15, 24 12 C 24 8, 22 6, 18 6 Z M12 22 L12 36 L19 36 C 24 36, 26 33, 26 29 C 26 25, 24 22, 19 22 Z" fill-rule="evenodd"/>
+              <rect x="9" y="9"  width="2" height="1.4"/>
+              <rect x="9" y="14" width="2" height="1.4"/>
+              <rect x="9" y="26" width="2" height="1.4"/>
+              <rect x="9" y="32" width="2" height="1.4"/>
+            </svg>
+            <span class="bf-tail tail">ridgefour</span>
+          </div>
+          <p class="notes">Custom B with four horizontal strut ticks on the spine (= bridge deck supports, the &ldquo;four&rdquo; reference). Muted gold &mdash; site neutral, distinct from Waymark&rsquo;s brighter gold. Cinzel tail, uppercase, tracked.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
