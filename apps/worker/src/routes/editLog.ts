@@ -17,6 +17,7 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'credit_snapshot',
   'holding',
   'cc_statement_snapshot',
+  'reconciliation',
 ]);
 
 export function clampLimit(raw: string | undefined, fallback = 50, max = 500): number {

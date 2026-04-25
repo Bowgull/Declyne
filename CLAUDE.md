@@ -13,10 +13,11 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - D1 database: `declyne` (`0893ada8-cbdb-4b3c-896c-c93c792023f1`)
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
+- Latest worker version: `54ed0e21-0195-4a29-b765-6e30a8fc33da`
 
-## Repo state (2026-04-24 handoff, end of session 22)
+## Repo state (2026-04-24 handoff, end of session 23)
 
-Working tree clean after session 22. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 23. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,7 +30,7 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 22, 2026-04-24)
+## What's built (through session 23, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 27-table D1 schema, live and seeded
@@ -42,7 +43,8 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Splits UI in Debts tab: add sheet (counterparty, direction, amount, reason), tap-to-settle sheet (partial or full payment, optional note, posts split_events)
 - Review UI at /review: list items with category dropdown resolve; Today card links here
 - Routing UI at /budget/routing: shows latest pay period plan, regenerate button (avalanche order: min payments by APR descending, any remainder to highest-APR debt), mark-executed per row
-- 2 local notifications: Sunday 9am reconciliation, Tuesday 9am follow-up (anti-scope: no third notification)
+- 2 local notifications: Sunday 9am reconciliation, Tuesday 9am follow-up (anti-scope: no third notification). Wired via `apps/client/src/native/bootstrap.ts` from `main.tsx` on every native boot
+- Sunday reconciliation flow: new worker route `apps/worker/src/routes/reconciliation.ts` — `GET /api/reconciliation/status` returns `{last_reconciliation_at, reconciliation_streak, completed_this_week, week_starts_on}`; `POST /api/reconciliation/complete` is idempotent within the Sun→Sat week (Sunday counts as itself), increments `settings.reconciliation_streak`, sets `settings.last_reconciliation_at` to ISO now, writes 2 edit_log rows under `reconciliation` entity_type. Pure helpers `mostRecentSunday(today)` + `isCompletedThisWeek(lastAt, today)` exported for tests. `reconciliation` added to edit-log allowlist. Today tab gained Reconciliation card (streak count + last date + Mark-done button); on success, client calls `dismissFollowUpThisWeek()` which cancels + reschedules the Tuesday Capacitor LocalNotification
 - Phase engine + behaviour signals (deterministic, shared package)
 - Pay period detection: paycheque-anchored, substring-match + min-cents threshold, auto-runs after CSV import, routes at `/api/periods` (GET, GET /current, POST /detect). Config via settings keys: `paycheque_source_account_id`, `paycheque_pattern`, `paycheque_min_cents`, `paycheque_fallback_days`
 - Behaviour signals compute at `/api/signals/compute`: writes `behaviour_snapshots` row with all 8 signals, deterministic SQL inputs, no GPT math
@@ -76,9 +78,8 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`
-2. **Local notifications wiring** — 2 notifications (Sun 9am, Tue 9am) coded in `apps/client/src/native/notifications.ts` but not yet wired to Capacitor LocalNotifications plugin on iOS
-3. **CC statement snapshot seeding / auto-ingest** — table + UI + streak integration shipped in session 22, but rows are manual-entry only. Later: auto-derive statement rows from CSV import (first CC transaction after statement_date) or a Plaid-style feed if added
+1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install
+2. **CC statement snapshot seeding / auto-ingest** — table + UI + streak integration shipped in session 22, manual reconciliation flow shipped in session 23, but CC statement rows are still manual-entry only. Later: auto-derive statement rows from CSV import (first CC transaction after statement_date) or a Plaid-style feed if added
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
