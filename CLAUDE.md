@@ -14,9 +14,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 
-## Repo state (2026-04-24 handoff, end of session 21)
+## Repo state (2026-04-24 handoff, end of session 22)
 
-Working tree clean after session 21. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree clean after session 22. Sessions 1-8 squashed in `67b52f2`; sessions 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22 each their own commit on top. Multiple commits ahead of `origin/main`, unpushed. Ask before `git push`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -29,10 +29,10 @@ pnpm test             # 42 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 21, 2026-04-24)
+## What's built (through session 22, 2026-04-24)
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
-- 26-table D1 schema, live and seeded
+- 27-table D1 schema, live and seeded
 - All worker routes: accounts, import, phase, budget, debts, splits, investment, review, settings, export, categories, routing, periods, signals
 - Four-tab client: Today / Budget / Debts / Grow + Settings cog
 - Brand system: Tailwind v4 CSS vars, grain, receipt motif with stub perforations (.stub-top/.stub-bottom), .field/.field-label form primitives
@@ -72,12 +72,13 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Phase journey UI: new `apps/client/src/pages/PhaseJourney.tsx` at `/phase` over existing `GET /api/phase/log` route. Three sections: Current (phase number + name + blurb + entered_at + trigger_rule), Path (5-step list, current ringed in accent gold, future steps dimmed), Transitions (per-row phase/name/date/trigger_rule + grouped metrics from metrics_json with vice_ratio + non_mortgage_ratio rendered as %, buffer_months to 2 decimals). Today phase hero card now wraps in `<Link to="/phase">` with "tap for journey" hint. Settings "System" card gains Phase journey link. No new worker code, no edit_log writes, no tests added (pure UI over existing route)
 - Seed adjustments to unlock Grow: `apps/worker/drizzle/seed_test.sql` now sets `current_phase=4` + `phase2_entry_non_mortgage_debt_cents=580500`, wipes + repopulates `phase_log` with a 3-step trail (P1→P2 2026-02-01, P2→P3 2026-03-01, P3→P4 2026-04-24) so `loadCurrentPhase` reads 4. Holdings unit storage corrected: XIU.TO 50→500000, SPY 8→80000 (units stored as actual_units × 10_000 per the 4-decimal scaling convention). Grow tab opens at Phase 4, portfolio renders $6,496 (XIU 50u @ $36.80 = $1,840 +$130, SPY 8u @ $582 = $4,656 +$496)
 - Holdings entry UI: new `apps/worker/src/routes/holdings.ts` with `GET /api/holdings`, `POST /api/holdings`, `PATCH /api/holdings/:id`, `DELETE /api/holdings/:id`. Validates `symbol` (1..20, uppercased), `account_wrapper` in {tfsa,fhsa,rrsp,nonreg}, `units` 1..1e10 (4-decimal scaled int), `avg_cost_cents` 0..1e11. Pure helpers `parseHoldingInput` + `parseHoldingPatch` exported for tests. PATCH bumps `updated_at`. All create/update/delete diffs written to edit_log; `holding` added to edit-log allowlist in `editLog.ts`. Client page `apps/client/src/pages/Holdings.tsx` at `/holdings` — list (symbol, wrapper, units, avg cost), Add sheet (symbol, wrapper select, units 4-decimal, avg cost $), tap-to-edit sheet with Delete button. Linked from Settings "Data" card. Verified live in preview: 2 seeded rows render, programmatic POST went 2→3, PATCH `changed=1`, DELETE returned ok, list back to 2, no console errors. 75 tests pass (61 worker + 14 shared, +8 new). Worker deployed `3042176e-3793-4a8c-95be-2bf48bc598ff`
+- CC statement snapshots: new table `cc_statement_snapshots` (migration `apps/worker/drizzle/0002_cc_statements.sql` applied to remote D1 → 27 tables) with per-cycle rows (debt_id, statement_date, statement_balance_cents, min_payment_cents, due_date, paid_in_full, created_at). New worker route `apps/worker/src/routes/ccStatements.ts` with `GET /api/cc-statements?debt_id=&limit=`, `POST`, `PATCH /:id`, `DELETE /:id`. Pure helpers `parseCcStatementInput` + `parseCcStatementPatch` exported for tests (validates ISO dates, non-negative cents, coerces `paid_in_full` truthy→1). POST validates `debt_id` exists; all mutations write `edit_log` and recompute streaks. `cc_statement_snapshot` added to edit-log allowlist. Streaks upgrade: new pure helper `ccPayoffStreakFromStatements(snapshots, ccDebtIds)` walks per-debt newest-first leading `paid_in_full=1` and aggregates with MIN (any debt with no statements contributes 0, breaking the aggregate streak). `computeAndStoreStreaks` now prefers statement-snapshot streak when any CC debt has ≥1 snapshot row; otherwise falls back to existing pay-period heuristic. Client page `apps/client/src/pages/CcStatements.tsx` at `/settings/cc-statements` — list (card name, statement date, balance, min, due, paid-in-full badge), Add sheet gated to CC-linked debts with card picker + date inputs + balance/min + paid-in-full checkbox, tap-to-edit with Delete. Linked from Settings "Data" card. 11 new tests (86 total: 72 worker + 14 shared). Worker deployed `22ac8e3d-e285-4a15-ae80-6bd3de802879`
 
 ## What's NOT built yet (next session priorities)
 
 1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`
 2. **Local notifications wiring** — 2 notifications (Sun 9am, Tue 9am) coded in `apps/client/src/native/notifications.ts` but not yet wired to Capacitor LocalNotifications plugin on iOS
-3. **CC statement snapshots** — the `cc_payoff_streak` now derives from txn/payment flows per pay period, not from actual CC statement balance history. If later we want "paid statement balance in full within cycle" semantics, we need a new `cc_statement_snapshots` table tracking balance/min-due per cycle
+3. **CC statement snapshot seeding / auto-ingest** — table + UI + streak integration shipped in session 22, but rows are manual-entry only. Later: auto-derive statement rows from CSV import (first CC transaction after statement_date) or a Plaid-style feed if added
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
