@@ -17,6 +17,7 @@ import Holdings from './pages/Holdings';
 import CcStatements from './pages/CcStatements';
 import Onboarding from './pages/Onboarding';
 import PhaseJourney from './pages/PhaseJourney';
+import Reconciliation from './pages/Reconciliation';
 import { api } from './lib/api';
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/holdings" element={<Holdings />} />
           <Route path="/settings/cc-statements" element={<CcStatements />} />
           <Route path="/phase" element={<PhaseJourney />} />
+          <Route path="/reconcile" element={<Reconciliation />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>

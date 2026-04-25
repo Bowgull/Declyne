@@ -37,6 +37,89 @@ async function writeSetting(env: Env, key: string, value: string): Promise<strin
   return prev;
 }
 
+reconciliationRoutes.get('/week', async (c) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = mostRecentSunday(today);
+
+  const txnsRes = await c.env.DB.prepare(
+    `SELECT t.id, t.posted_at, t.amount_cents, t.description_raw,
+            COALESCE(m.display_name, t.description_raw) as merchant_name,
+            a.name as account_name,
+            c.name as category_name,
+            c."group" as category_group
+     FROM transactions t
+     JOIN accounts a ON a.id = t.account_id
+     LEFT JOIN merchants m ON m.id = t.merchant_id
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE date(t.posted_at) >= ? AND date(t.posted_at) <= ?
+     ORDER BY t.posted_at ASC, t.id ASC`,
+  )
+    .bind(weekStart, today)
+    .all<{
+      id: string;
+      posted_at: string;
+      amount_cents: number;
+      description_raw: string;
+      merchant_name: string;
+      account_name: string;
+      category_name: string | null;
+      category_group: string | null;
+    }>();
+
+  const txns = txnsRes.results ?? [];
+  const totals = {
+    income_cents: 0,
+    essentials_cents: 0,
+    lifestyle_cents: 0,
+    vice_cents: 0,
+    debt_cents: 0,
+    transfer_cents: 0,
+    uncategorized_cents: 0,
+    count: txns.length,
+  };
+  for (const t of txns) {
+    if (t.category_group === 'income' && t.amount_cents > 0) {
+      totals.income_cents += t.amount_cents;
+      continue;
+    }
+    if (t.amount_cents >= 0) continue;
+    const spend = -t.amount_cents;
+    switch (t.category_group) {
+      case 'essentials':
+        totals.essentials_cents += spend;
+        break;
+      case 'lifestyle':
+        totals.lifestyle_cents += spend;
+        break;
+      case 'vice':
+        totals.vice_cents += spend;
+        break;
+      case 'debt':
+        totals.debt_cents += spend;
+        break;
+      case 'transfer':
+        totals.transfer_cents += spend;
+        break;
+      default:
+        totals.uncategorized_cents += spend;
+    }
+  }
+
+  const last_at = await readSetting(c.env, 'last_reconciliation_at');
+  const streakRaw = await readSetting(c.env, 'reconciliation_streak');
+  const streak = Number(streakRaw ?? '0') || 0;
+
+  return c.json({
+    week_starts_on: weekStart,
+    today,
+    completed_this_week: isCompletedThisWeek(last_at, today),
+    last_reconciliation_at: last_at,
+    reconciliation_streak: streak,
+    totals,
+    transactions: txns,
+  });
+});
+
 reconciliationRoutes.get('/status', async (c) => {
   const today = new Date().toISOString().slice(0, 10);
   const last_at = await readSetting(c.env, 'last_reconciliation_at');

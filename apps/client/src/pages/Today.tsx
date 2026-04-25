@@ -1,15 +1,13 @@
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
-import { dismissFollowUpThisWeek } from '../native/notifications';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
 };
 
 export default function Today() {
-  const qc = useQueryClient();
   const phase = useQuery({
     queryKey: ['phase'],
     queryFn: () => api.get<{ phase: number; name: string; entered_at: string | null }>('/api/phase'),
@@ -32,14 +30,6 @@ export default function Today() {
         week_starts_on: string;
       }>('/api/reconciliation/status'),
   });
-  const completeReconciliation = useMutation({
-    mutationFn: () => api.post<{ ok: true; reconciliation_streak: number }>('/api/reconciliation/complete', {}),
-    onSuccess: async () => {
-      await dismissFollowUpThisWeek().catch(() => {});
-      qc.invalidateQueries({ queryKey: ['reconciliation-status'] });
-    },
-  });
-
   const today = new Date().toLocaleDateString('en-CA', {
     weekday: 'long',
     year: 'numeric',
@@ -108,35 +98,21 @@ export default function Today() {
           </div>
         </Link>
 
-        <div className="pt-3" style={perforation}>
+        <Link to="/reconcile" className="block pt-3" style={perforation}>
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">Reconciliation</div>
             <div className="num text-base">
-              {reconciliation.data ? `${reconciliation.data.reconciliation_streak} wk` : '--'}
+              {reconciliation.data ? `${reconciliation.data.reconciliation_streak} wk >` : '--'}
             </div>
           </div>
-          <div className="mt-1 flex items-center justify-between gap-3">
-            <div className="text-xs text-[color:var(--color-text-muted)]">
-              {reconciliation.data?.last_reconciliation_at
-                ? `Last ${new Date(reconciliation.data.last_reconciliation_at).toLocaleDateString('en-CA')}`
-                : 'No completions yet.'}
-            </div>
-            <button
-              className="btn-outline text-xs"
-              onClick={() => completeReconciliation.mutate()}
-              disabled={
-                completeReconciliation.isPending ||
-                reconciliation.data?.completed_this_week === true
-              }
-            >
-              {reconciliation.data?.completed_this_week
-                ? 'Done this week'
-                : completeReconciliation.isPending
-                  ? 'Saving.'
-                  : 'Mark done'}
-            </button>
+          <div className="mt-1 text-xs text-[color:var(--color-text-muted)]">
+            {reconciliation.data?.completed_this_week
+              ? 'Sealed for the week. Tap to review.'
+              : reconciliation.data?.last_reconciliation_at
+                ? `Last ${new Date(reconciliation.data.last_reconciliation_at).toLocaleDateString('en-CA')} -> tap to seal this week`
+                : 'Tap to walk the week.'}
           </div>
-        </div>
+        </Link>
 
         <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
           ** End of day **

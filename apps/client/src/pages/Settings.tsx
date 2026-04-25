@@ -177,6 +177,9 @@ export default function Settings() {
         <Link to="/phase" className="btn-outline text-center">
           Phase journey
         </Link>
+        <Link to="/reconcile" className="btn-outline text-center">
+          Reconciliation
+        </Link>
         <Row k="Current phase" v={s.current_phase ?? '—'} />
         <Row k="Merchant norm version" v={s.merchant_norm_version ?? '—'} />
         <Row k="Reconciliation streak" v={s.reconciliation_streak ?? '0'} />
