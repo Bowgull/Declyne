@@ -206,11 +206,29 @@ INSERT OR REPLACE INTO debt_payments (id, debt_id, transaction_id, amount_cents,
   ('dp_c_03','debt_capone','tx_ccp_c_03',6000,'2026-03-25'),
   ('dp_c_04','debt_capone','tx_ccp_c_04',6000,'2026-04-25');
 
--- Bowgull split (update the bootstrap row with real amounts)
-UPDATE splits SET original_cents = 150000, remaining_cents = 120000 WHERE id = 'split_bowgull_mexico';
+-- Counterparties (people you have open tabs with). Three fictional Toronto folks
+-- plus the existing Bowgull Mexico one.
+INSERT OR REPLACE INTO counterparties (id, name, default_settlement_method, archived_at, created_at) VALUES
+  ('cp_bowgull',  'Bowgull',       'etransfer', NULL, '2026-01-15T12:00:00Z'),
+  ('cp_marcus',   'Marcus Chen',   'etransfer', NULL, '2026-04-19T12:00:00Z'),
+  ('cp_priya',    'Priya Shah',    'etransfer', NULL, '2026-04-15T12:00:00Z'),
+  ('cp_diego',    'Diego Alvarez', 'etransfer', NULL, '2026-04-21T12:00:00Z');
+
+-- Bowgull split (update the bootstrap row with real amounts + wire counterparty_id)
+UPDATE splits SET original_cents = 150000, remaining_cents = 120000, counterparty_id = 'cp_bowgull'
+WHERE id = 'split_bowgull_mexico';
 INSERT OR REPLACE INTO split_events (id, split_id, delta_cents, transaction_id, note, created_at) VALUES
   ('se_bg_01','split_bowgull_mexico',-20000,NULL,'etransfer to Bowgull Feb','2026-02-20T12:00:00Z'),
   ('se_bg_02','split_bowgull_mexico',-10000,NULL,'etransfer to Bowgull Mar','2026-03-19T12:00:00Z');
+
+-- Three new fictional splits with Toronto counterparties.
+-- Marcus owes you $47.50 from Lady Marmalade brunch (Leslieville).
+-- You owe Priya $82 from Bar Raval tapas night (Little Italy).
+-- Diego owes you $36 from Golden Turtle dinner-for-two (Ossington).
+INSERT OR REPLACE INTO splits (id, counterparty, counterparty_id, direction, original_cents, remaining_cents, reason, created_at, closed_at) VALUES
+  ('split_marcus_brunch','Marcus Chen','cp_marcus','owes_josh',4750,4750,'Lady Marmalade brunch','2026-04-19T15:30:00Z',NULL),
+  ('split_priya_tapas',  'Priya Shah','cp_priya','josh_owes',  8200,8200,'Bar Raval tapas',       '2026-04-15T22:10:00Z',NULL),
+  ('split_diego_pho',    'Diego Alvarez','cp_diego','owes_josh',3600,3600,'Golden Turtle dinner', '2026-04-21T20:45:00Z',NULL);
 
 -- Credit snapshot
 INSERT OR REPLACE INTO credit_snapshots (id, as_of, score, utilization_bps, on_time_streak_days, source) VALUES

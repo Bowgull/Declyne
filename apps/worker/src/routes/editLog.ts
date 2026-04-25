@@ -18,6 +18,7 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'holding',
   'cc_statement_snapshot',
   'reconciliation',
+  'counterparty',
 ]);
 
 export function clampLimit(raw: string | undefined, fallback = 50, max = 500): number {
