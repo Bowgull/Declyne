@@ -250,16 +250,6 @@ export const cc_statement_snapshots = sqliteTable('cc_statement_snapshots', {
   created_at: text('created_at').notNull(),
 });
 
-export const coach_messages = sqliteTable('coach_messages', {
-  id: text('id').primaryKey(),
-  generated_at: text('generated_at').notNull(),
-  snapshot_id: text('snapshot_id').references(() => behaviour_snapshots.id),
-  phase: integer('phase').notNull(),
-  prompt_hash: text('prompt_hash').notNull(),
-  response_text: text('response_text').notNull(),
-  model: text('model').notNull(),
-});
-
 export const review_queue = sqliteTable('review_queue', {
   id: text('id').primaryKey(),
   transaction_id: text('transaction_id').notNull().references(() => transactions.id),
