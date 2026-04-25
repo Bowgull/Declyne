@@ -142,6 +142,8 @@ allocationsRoutes.post('/', async (c) => {
   return c.json({ id });
 });
 
+const ALLOC_PATCH_FIELDS: ReadonlyArray<keyof AllocPatch> = ['category_group', 'label', 'planned_cents'];
+
 allocationsRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id');
   const patch = parseAllocPatch(await c.req.json().catch(() => null));
@@ -156,16 +158,19 @@ allocationsRoutes.patch('/:id', async (c) => {
   const updates: string[] = [];
   const values: unknown[] = [];
   const logs: Parameters<typeof writeEditLog>[1] = [];
-  for (const [field, val] of Object.entries(patch)) {
-    if ((existing as Record<string, unknown>)[field] === val) continue;
-    updates.push(`${field} = ?`);
-    values.push(val);
+  for (const f of ALLOC_PATCH_FIELDS) {
+    if (patch[f] === undefined) continue;
+    const oldVal = (existing as Record<string, unknown>)[f];
+    const newVal = patch[f] as unknown;
+    if (oldVal === newVal) continue;
+    updates.push(`${f} = ?`);
+    values.push(newVal);
     logs.push({
       entity_type: 'period_allocation',
       entity_id: id,
-      field,
-      old_value: String((existing as Record<string, unknown>)[field] ?? ''),
-      new_value: String(val ?? ''),
+      field: f,
+      old_value: String(oldVal ?? ''),
+      new_value: String(newVal ?? ''),
       actor: 'user',
       reason: 'allocation_update',
     });
