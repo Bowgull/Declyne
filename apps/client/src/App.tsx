@@ -8,7 +8,6 @@ import Grow from './pages/Grow';
 import Settings from './pages/Settings';
 import Accounts from './pages/Accounts';
 import Review from './pages/Review';
-import Routing from './pages/Routing';
 import EditLog from './pages/EditLog';
 import Merchants from './pages/Merchants';
 import Credit from './pages/Credit';
@@ -50,11 +49,11 @@ export default function App() {
           />
           <Route path="/budget" element={<Budget />} />
           <Route path="/debts" element={<Debts />} />
-          <Route path="/grow" element={<Grow unlocked={growUnlocked} />} />
+          <Route path="/yield" element={<Grow unlocked={growUnlocked} />} />
+          <Route path="/grow" element={<Navigate to="/yield" replace />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/accounts" element={<Accounts />} />
           <Route path="/review" element={<Review />} />
-          <Route path="/budget/routing" element={<Routing />} />
           <Route path="/settings/edit-log" element={<EditLog />} />
           <Route path="/settings/merchants" element={<Merchants />} />
           <Route path="/settings/credit" element={<Credit />} />
@@ -72,8 +71,7 @@ export default function App() {
         <div className="tab-bar-inner">
           <TabLink to="/today" label="Today" icon={<TodayIcon />} />
           <TabLink to="/budget" label="Budget" icon={<BudgetIcon />} />
-          <TabLink to="/debts" label="Debts" icon={<DebtsIcon />} />
-          <TabLink to="/grow" label="Grow" icon={<GrowIcon />} muted={!growUnlocked} />
+          <TabLink to="/yield" label="Yield" icon={<YieldIcon />} muted={!growUnlocked} />
         </div>
       </nav>
     </div>
@@ -133,22 +131,17 @@ function BudgetIcon() {
   );
 }
 
-function DebtsIcon() {
+function YieldIcon() {
+  // Wheat stalk: central stem + paired grain bracts climbing the spike.
   return (
     <svg {...STROKE}>
-      <rect x="3" y="6" width="18" height="12" rx="1.5" />
-      <path d="M3 10h18" />
-      <path d="M7 14.5h4" />
-    </svg>
-  );
-}
-
-function GrowIcon() {
-  return (
-    <svg {...STROKE}>
-      <path d="M12 21V11" />
-      <path d="M12 11c0-3 2-5 5-5 0 3-2 5-5 5z" />
-      <path d="M12 13c0-3-2-5-5-5 0 3 2 5 5 5z" />
+      <path d="M12 21V6" />
+      <path d="M12 9c-2-1-3.5-1-4.5-2.5C8.5 5 10 5 12 6.5" />
+      <path d="M12 9c2-1 3.5-1 4.5-2.5C15.5 5 14 5 12 6.5" />
+      <path d="M12 13c-2-1-3.5-1-4.5-2.5C8.5 9 10 9 12 10.5" />
+      <path d="M12 13c2-1 3.5-1 4.5-2.5C15.5 9 14 9 12 10.5" />
+      <path d="M12 17c-2-1-3.5-1-4.5-2.5C8.5 13 10 13 12 14.5" />
+      <path d="M12 17c2-1 3.5-1 4.5-2.5C15.5 13 14 13 12 14.5" />
     </svg>
   );
 }

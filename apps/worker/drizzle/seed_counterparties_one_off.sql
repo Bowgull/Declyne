@@ -8,7 +8,7 @@ INSERT OR REPLACE INTO counterparties (id, name, default_settlement_method, arch
   ('cp_priya',    'Priya Shah',    'etransfer', NULL, '2026-04-15T12:00:00Z'),
   ('cp_diego',    'Diego Alvarez', 'etransfer', NULL, '2026-04-21T12:00:00Z');
 
--- Re-create the Bowgull Mexico split fresh (the lindsay row was purged earlier).
+-- Re-create the Bowgull Mexico split fresh (prior real-name row was purged earlier).
 INSERT OR REPLACE INTO splits (id, counterparty, counterparty_id, direction, original_cents, remaining_cents, reason, created_at, closed_at) VALUES
   ('split_bowgull_mexico','Bowgull','cp_bowgull','josh_owes',150000,120000,'Mexico trip','2026-01-20T12:00:00Z',NULL),
   ('split_marcus_brunch','Marcus Chen','cp_marcus','owes_josh',4750,4750,'Lady Marmalade brunch','2026-04-19T15:30:00Z',NULL),

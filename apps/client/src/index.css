@@ -687,6 +687,19 @@
         transparent 4px 8px
       );
   }
+  .tank-band-tap {
+    appearance: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    width: 100%;
+    padding: 0;
+    text-align: left;
+    transition: filter 200ms ease, height 600ms ease;
+  }
+  .tank-band-tap:active {
+    filter: brightness(1.15);
+  }
   .cat-dot {
     display: inline-block;
     width: 6px;
