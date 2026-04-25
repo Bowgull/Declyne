@@ -15,9 +15,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `070d5c0b-0760-40d9-8547-2baee2030b1b`
 
-## Repo state (2026-04-25 handoff, end of session 37)
+## Repo state (2026-04-25 handoff, end of session 38)
 
-Working tree dirty after session 37 (recurring-bills detector pure helper + tests, wired into `/api/today`, Today.tsx renders NEXT + PRINTING AHEAD with real predictions). Sessions 1-8 squashed in `67b52f2`; sessions 9-30 each their own commit on top. `origin/main` is up to date through session 27 (sessions 28-37 not yet pushed). Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
+Working tree dirty after session 38 (wordmark-preview.html updated with v3 placeholder glyphs; no app code changed). Sessions 1-8 squashed in `67b52f2`; sessions 9-30 each their own commit on top. `origin/main` is up to date through session 27 (sessions 28-38 not yet pushed). Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item).
 
 ## Key commands
 
@@ -118,7 +118,9 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 4. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
 
-5. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
+5. **Wordmark system — custom capitals pending approval (session 38 design).** Structural decision locked: each app = one custom capital letter (SVG, app color) + lowercase serif tail in app's display font. Colors locked: Waymark gold `#E8C860` (reference, do not touch), Declyne purple `#6b5a9e`, Sygnalist green `#6AD7A3`, Bridgefour burnt orange `#c8552e`. Tails: Waymark/Bridgefour Cinzel, Declyne Fraunces, Sygnalist DM Serif Display. Placeholder v3 glyphs are in `wordmark-preview.html` only. Next step: user re-runs Declyne D in Recraft.ai with `~/Desktop/waymark-w-reference.png` attached as style reference; approves D, then generates S + B; then wire approved SVG paths into app builds. Do NOT put any glyph into a build without explicit approval.
+
+6. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 

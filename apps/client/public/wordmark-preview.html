@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Wordmark system preview</title>
+<title>Wordmark family v3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=DM+Serif+Display&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=DM+Serif+Display&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0e0c11;
@@ -15,9 +15,8 @@
     --rule: rgba(255,255,255,0.08);
     --waymark-gold: #E8C860;
     --declyne-purple: #6b5a9e;
-    --declyne-purple-soft: #9a8bc4;
     --sygnalist-green: #6AD7A3;
-    --bridgefour-gold: #c9a961;
+    --bridgefour-orange: #c8552e;
   }
   * { box-sizing: border-box; }
   body {
@@ -28,10 +27,7 @@
     min-height: 100vh;
     padding: 64px 32px 96px;
   }
-  .page {
-    max-width: 880px;
-    margin: 0 auto;
-  }
+  .page { max-width: 880px; margin: 0 auto; }
   h1 {
     font-family: 'Fraunces', serif;
     font-weight: 600;
@@ -45,13 +41,14 @@
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--muted);
-    margin: 0 0 48px;
+    margin: 0 0 56px;
   }
+
   .row {
     border-top: 1px solid var(--rule);
-    padding: 56px 0 48px;
+    padding: 64px 0 56px;
     display: grid;
-    grid-template-columns: 120px 1fr;
+    grid-template-columns: 140px 1fr;
     gap: 32px;
     align-items: center;
   }
@@ -63,111 +60,69 @@
     text-transform: uppercase;
     color: var(--muted);
   }
-  .label .hex {
-    display: block;
-    margin-top: 6px;
-    color: var(--ink);
-    opacity: 0.5;
-  }
-  .wordmark {
-    display: flex;
-    align-items: baseline;
-    gap: 0;
-    line-height: 1;
-  }
-  .tail {
-    font-weight: 500;
-    text-transform: uppercase;
+  .label .hex { display: block; margin-top: 6px; color: var(--ink); opacity: 0.5; }
+  .wordmark { display: flex; align-items: baseline; gap: 0; line-height: 1; }
+  .tail { font-weight: 500; text-transform: uppercase; }
+  .notes {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.55;
+    max-width: 520px;
   }
 
   /* Waymark */
   .wm-tail {
     font-family: 'Cinzel', serif;
-    font-size: 38px;
+    font-size: 56px;
     letter-spacing: 0.04em;
+    font-weight: 600;
   }
-  .wm-glyph {
-    fill: var(--waymark-gold);
-    width: 44px; height: 36px;
-    position: relative; top: 4px;
-  }
+  .wm-glyph { fill: var(--waymark-gold); width: 60px; height: 50px; position: relative; top: 8px; }
 
   /* Declyne */
   .dc-tail {
     font-family: 'Fraunces', serif;
-    font-size: 42px;
-    letter-spacing: 0.01em;
+    font-size: 60px;
     font-weight: 600;
     text-transform: none;
+    letter-spacing: 0.005em;
   }
-  .dc-glyph {
-    fill: var(--declyne-purple);
-    width: 38px; height: 42px;
-    position: relative; top: 2px;
-  }
-  .dc-glyph .perf { stroke: var(--declyne-purple-soft); }
+  .dc-glyph { fill: var(--declyne-purple); width: 56px; height: 60px; position: relative; top: 4px; }
 
   /* Sygnalist */
   .sg-tail {
     font-family: 'DM Serif Display', serif;
-    font-size: 40px;
-    letter-spacing: 0.01em;
+    font-size: 56px;
     text-transform: none;
+    letter-spacing: 0.005em;
   }
-  .sg-glyph {
-    fill: none;
-    stroke: var(--sygnalist-green);
-    stroke-width: 6;
-    width: 36px; height: 42px;
-    position: relative; top: 2px;
-  }
+  .sg-glyph { fill: var(--sygnalist-green); width: 54px; height: 60px; position: relative; top: 4px; }
 
   /* Bridgefour */
   .bf-tail {
     font-family: 'Cinzel', serif;
-    font-size: 36px;
+    font-size: 50px;
     letter-spacing: 0.06em;
     font-weight: 600;
   }
-  .bf-glyph {
-    fill: var(--bridgefour-gold);
-    width: 34px; height: 40px;
-    position: relative; top: 3px;
-  }
+  .bf-glyph { fill: var(--bridgefour-orange); width: 56px; height: 60px; position: relative; top: 6px; }
 
-  .notes {
-    margin-top: 12px;
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.5;
-    grid-column: 2;
-  }
-
-  /* big preview at top */
   .hero {
     display: flex;
     flex-direction: column;
-    gap: 36px;
-    padding: 32px 0 48px;
+    gap: 44px;
+    padding: 16px 0 56px;
   }
-  .hero .wordmark { gap: 2px; }
-  .hero .wm-glyph { width: 60px; height: 50px; top: 6px; }
-  .hero .wm-tail { font-size: 56px; }
-  .hero .dc-glyph { width: 56px; height: 60px; top: 4px; }
-  .hero .dc-tail { font-size: 60px; }
-  .hero .sg-glyph { width: 50px; height: 60px; top: 4px; stroke-width: 7; }
-  .hero .sg-tail { font-size: 56px; }
-  .hero .bf-glyph { width: 48px; height: 56px; top: 4px; }
-  .hero .bf-tail { font-size: 50px; }
 </style>
 </head>
 <body>
   <main class="page">
-    <h1>Wordmark family</h1>
-    <p class="kicker">Waymark · Declyne · Sygnalist · Bridgefour</p>
+    <h1>Wordmark family — v3</h1>
+    <p class="kicker">Same hand that drew the W</p>
 
     <section class="hero">
-      <!-- WAYMARK -->
+      <!-- WAYMARK reference -->
       <div class="wordmark">
         <svg class="wm-glyph" viewBox="0 0 40 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M0 3 L1.5 0 L7 3 L7 5 L14 30 L20 12 L26 30 L33 5 L33 3 L38.5 0 L40 3 L38 5 L30 32 L26 32 L20 16 L14 32 L10 32 L2 5 Z" />
@@ -175,108 +130,100 @@
         <span class="wm-tail tail">aymark</span>
       </div>
 
-      <!-- DECLYNE -->
+      <!-- DECLYNE D — faceted top-heavy hexagonal D, peak shifts upward = decline curve.
+           Wing-tip serifs at top-left and bottom-left of spine, mirroring Waymark. -->
       <div class="wordmark">
-        <svg class="dc-glyph" viewBox="0 0 38 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <!-- High-contrast serif D, slab-ish, with horizontal perforation across the counter -->
-          <!-- Outer shape -->
-          <path d="
-            M2 2
-            L20 2
-            C 32 2, 36 12, 36 22
-            C 36 32, 32 42, 20 42
-            L2 42
-            L2 38
-            L6 38
-            L6 6
-            L2 6
+        <svg class="dc-glyph" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path fill-rule="evenodd" d="
+            M 0 5
+            L 1.8 1
+            L 8 5
+            L 26 5
+            L 46 13
+            L 26 55
+            L 8 55
+            L 1.8 59
+            L 0 55
+            L 5 53
+            L 5 7
             Z
-            M11 6
-            L11 38
-            L19 38
-            C 27 38, 30 30, 30 22
-            C 30 14, 27 6, 19 6
+            M 13 13
+            L 26 13
+            L 36 19
+            L 26 47
+            L 13 47
             Z
-          " fill-rule="evenodd"/>
-          <!-- Perforation hairline across the counter (receipt motif) -->
-          <line class="perf" x1="13" y1="22" x2="28" y2="22" stroke-width="1.2" stroke-dasharray="2 2"/>
+          "/>
         </svg>
         <span class="dc-tail tail">eclyne</span>
       </div>
 
-      <!-- SYGNALIST -->
+      <!-- SYGNALIST S — angular S built from straight horizontals + verticals (5-bar).
+           The letter IS the signal trace. No decoration. -->
       <div class="wordmark">
-        <svg class="sg-glyph" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <!-- Stroke S with flatline signal ticks at top-right and bottom-left terminals -->
+        <svg class="sg-glyph" viewBox="0 0 48 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="
-            M30 9
-            C 28 4, 22 3, 16 3
-            C 9 3, 4 6, 4 12
-            C 4 18, 10 20, 17 22
-            C 25 24, 32 26, 32 32
-            C 32 38, 26 41, 18 41
-            C 11 41, 5 39, 3 34
-          " stroke-linecap="round" />
-          <!-- Top-right flatline tick -->
-          <line x1="30" y1="9" x2="36" y2="9" stroke-linecap="round" stroke-width="3" />
-          <!-- Bottom-left flatline tick -->
-          <line x1="3" y1="34" x2="0" y2="34" stroke-linecap="round" stroke-width="3" />
+            M 4 5
+            L 44 5
+            L 44 30
+            L 14 30
+            L 14 47
+            L 44 47
+            L 44 55
+            L 4 55
+            L 4 22
+            L 34 22
+            L 34 13
+            L 4 13
+            Z
+          "/>
         </svg>
         <span class="sg-tail tail">ygnalist</span>
       </div>
 
-      <!-- BRIDGEFOUR -->
+      <!-- BRIDGEFOUR B — angular twin-arch B with sharp peaks. Two arches over a pier.
+           Bottom arch larger, like a real B. All straight lines. -->
       <div class="wordmark">
-        <svg class="bf-glyph" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <!-- Geometric serif B with 4 horizontal strut ticks on the spine inside the counters -->
-          <!-- Outer B path with two bowls -->
-          <path d="
-            M3 2
-            L18 2
-            C 26 2, 30 6, 30 11
-            C 30 16, 26 19, 22 20
-            C 27 21, 32 24, 32 30
-            C 32 36, 28 40, 19 40
-            L3 40
-            L3 36
-            L7 36
-            L7 6
-            L3 6
+        <svg class="bf-glyph" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path fill-rule="evenodd" d="
+            M 4 4
+            L 32 4
+            L 40 14
+            L 32 24
+            L 44 40
+            L 32 56
+            L 4 56
             Z
-            M12 6
-            L12 18
-            L18 18
-            C 22 18, 24 15, 24 12
-            C 24 8, 22 6, 18 6
+            M 12 9
+            L 28 9
+            L 34 14
+            L 28 19
+            L 12 19
             Z
-            M12 22
-            L12 36
-            L19 36
-            C 24 36, 26 33, 26 29
-            C 26 25, 24 22, 19 22
+            M 12 29
+            L 28 29
+            L 38 40
+            L 28 51
+            L 12 51
             Z
-          " fill-rule="evenodd"/>
-          <!-- Four strut ticks on the spine, two per counter -->
-          <rect x="9" y="9"  width="2" height="1.4"/>
-          <rect x="9" y="14" width="2" height="1.4"/>
-          <rect x="9" y="26" width="2" height="1.4"/>
-          <rect x="9" y="32" width="2" height="1.4"/>
+          "/>
         </svg>
         <span class="bf-tail tail">ridgefour</span>
       </div>
     </section>
 
-    <section style="margin-top:24px">
+    <!-- per-app explanation rows -->
+    <section style="margin-top:32px">
       <div class="row">
         <div class="label">Waymark<span class="hex">#E8C860</span></div>
         <div>
           <div class="wordmark">
-            <svg class="wm-glyph" viewBox="0 0 40 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <svg class="wm-glyph" viewBox="0 0 40 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:48px;height:40px;top:6px">
               <path d="M0 3 L1.5 0 L7 3 L7 5 L14 30 L20 12 L26 30 L33 5 L33 3 L38.5 0 L40 3 L38 5 L30 32 L26 32 L20 16 L14 32 L10 32 L2 5 Z" />
             </svg>
-            <span class="wm-tail tail">aymark</span>
+            <span class="wm-tail tail" style="font-size:42px">aymark</span>
           </div>
-          <p class="notes">Existing. Custom W with winged serif tips. Cinzel tail, uppercase, tracked. Reference for the system.</p>
+          <p class="notes">Reference. Filled silhouette, straight lines only, wing-tip serifs that extend past the body. Vocabulary the rest of the family inherits.</p>
         </div>
       </div>
 
@@ -284,13 +231,12 @@
         <div class="label">Declyne<span class="hex">#6b5a9e</span></div>
         <div>
           <div class="wordmark">
-            <svg class="dc-glyph" viewBox="0 0 38 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M2 2 L20 2 C 32 2, 36 12, 36 22 C 36 32, 32 42, 20 42 L2 42 L2 38 L6 38 L6 6 L2 6 Z M11 6 L11 38 L19 38 C 27 38, 30 30, 30 22 C 30 14, 27 6, 19 6 Z" fill-rule="evenodd"/>
-              <line class="perf" x1="13" y1="22" x2="28" y2="22" stroke-width="1.2" stroke-dasharray="2 2"/>
+            <svg class="dc-glyph" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:44px;height:48px;top:4px">
+              <path fill-rule="evenodd" d="M 0 5 L 1.8 1 L 8 5 L 26 5 L 46 13 L 26 55 L 8 55 L 1.8 59 L 0 55 L 5 53 L 5 7 Z M 13 13 L 26 13 L 36 19 L 26 47 L 13 47 Z"/>
             </svg>
-            <span class="dc-tail tail">eclyne</span>
+            <span class="dc-tail tail" style="font-size:46px">eclyne</span>
           </div>
-          <p class="notes">Custom D with a dashed perforation crossing the counter (echoes the receipt-motif perforations already used in Declyne). Mascot purple. Fraunces tail, mixed case to match the existing &ldquo;Declyne&rdquo; word treatment.</p>
+          <p class="notes">Faceted D with the bowl peak shifted UP into the upper third — short rise, long descent. The asymmetric bowl IS a decline curve. Same wing-tip serifs as Waymark on the spine corners.</p>
         </div>
       </div>
 
@@ -298,31 +244,25 @@
         <div class="label">Sygnalist<span class="hex">#6AD7A3</span></div>
         <div>
           <div class="wordmark">
-            <svg class="sg-glyph" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M30 9 C 28 4, 22 3, 16 3 C 9 3, 4 6, 4 12 C 4 18, 10 20, 17 22 C 25 24, 32 26, 32 32 C 32 38, 26 41, 18 41 C 11 41, 5 39, 3 34" stroke-linecap="round" />
-              <line x1="30" y1="9" x2="36" y2="9" stroke-linecap="round" stroke-width="3" />
-              <line x1="3" y1="34" x2="0" y2="34" stroke-linecap="round" stroke-width="3" />
+            <svg class="sg-glyph" viewBox="0 0 48 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:42px;height:48px;top:4px">
+              <path d="M 4 5 L 44 5 L 44 30 L 14 30 L 14 47 L 44 47 L 44 55 L 4 55 L 4 22 L 34 22 L 34 13 L 4 13 Z"/>
             </svg>
-            <span class="sg-tail tail">ygnalist</span>
+            <span class="sg-tail tail" style="font-size:44px">ygnalist</span>
           </div>
-          <p class="notes">Custom S drawn as a single curved stroke with two small flatline ticks extending past the terminals (signal pulse / monitor read). Radar green. DM Serif Display tail (proposed display font for Sygnalist — high-contrast modern serif).</p>
+          <p class="notes">Angular S built from straight horizontals and verticals only — five bars stacked. The letter itself reads as a signal trace stepping through three levels. No decoration; the form is the metaphor.</p>
         </div>
       </div>
 
       <div class="row">
-        <div class="label">Bridgefour<span class="hex">#c9a961</span></div>
+        <div class="label">Bridgefour<span class="hex">#c8552e</span></div>
         <div>
           <div class="wordmark">
-            <svg class="bf-glyph" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M3 2 L18 2 C 26 2, 30 6, 30 11 C 30 16, 26 19, 22 20 C 27 21, 32 24, 32 30 C 32 36, 28 40, 19 40 L3 40 L3 36 L7 36 L7 6 L3 6 Z M12 6 L12 18 L18 18 C 22 18, 24 15, 24 12 C 24 8, 22 6, 18 6 Z M12 22 L12 36 L19 36 C 24 36, 26 33, 26 29 C 26 25, 24 22, 19 22 Z" fill-rule="evenodd"/>
-              <rect x="9" y="9"  width="2" height="1.4"/>
-              <rect x="9" y="14" width="2" height="1.4"/>
-              <rect x="9" y="26" width="2" height="1.4"/>
-              <rect x="9" y="32" width="2" height="1.4"/>
+            <svg class="bf-glyph" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:42px;height:48px;top:4px">
+              <path fill-rule="evenodd" d="M 4 4 L 32 4 L 40 14 L 32 24 L 44 40 L 32 56 L 4 56 Z M 12 9 L 28 9 L 34 14 L 28 19 L 12 19 Z M 12 29 L 28 29 L 38 40 L 28 51 L 12 51 Z"/>
             </svg>
-            <span class="bf-tail tail">ridgefour</span>
+            <span class="bf-tail tail" style="font-size:38px">ridgefour</span>
           </div>
-          <p class="notes">Custom B with four horizontal strut ticks on the spine (= bridge deck supports, the &ldquo;four&rdquo; reference). Muted gold &mdash; site neutral, distinct from Waymark&rsquo;s brighter gold. Cinzel tail, uppercase, tracked.</p>
+          <p class="notes">Angular B — two arches with sharp peaks, atop a vertical pier. Bottom arch larger than top, like a real B. The whole thing reads as a two-arch bridge cross-section. Burnt orange.</p>
         </div>
       </div>
     </section>
