@@ -69,71 +69,95 @@ export default function CcStatements() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cc-statements'] }),
   });
 
+  const perforation: React.CSSProperties = {
+    borderTop: '1px dashed var(--color-hairline)',
+  };
+
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">CC statements</h1>
-        <Link to="/settings" className="text-sm text-[color:var(--color-text-muted)]">Back</Link>
-      </header>
+    <div className="pb-6">
+      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        <header className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mascot-mark" aria-hidden="true" />
+            <div>
+              <div className="display text-lg tracking-tight">STATEMENTS</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                {snaps.data ? `${rows.length} on file` : 'Loading…'}
+              </div>
+            </div>
+          </div>
+          <Link to="/settings" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+            Close
+          </Link>
+        </header>
 
-      <section className="card flex flex-col gap-3">
-        <p className="text-sm text-[color:var(--color-text-muted)]">
-          Log one per cycle per card. Paid-in-full statements drive the CC payoff streak used by phase progression.
-        </p>
-        <div className="flex gap-2">
-          <button
-            className="btn-primary flex-1"
-            onClick={() => setAdding(true)}
-            disabled={ccDebts.length === 0}
-          >
-            Add statement
-          </button>
-          <button
-            className="btn-outline flex-1"
-            onClick={() => derive.mutate()}
-            disabled={ccDebts.length === 0 || derive.isPending}
-          >
-            {derive.isPending ? 'Deriving.' : 'Derive from txns'}
-          </button>
-        </div>
-        {derive.data ? (
+        <div className="pt-3 flex flex-col gap-2" style={perforation}>
           <p className="text-xs text-[color:var(--color-text-muted)]">
-            {derive.data.inserted} new statements derived from {derive.data.debts_considered} cards.
+            Log one per cycle per card. Paid-in-full statements drive the CC payoff streak used by phase progression.
           </p>
-        ) : null}
-        {ccDebts.length === 0 && debts.data ? (
-          <p className="text-xs text-[color:var(--color-text-muted)]">
-            No CC debts. Link a debt to a credit account first.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          {snaps.data ? `${rows.length} statements` : 'Loading.'}
-        </h2>
-        {rows.length === 0 && snaps.data ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No statements yet.</p>
-        ) : null}
-        <ul className="flex flex-col gap-3">
-          {rows.map((s) => (
-            <li
-              key={s.id}
-              className="flex flex-col gap-1 border-b border-[color:var(--color-line)] pb-3"
-              onClick={() => setEditing(s)}
-              role="button"
+          <div className="flex gap-2">
+            <button
+              className="btn-primary flex-1"
+              onClick={() => setAdding(true)}
+              disabled={ccDebts.length === 0}
             >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{debtName(s.debt_id)}</span>
-                <span className="num text-xs text-[color:var(--color-text-muted)]">{s.statement_date}</span>
-              </div>
-              <div className="text-xs text-[color:var(--color-text-muted)] num">
-                bal {formatCents(s.statement_balance_cents)} · min {formatCents(s.min_payment_cents)} · due {s.due_date}
-                {s.paid_in_full === 1 ? ' · paid in full' : ''}
-              </div>
-            </li>
-          ))}
-        </ul>
+              Add statement
+            </button>
+            <button
+              className="btn-outline flex-1"
+              onClick={() => derive.mutate()}
+              disabled={ccDebts.length === 0 || derive.isPending}
+            >
+              {derive.isPending ? 'Deriving…' : 'Derive from txns'}
+            </button>
+          </div>
+          {derive.data ? (
+            <p className="text-xs text-[color:var(--color-text-muted)]">
+              {derive.data.inserted} new statements derived from {derive.data.debts_considered} cards.
+            </p>
+          ) : null}
+          {ccDebts.length === 0 && debts.data ? (
+            <p className="text-xs text-[color:var(--color-text-muted)]">
+              No CC debts. Link a debt to a credit account first.
+            </p>
+          ) : null}
+        </div>
+
+        {rows.length === 0 && snaps.data ? (
+          <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>
+            No statements yet.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {rows.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className="pt-3 mt-3 flex flex-col gap-1 text-left"
+                style={perforation}
+                onClick={() => setEditing(s)}
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-medium truncate">{debtName(s.debt_id)}</span>
+                  <span className="num text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)] shrink-0">
+                    {s.statement_date}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
+                    Min {formatCents(s.min_payment_cents)} · Due {s.due_date}
+                    {s.paid_in_full === 1 ? ' · PAID' : ''}
+                  </span>
+                  <span className="num text-sm shrink-0">{formatCents(s.statement_balance_cents)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+          ** End of statements **
+        </div>
       </section>
 
       {adding && (
