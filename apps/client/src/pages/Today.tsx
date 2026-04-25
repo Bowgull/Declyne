@@ -60,23 +60,36 @@ export default function Today() {
 
   return (
     <div className="px-3 pt-4 pb-6">
-      <section className="receipt-paper paper-in flex flex-col gap-5">
-        <span className="mascot-watermark" aria-hidden="true" />
-
-        <header className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <span className="mascot-sigil" aria-hidden="true" />
-            <div>
-              <div className="display text-xl tracking-tight" style={{ color: 'var(--color-ink)' }}>DECLYNE</div>
-              <div className="label-tag mt-0.5">{today}</div>
-            </div>
-          </div>
-          <Link to="/settings" aria-label="Settings" style={{ color: 'var(--color-ink-muted)' }} className="mt-1">
+      <section className="receipt paper-in flex flex-col gap-5">
+        <header className="relative flex flex-col items-center text-center">
+          <Link
+            to="/settings"
+            aria-label="Settings"
+            style={{ color: 'var(--color-ink-muted)', position: 'absolute', top: 0, right: 0 }}
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </Link>
+          <img
+            src="/brand/mascot-charcoal.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: 180,
+              height: 180,
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 2px 6px rgba(26, 20, 29, 0.18))',
+            }}
+          />
+          <div
+            className="display tracking-tight mt-2"
+            style={{ color: 'var(--color-ink)', fontSize: 36, lineHeight: 1 }}
+          >
+            Declyne
+          </div>
+          <div className="label-tag mt-2">{today}</div>
         </header>
 
         <div className="perf pt-4 flex items-end justify-between gap-3">
