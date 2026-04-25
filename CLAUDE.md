@@ -15,9 +15,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `4f93cdac-6c5e-4bef-b1dc-34f0d37e8869`
 
-## Repo state (2026-04-25 handoff, end of session 42)
+## Repo state (2026-04-25 handoff, end of session 43)
 
-Clean working tree after session 42 (Ledger Desk round 2 + splits payment matching). All sessions through 42 pushed to `origin/main` at HEAD. Sessions 1-8 squashed in `67b52f2`; sessions 9-41 each their own commit; session 42 ships ledger desk round 2 + splits matching. Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
+Clean working tree after session 43 (security uplift session 1/6: critical SQL-injection fix + Drizzle CVE patch). Sessions 1-42 are pushed to `origin/main`. Sessions 43-48 land on feature branch `claude/research-accounting-software-1K8So`; one PR to `main` ships the whole security uplift at the end of session 48. From session 49+, normal "push to main" cadence resumes. Auto-push at session end is gated on a fully green debug pass and clean `git status`; otherwise stop and ask. Per-session details in memory file `project_declyne.md` (created at repo root in session 43 because the previously referenced auto-memory dir was unreachable from the harness). Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
 
 ## Key commands
 
@@ -26,9 +26,13 @@ pnpm dev              # client on localhost (preview panel)
 pnpm dev:worker       # worker on localhost:8787
 pnpm --filter @declyne/worker run deploy   # push worker to Cloudflare (pnpm worker:deploy collides with pnpm deploy keyword)
 pnpm db:push          # push schema to remote D1
-pnpm test             # 140 tests, all passing
+pnpm test             # 151 tests, all passing (137 worker + 14 shared)
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
+
+## What's built (through session 43, 2026-04-25)
+
+- Security uplift session 1/6 (session 43): **Critical SQL-injection fix** in `apps/worker/src/routes/debts.ts` PATCH route -- the old handler built `setClause` from raw `Object.keys(patch)` with no allowlist, so any caller with a valid `API_TOKEN` could inject arbitrary SQL via crafted column names. Fixed with new exported `parseDebtPatch(raw)` helper (mirrors `parseGoalPatch`/`parseHoldingPatch`) that validates each documented field and silently drops every other key; PATCH handler now iterates a fixed `ALLOWED_PATCH_FIELDS` array, never `Object.keys(patch)`. **Defense-in-depth** tightening of `apps/worker/src/routes/allocations.ts` PATCH (was safe-by-construction via `parseAllocPatch` narrowing but used the same `Object.entries(patch)` shape) -- replaced with explicit `ALLOC_PATCH_FIELDS` array iteration so future contributors can't regress by adding a key to AllocPatch without updating the SET writer. **Drizzle CVE patched**: `drizzle-orm` ^0.38.2 -> ^0.45.2 (current `latest` dist-tag, fixes the SQL-identifier escape CVE), `drizzle-kit` ^0.30.1 -> ^0.31.10. Only one drizzle-orm import in the codebase (schema typings only, no query builder), so the bump is low-risk. **Eleven new tests** in `apps/worker/src/__tests__/debts.test.ts` (10) + extended `allocations.test.ts` (+1) -- assert attacker-controlled keys (classic SQLi shape, pivot-to-other-tables, `__proto__` prototype pollution) are silently dropped, only legitimate fields survive. Debug pass: 151 tests pass (137 worker + 14 shared), typecheck clean, build clean (401.75 kB JS / 31.81 kB CSS). **No worker redeploy** -- the fix is not live on the production worker until session 48's PR merges to main; the live route remains vulnerable to anyone holding the `API_TOKEN` until then. Files added: `project_declyne.md`, `apps/worker/src/__tests__/debts.test.ts`. Files changed: `CLAUDE.md` (5-step ritual + session scoping), `apps/worker/package.json`, `pnpm-lock.yaml`, `apps/worker/src/routes/debts.ts`, `apps/worker/src/routes/allocations.ts`, `apps/worker/src/__tests__/allocations.test.ts`.
 
 ## What's built (through session 37, 2026-04-25)
 
@@ -94,7 +98,19 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **Reconciliation TABS TO MATCH section (deferred from session 42).** Import-time auto-match + manual Stamp PAID from drill-in both shipped (session 42). Still missing: a "TABS TO MATCH" section in Reconciliation surfacing ambiguous split matches (multiple transactions at the same amount in the ±3d window). Would require storing match candidates somewhere (new table or a dedicated route) -- deferred until a real TD e-transfer CSV is available to confirm description format and validate the matching heuristic.
+**Security uplift in flight (sessions 43-48). Session 43 is done; 5 sessions remain on branch `claude/research-accounting-software-1K8So`. One PR to `main` lands the whole uplift at the end of session 48.**
+
+1. **Session 44 -- CI/CD security automation.** New `.github/workflows/security.yml` running on every push + PR to main: `pnpm audit` (gate on high+ severity), `gitleaks` (secret scan), `semgrep ci` with `p/owasp-top-ten` and `p/typescript` rulesets, `trivy fs` for dep + filesystem CVE scan. New `.github/dependabot.yml` (weekly npm + github-actions, security-only daily). Optional `.github/workflows/typecheck.yml` running `pnpm -r typecheck` + `pnpm test` on PRs. README badges (CI status + Semgrep + Snyk-style). Build-time only -- zero runtime impact.
+
+2. **Session 45 -- transport hardening.** New `apps/worker/src/middleware/security.ts` setting `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy: ()`, `Content-Security-Policy` tuned for the Capacitor WebView origin. Tighten CORS from `origin: (o) => o ?? '*'` to a known-origins allowlist (Capacitor app origin, dev origin from env). Rate limiting via Cloudflare Workers free-tier `RATE_LIMITER` binding (global cap on `/api/*`, stricter on `/api/invest/recommend`). Add unauthenticated `/api/healthz` for uptime checks separate from existing health route. Risk: CSP can break the Capacitor WebView if too strict -- deploy preview Worker first, smoke-test iOS, then promote.
+
+3. **Session 46 -- iOS Keychain + token rotation.** Install `@capacitor-community/secure-storage` (free, MIT, hardware-backed Keychain on iOS). On first launch after upgrade, migrate `API_TOKEN` from `VITE_API_TOKEN` env to Keychain; subsequent launches read from Keychain. Drop `VITE_API_TOKEN` from `.env.example` and replace with onboarding "paste your token once" flow. Token rotation runbook at `docs/runbooks/rotate-api-token.md`: new token via wrangler, deploy worker, user re-pastes in app. Rotate `API_TOKEN` once at end of session as the live drill. Keep env-baked token as fallback for one release; drop in session 47.
+
+4. **Session 47 -- compliance docs + data-rights routes.** New `SECURITY.md` mapping every implemented control to OWASP ASVS 5.0 L2 requirements with `file:line` citations (the portfolio artifact). New `PRIVACY.md` (PIPEDA-aligned data-handling notice: what's collected, where it goes, OpenAI payload shape, retention, user rights). New `THREATS.md` STRIDE-style threat model for worker + iOS client + LLM path. New `DELETE /api/data/purge` route with soft-delete + 7-day grace + hard-purge cron, gated by typed-confirmation body (`{"confirm": "DELETE EVERYTHING"}`); writes `edit_log` reason `user_data_purge`. Drop the env-baked token fallback from session 46.
+
+5. **Session 48 -- backup + LLM hardening + portfolio polish + PR to main.** Automated D1 -> R2 backup via scheduled Worker (`0 4 * * *` UTC, R2 free tier 10 GB/mo). Restore runbook (download R2 object, `wrangler d1 execute`). Apply for OpenAI zero-data-retention; document in `PRIVACY.md`. New structured logging redaction helper -- strips amounts/descriptions from any error message before it hits Cloudflare logs. README portfolio rewrite (hero block, security badges row, ASVS L2 attestation, links to `SECURITY.md` / `PRIVACY.md` / `THREATS.md`). **Open the single PR `claude/research-accounting-software-1K8So` -> `main` covering the whole uplift.** After merge, normal "push to main" cadence resumes for sessions 49+.
+
+6. **Reconciliation TABS TO MATCH section (deferred from session 42).** Import-time auto-match + manual Stamp PAID from drill-in both shipped (session 42). Still missing: a "TABS TO MATCH" section in Reconciliation surfacing ambiguous split matches (multiple transactions at the same amount in the ±3d window). Would require storing match candidates somewhere (new table or a dedicated route) -- deferred until a real TD e-transfer CSV is available to confirm description format and validate the matching heuristic.
 
 2. **iOS cap add ios** -- iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
 
@@ -107,12 +123,21 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 Free provisioning expires every 7 days. Set a calendar reminder or notice when the app stops launching.
 When it expires: plug in phone, `pnpm cap:run`, hit play in Xcode. Two minutes.
 
+## Session scoping (locked, sessions 43-48 security uplift)
+
+Each session is structured to accomplish as many tasks as safely possible within a single coherent scope before switching to the session-end ritual. "Safely" means: every task in the session can be reverted as one commit, the debug pass stays green throughout, and the work has a clear stopping point. When the next task would expand scope beyond what can land in one safe commit, stop and run the ritual.
+
+Sessions 43-48 are a security uplift series landing on branch `claude/research-accounting-software-1K8So`; one PR to `main` at the end of session 48 ships the whole uplift. After that PR merges, normal "push to main" cadence resumes for sessions 49+.
+
 ## Session-end ritual (mandatory, every session)
 
-Every session must end with three steps, in order:
+Every session must end with five steps, in order. Skip nothing.
+
 1. **Memory update** — append a new session entry to `project_declyne.md` in the auto-memory dir with what shipped, files touched, commit hash, deploy version.
 2. **CLAUDE.md update** — move anything new from "NOT built" to "What's built", bump the session number in the heading, update any infra/version strings.
-3. **Debug pass** — `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @declyne/client build`. All three must be green. Worker redeploy only if worker code changed. Commit the result. Do not hand off a session with red tests or uncommitted work.
+3. **Debug pass** — `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @declyne/client build`. All three must be green. Worker redeploy only if worker code changed.
+4. **Commit** — single commit, conventional message, signed by `Bowgull <256685449+Bowgull@users.noreply.github.com>`. Never amend a published commit. Do not hand off a session with red tests or uncommitted work.
+5. **Push** — `git push -u origin <current-branch>`. Auto-push only when steps 1-4 are fully green and `git status` is clean. Otherwise stop and surface to user. During sessions 43-48, the branch is `claude/research-accounting-software-1K8So`; from session 49+, it is `main`.
 
 ## Rules (locked, do not change without explicit instruction)
 
