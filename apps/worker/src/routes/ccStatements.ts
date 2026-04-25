@@ -3,6 +3,89 @@ import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { computeAndStoreStreaks } from '../lib/streaks.js';
+import { deriveCcStatements, type CcDebtInfo, type CcTxnPoint } from '../lib/ccStatementDerive.js';
+
+export async function runCcStatementDerivation(env: Env, today = new Date()): Promise<{
+  debts_considered: number;
+  inserted: number;
+  inserted_ids: string[];
+}> {
+  const ccDebts = await env.DB.prepare(
+    `SELECT d.id as debt_id, d.principal_cents, d.statement_date as statement_day,
+            d.payment_due_date as due_day, d.min_payment_type, d.min_payment_value,
+            d.account_id_linked as account_id
+     FROM debts d JOIN accounts a ON a.id = d.account_id_linked
+     WHERE d.archived = 0 AND a.type = 'credit'`,
+  ).all<CcDebtInfo & { account_id: string }>();
+
+  let inserted = 0;
+  const ids: string[] = [];
+  for (const d of ccDebts.results) {
+    const { results: txns } = await env.DB.prepare(
+      `SELECT posted_at, amount_cents FROM transactions WHERE account_id = ? ORDER BY posted_at ASC`,
+    )
+      .bind(d.account_id)
+      .all<CcTxnPoint>();
+    const { results: existing } = await env.DB.prepare(
+      `SELECT statement_date FROM cc_statement_snapshots WHERE debt_id = ?`,
+    )
+      .bind(d.debt_id)
+      .all<{ statement_date: string }>();
+
+    const derived = deriveCcStatements(
+      {
+        debt_id: d.debt_id,
+        principal_cents: d.principal_cents,
+        statement_day: d.statement_day,
+        due_day: d.due_day,
+        min_payment_type: d.min_payment_type,
+        min_payment_value: d.min_payment_value,
+      },
+      txns,
+      existing,
+      today,
+    );
+    if (derived.length === 0) continue;
+
+    const createdAt = nowIso();
+    const logs: Parameters<typeof writeEditLog>[1] = [];
+    for (const s of derived) {
+      const id = newId('ccst');
+      await env.DB.prepare(
+        `INSERT INTO cc_statement_snapshots
+           (id, debt_id, statement_date, statement_balance_cents, min_payment_cents, due_date, paid_in_full, created_at)
+         VALUES (?,?,?,?,?,?,?,?)`,
+      )
+        .bind(
+          id,
+          s.debt_id,
+          s.statement_date,
+          s.statement_balance_cents,
+          s.min_payment_cents,
+          s.due_date,
+          s.paid_in_full,
+          createdAt,
+        )
+        .run();
+      ids.push(id);
+      inserted++;
+      logs.push({
+        entity_type: 'cc_statement_snapshot',
+        entity_id: id,
+        field: 'create',
+        old_value: null,
+        new_value: JSON.stringify(s),
+        actor: 'rules',
+        reason: 'cc_statement_derived',
+      });
+    }
+    if (logs.length) await writeEditLog(env, logs);
+  }
+
+  if (inserted > 0) await computeAndStoreStreaks(env);
+
+  return { debts_considered: ccDebts.results.length, inserted, inserted_ids: ids };
+}
 
 export const ccStatementsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -112,6 +195,11 @@ export function parseCcStatementPatch(raw: unknown): CcStatementPatch | { error:
   }
   return out;
 }
+
+ccStatementsRoutes.post('/derive', async (c) => {
+  const result = await runCcStatementDerivation(c.env);
+  return c.json(result);
+});
 
 ccStatementsRoutes.get('/', async (c) => {
   const debt_id = c.req.query('debt_id');
