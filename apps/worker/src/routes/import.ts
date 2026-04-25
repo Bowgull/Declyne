@@ -125,6 +125,9 @@ importRoutes.post('/transactions', async (c) => {
     allocationsMatched = await autoMatchAllocations(c.env, currentPeriod.id).catch(() => 0);
   }
 
+  // Splits: auto-match open tabs by amount + ±3d window.
+  const splitsSettled = await autoMatchSplits(c.env).catch(() => 0);
+
   return c.json({
     inserted,
     skipped_dedup: skipped,
@@ -134,8 +137,70 @@ importRoutes.post('/transactions', async (c) => {
     cc_statements_inserted: ccDerive.inserted,
     allocations_drafted: allocationsDrafted,
     allocations_matched: allocationsMatched,
+    splits_settled: splitsSettled,
   });
 });
+
+async function autoMatchSplits(env: import('../env.js').Env): Promise<number> {
+  // Fetch all open splits (remaining > 0, no settlement_txn_id, not closed).
+  const { results: openSplits } = await env.DB.prepare(
+    `SELECT id, direction, remaining_cents, created_at
+     FROM splits
+     WHERE closed_at IS NULL AND settlement_txn_id IS NULL AND remaining_cents > 0`,
+  ).all<{ id: string; direction: string; remaining_cents: number; created_at: string }>();
+
+  if (openSplits.length === 0) return 0;
+
+  let settled = 0;
+  const now = nowIso();
+
+  for (const split of openSplits) {
+    // owes_josh = incoming (positive amount); josh_owes = outgoing (negative amount).
+    const expectedAmount =
+      split.direction === 'owes_josh' ? split.remaining_cents : -split.remaining_cents;
+
+    // Look for transactions within ±3 days of the split's created_at with matching amount.
+    const { results: candidates } = await env.DB.prepare(
+      `SELECT id FROM transactions
+       WHERE amount_cents = ?
+         AND posted_at >= date(?, '-3 days')
+         AND posted_at <= date(?, '+3 days')`,
+    )
+      .bind(expectedAmount, split.created_at.slice(0, 10), split.created_at.slice(0, 10))
+      .all<{ id: string }>();
+
+    if (candidates.length !== 1 || !candidates[0]) continue; // skip ambiguous or no match
+
+    const txId = candidates[0].id;
+    const eventId = newId('se');
+
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE splits SET settlement_txn_id = ?, remaining_cents = 0, closed_at = ? WHERE id = ?`,
+      ).bind(txId, now, split.id),
+      env.DB.prepare(
+        `INSERT INTO split_events (id, split_id, delta_cents, transaction_id, note, created_at)
+         VALUES (?,?,?,?,?,?)`,
+      ).bind(eventId, split.id, -split.remaining_cents, txId, 'auto-matched on import', now),
+    ]);
+
+    await writeEditLog(env, [
+      {
+        entity_type: 'split',
+        entity_id: split.id,
+        field: 'settlement_txn_id',
+        old_value: null,
+        new_value: txId,
+        actor: 'rules',
+        reason: 'split_auto_matched',
+      },
+    ]);
+
+    settled++;
+  }
+
+  return settled;
+}
 
 async function autoDetectPeriods(env: import('../env.js').Env): Promise<number> {
   const { results: settingsRows } = await env.DB.prepare(

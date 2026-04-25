@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
@@ -37,10 +37,20 @@ function fmtDate(iso: string | null) {
 
 export default function CounterpartyPage() {
   const { id } = useParams();
+  const qc = useQueryClient();
   const detail = useQuery({
     queryKey: ['counterparty', id],
     queryFn: () => api.get<Detail>(`/api/counterparties/${id}`),
     enabled: !!id,
+  });
+
+  const settle = useMutation({
+    mutationFn: ({ splitId, amount }: { splitId: string; amount: number }) =>
+      api.post(`/api/splits/${splitId}/event`, { delta_cents: -amount, note: 'marked paid' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['counterparty', id] });
+      qc.invalidateQueries({ queryKey: ['counterparties'] });
+    },
   });
 
   if (detail.isLoading) {
@@ -121,7 +131,7 @@ export default function CounterpartyPage() {
                           {s.closed_at && <> &middot; settled {fmtDate(s.closed_at)}</>}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-end gap-1.5">
                         <div
                           className="num text-sm"
                           style={{
@@ -139,6 +149,16 @@ export default function CounterpartyPage() {
                           <div className="label-tag" style={{ color: 'var(--color-ink-muted)' }}>
                             of {formatCents(s.original_cents)}
                           </div>
+                        )}
+                        {!s.closed_at && (
+                          <button
+                            className="stamp stamp-gold"
+                            style={{ padding: '3px 8px', fontSize: 10 }}
+                            disabled={settle.isPending}
+                            onClick={() => settle.mutate({ splitId: s.id, amount: s.remaining_cents })}
+                          >
+                            Paid
+                          </button>
                         )}
                       </div>
                     </div>

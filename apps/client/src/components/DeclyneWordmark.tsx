@@ -8,7 +8,7 @@ interface Props {
   className?: string;
 }
 
-export function DeclyneWordmark({ fontSize = 38, color = 'var(--color-accent-purple)', letterSpacing = '-0.02em', style, className }: Props) {
+export function DeclyneWordmark({ fontSize = 38, color = '#5e5a60', letterSpacing = '-0.02em', style, className }: Props) {
   const lineHeight = 0.95;
   const aspect = 771 / 617;
   const dHeight = 0.92;
@@ -33,7 +33,7 @@ export function DeclyneWordmark({ fontSize = 38, color = 'var(--color-accent-pur
           width: `${dHeight * aspect}em`,
           marginBottom: '0.04em',
           flexShrink: 0,
-          backgroundColor: 'currentColor',
+          backgroundColor: '#9e78b9',
           WebkitMaskImage: 'url(/brand/letter-d.png)',
           maskImage: 'url(/brand/letter-d.png)',
           WebkitMaskSize: 'contain',
@@ -42,9 +42,18 @@ export function DeclyneWordmark({ fontSize = 38, color = 'var(--color-accent-pur
           maskRepeat: 'no-repeat',
           WebkitMaskPosition: 'center',
           maskPosition: 'center',
+          filter: 'drop-shadow(1.5px 0 0 #1a141d) drop-shadow(-1.5px 0 0 #1a141d) drop-shadow(0 1.5px 0 #1a141d) drop-shadow(0 -1.5px 0 #1a141d) drop-shadow(1px 1px 0 #1a141d) drop-shadow(-1px -1px 0 #1a141d) drop-shadow(1px -1px 0 #1a141d) drop-shadow(-1px 1px 0 #1a141d)',
         }}
       />
-      <span style={{ letterSpacing }}>eclyne</span>
+      <span
+        style={{
+          letterSpacing,
+          WebkitTextStroke: '2px #1a141d',
+          paintOrder: 'stroke fill',
+        }}
+      >
+        eclyne
+      </span>
     </span>
   );
 }

@@ -99,34 +99,35 @@ export default function PhaseJourney() {
         {entries.length === 0 ? (
           <p className="text-sm text-[color:var(--color-text-muted)] pt-4">No transitions logged yet.</p>
         ) : (
-          <ul className="flex flex-col gap-3 pt-4 pb-2">
+          <div className="flex flex-col pt-2">
             {entries.map((e) => {
               const metrics = parseMetrics(e.metrics_json);
               return (
-                <li key={e.id} className="flex flex-col gap-1 border-t border-[color:var(--color-text-muted)]/20 pt-3 first:border-0 first:pt-0">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-semibold">
-                      Phase {e.phase}. {PHASE_NAMES[e.phase] ?? '—'}
-                    </span>
-                    <span className="num text-xs text-[color:var(--color-text-muted)]">
+                <div key={e.id} className="flex flex-col">
+                  <div className="ledger-row">
+                    <div className="ledger-row-main">
+                      <span className="ledger-row-label">Phase {e.phase}. {PHASE_NAMES[e.phase] ?? '—'}</span>
+                      <span className="ledger-row-hint">{e.trigger_rule}</span>
+                    </div>
+                    <span className="ledger-row-value text-xs">
                       {new Date(e.entered_at).toLocaleDateString('en-CA')}
                     </span>
                   </div>
-                  <span className="text-xs text-[color:var(--color-text-muted)]">{e.trigger_rule}</span>
                   {metrics.length > 0 && (
-                    <ul className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 pb-3 pl-1"
+                      style={{ borderBottom: '1px solid var(--rule-ink)' }}>
                       {metrics.map(([k, v]) => (
-                        <li key={k} className="flex items-baseline justify-between text-xs">
+                        <div key={k} className="flex items-baseline justify-between text-xs">
                           <span className="text-[color:var(--color-text-muted)]">{k}</span>
                           <span className="num">{v}</span>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   )}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </section>
     </div>
