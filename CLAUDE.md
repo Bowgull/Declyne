@@ -15,9 +15,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `05111738-eaf6-4bba-b6ab-10ad033d8ce8`
 
-## Repo state (2026-04-25 handoff, end of session 39)
+## Repo state (2026-04-25 handoff, end of session 40)
 
-Working tree dirty after session 39 (counterparties table + chit-tear UX on Today + per-counterparty drill-in + privacy fix on live D1). Sessions 1-8 squashed in `67b52f2`; sessions 9-30 each their own commit on top. `origin/main` is up to date through session 27 (sessions 28-39 not yet pushed). Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** — Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
+Clean working tree after session 40 (design-only handoff: paycheque allocations rework spec). All sessions through 40 pushed to `origin/main` at HEAD. Sessions 1-8 squashed in `67b52f2`; sessions 9-39 each their own commit; session 40 is a docs-only commit (CLAUDE.md + memory). Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts, 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** — Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
 
 ## Key commands
 
@@ -92,21 +92,33 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **Tab restructure (session 35 design, approved).**
+1. **Paycheque allocations rework (session 40 design, locked — START HERE).** Current routing/"The Plan" is brand-inconsistent (3 metaphors stacked), wording-broken (10+ leaky labels), and conceptually a debt-only waterfall mislabeled as an allocation plan. Decisions locked with user:
+   - **Concept:** real allocation plan across 5 outflow groups (essentials/lifestyle/debt/savings/indulgence). Every dollar in has a home out, with explicit "Unassigned" remainder shown (never auto-routed).
+   - **Visual:** Tank-native. No separate page. `/budget/routing` deleted. Tank bands become tappable; tap opens `<AllocationSheet>` bottom sheet with band-scoped line items.
+   - **Reconcile:** both modes — manual stamp PAID + CSV auto-match (unique amount + linked-account + ±3d window → auto-stamps; ambiguous → surfaces in Reconciliation alongside splits).
+   - **Schema:** `DROP TABLE routing_plan` + `CREATE TABLE period_allocations` (id, pay_period_id FK, category_group CHECK, label, planned_cents, matched_txn_id nullable FK, stamped_at nullable, stamped_by CHECK in user/csv_match, created_at). Migration `apps/worker/drizzle/0007_period_allocations.sql`.
+   - **Indulgence buffer:** carry forward last period's actual indulgence as the seed (editable).
+   - **Draft trigger:** auto-runs on period detect (additive — never overwrites user-stamped/edited rows). Manual "Draft this paycheque" button redrafts to fill gaps.
+   - **Wording overhaul:** "The Plan"→"This paycheque", "Where it goes"→deleted (Tank IS this), "Rebuild the plan"→"Draft this paycheque", "Mark sent"→"Paid", "Σ Planned/Total routed"→"Assigned $X · Unassigned $Y" under Tank number, ISO subtitle→humanized, "Back" stamp→deleted, target_type enum leak→deleted.
+   - **Files to touch:** new `apps/worker/drizzle/0007_period_allocations.sql`, new `apps/worker/src/routes/allocations.ts` (replaces `routing.ts`), new `apps/worker/src/lib/allocationSeed.ts` (pure helper, recurring + goals + debt mins + indulgence carry), edit `apps/worker/src/routes/import.ts` to call `autoMatchAllocations` after period detect, edit `apps/worker/src/db/schema.ts`, edit `apps/worker/src/index.ts`, **delete** `apps/client/src/pages/Routing.tsx`, edit `apps/client/src/App.tsx` to drop route, edit `apps/client/src/pages/Budget.tsx` to delete "Where it goes" + make Tank bands tappable + add overlay "Assigned/Unassigned" line, new `apps/client/src/components/AllocationSheet.tsx`. Tests: new `allocationSeed.test.ts` (5+ cases) + new `allocations.test.ts` (CRUD + idempotent draft + auto-match unique vs ambiguous). `period_allocation` added to edit-log allowlist.
+   - **Out of scope this slice:** Reconciliation "TABS TO MATCH" UI for ambiguous matches (ships with splits payment matching in priority 3 below).
+   - **Estimated:** one full session, no spillover.
+
+2. **Tab restructure (session 35 design, approved).**
    - Three tabs: Today / Budget / Yield
    - Debt absorbed into Budget tab (debt cards + splits as a section below the tank)
    - Grow renamed to Yield. Tab icon: wheat stalk or rising-line curve (not the current sprout)
    - Update `App.tsx` TabLink definitions + icons
    - Amend any in-app copy referencing "Debts tab" or "Grow"
 
-2. **Splits payment matching (deferred from session 39).** Counterparty model + chit-tear UX shipped. Still missing:
+3. **Splits payment matching (deferred from session 39).** Counterparty model + chit-tear UX shipped. Still missing:
    - Add `source_txn_id` + `settlement_txn_id` nullable FKs on `splits` to `transactions`
    - During CSV import, for each open split with no `settlement_txn_id`, surface unmatched outgoing transactions in same account within 3 days at same amount. Auto-match when unique; show both when ambiguous.
    - Reconciliation flow gains a "TABS TO MATCH" section surfacing pending auto-match suggestions
    - Manual "stamp PAID" flow from `/budget/tabs/:id` drill-in (creates a transaction tagged to that split)
    - TD e-transfer description format still unconfirmed (web search exhausted). Matcher falls back to amount + date-window until format is confirmed from a real export.
 
-3. **Ledger Desk rollout round 2 (reduced scope after tab restructure).**
+4. **Ledger Desk rollout round 2 (reduced scope after tab restructure).**
    - Budget tab below-the-tank sections (routing list, mini-tanks, goals strip) onto `.ledger-section` / `.ledger-row`
    - Phase journey Transitions card: `<ul>` to `.ledger-row`s
    - Merchants page body: filter row + list to ledger rows
@@ -114,11 +126,11 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
    - `.btn-outline` audit: add `.stamp-square` to Cancel buttons inside bottom-sheets (the tilt reads weird inside form sheets)
    - Items (c) Debts/Splits and (g) Today wrapper superseded by items 1 + 2 above
 
-4. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
+5. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
 
-5. **Wordmark system — custom capitals pending approval (session 38 design).** Structural decision locked: each app = one custom capital letter (SVG, app color) + lowercase serif tail in app's display font. Colors locked: Waymark gold `#E8C860` (reference, do not touch), Declyne purple `#6b5a9e`, Sygnalist green `#6AD7A3`, Bridgefour burnt orange `#c8552e`. Tails: Waymark/Bridgefour Cinzel, Declyne Fraunces, Sygnalist DM Serif Display. Placeholder v3 glyphs are in `wordmark-preview.html` only. Next step: user re-runs Declyne D in Recraft.ai with `~/Desktop/waymark-w-reference.png` attached as style reference; approves D, then generates S + B; then wire approved SVG paths into app builds. Do NOT put any glyph into a build without explicit approval.
+6. **Wordmark system — custom capitals pending approval (session 38 design).** Structural decision locked: each app = one custom capital letter (SVG, app color) + lowercase serif tail in app's display font. Colors locked: Waymark gold `#E8C860` (reference, do not touch), Declyne purple `#6b5a9e`, Sygnalist green `#6AD7A3`, Bridgefour burnt orange `#c8552e`. Tails: Waymark/Bridgefour Cinzel, Declyne Fraunces, Sygnalist DM Serif Display. Placeholder v3 glyphs are in `wordmark-preview.html` only. Next step: user re-runs Declyne D in Recraft.ai with `~/Desktop/waymark-w-reference.png` attached as style reference; approves D, then generates S + B; then wire approved SVG paths into app builds. Do NOT put any glyph into a build without explicit approval.
 
-6. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
+7. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
