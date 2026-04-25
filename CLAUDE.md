@@ -89,10 +89,46 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon (use `apps/client/public/brand/icon-1024.png` or feed mascot to capacitor-assets) deferred until then
-2. **Full category icon set** — sibling pattern from Waymark's `/assets/brand/`. Need PNG+SVG pairs for: Vice, Essentials, Lifestyle, Income, Debt, Credit, Holdings, Reconciliation, plus per-category marks (Alcohol, Takeout, Subscriptions, etc). Lives in `apps/client/public/brand/icons/`
-3. **Ledger Desk rollout — round 2 (handoff from session 33).** Round 1 hit Settings, PhaseJourney, Debts, Grow, Routing, Accounts, Merchants page headers + the Σ Total / hero moments. Still flat / still using `.card` boxes on dark: (a) **Budget tab below the tank** — "Where it goes" routing list, mini-tanks row, goals strip; lift these onto `.ledger-section`s with `.ledger-row` instead of card-link. (b) **Phase journey Transitions card** — convert `<ul>` to `.ledger-row`s with the metrics grid below. (c) **Debts tab Splits** — already moved to ledger-rows but consider promoting Splits into its own perforated *receipt* (it's a record, not in-flight). (d) **Merchants page body + filter card** — header is done, body sections still use `.card`. Convert filter row to a header-row pattern, list to `.ledger-row`s (or perforated receipt lines, since merchants are records). (e) **Grow Recommendation section** — currently a ledger-section but the inner btn-primary + reasoning text hierarchy is weak; treat the recommendation result as a small inline receipt or a stamped verdict row. (f) **`.btn-outline` audit** — every `Cancel` button inside bottom-sheets now picks up the rubber-stamp tilt automatically, which may read weird inside form sheets; consider adding `.stamp-square` to those specific call sites. (g) **Today wrapper** — receipt is the moment so don't touch it, but the surrounding `px-3 pt-4 pb-6` could pick up `.ledger-page` for consistent padding with everything else. (h) **`.btn-primary` review** — the new mono-tracked uppercase look is great as a stamp companion but on big sheet "Save" buttons it may feel small; QA this in the bottom-sheet flows (Add account, Add debt, Add holding, etc.) before tweaking.
-4. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready
+1. **Today screen redesign (session 35 design, approved).** Full wireframe locked. Top to bottom:
+   - Header: `DECLYNE` wordmark + `RCPT 0247 · WK 12 · WED APR 25` subline (RCPT = days since install, WK = weeks reconciled)
+   - Hero block: tap-cycles between three states: `$ left in tank · 4d` / `4d to payday` / `12 day streak`
+   - NEXT block: nearest upcoming bill (merchant, amount, N days)
+   - Single line: `next reconciliation · sunday · 3d`
+   - PRINTING AHEAD section: bills + payday in a ~14d horizon with day-count gutter
+   - OPEN TABS section: open splits ledger showing counterparty / direction / amount / age, `+ tear from scratch` action
+   - Signals rows: Phase, Indulgence (last Nd ago · $X), Review, Streak
+   - Footer: `* * between receipts * *`
+   - Indulgence row copy: `last 2d ago · $24` (observational, not % metric)
+   - Remove "record transaction" action (dead weight when bank CSV is the source)
+
+2. **Tab restructure (session 35 design, approved).**
+   - Three tabs: Today / Budget / Yield
+   - Debt absorbed into Budget tab (debt cards + splits as a section below the tank)
+   - Grow renamed to Yield. Tab icon: wheat stalk or rising-line curve (not the current sprout)
+   - Update `App.tsx` TabLink definitions + icons
+   - Amend any in-app copy referencing "Debts tab" or "Grow"
+
+3. **Splits redesign (session 35 design, approved).** New mental model: splits are paper, the verb is "tear", reconciliation is when paper meets bank.
+   - New `counterparties` table: `id, name, email, default_settlement_method (etransfer|cash|other), archived_at, created_at`
+   - New columns on `splits`: `counterparty_id` FK, `source_txn_id` nullable FK to transactions, `settlement_txn_id` nullable FK to transactions
+   - Migration needed for both
+   - Entry path 1 (primary): "tear from scratch" from OPEN TABS section on Today
+   - Entry path 2 (contextual): long-press / swipe a transaction during reconciliation to tear it
+   - Match flow during reconciliation: for each open split with no `source_txn_id`, surface unmatched transactions in same account within 3 days at same amount. Auto-match when unique; show both when ambiguous (same amount, same window). Same for settlement via incoming e-transfer.
+   - Reconciliation flow gains a "TABS TO MATCH" section surfacing pending auto-match suggestions
+   - TD e-transfer description format still unconfirmed (web search exhausted). Matcher falls back to amount + date-window until format is confirmed from a real export. When confirmed, one regex upgrade lifts it to name-based matching.
+
+4. **Ledger Desk rollout round 2 (reduced scope after tab restructure).**
+   - Budget tab below-the-tank sections (routing list, mini-tanks, goals strip) onto `.ledger-section` / `.ledger-row`
+   - Phase journey Transitions card: `<ul>` to `.ledger-row`s
+   - Merchants page body: filter row + list to ledger rows
+   - Yield (was Grow) Recommendation section: treat result as stamped verdict row or inline receipt
+   - `.btn-outline` audit: add `.stamp-square` to Cancel buttons inside bottom-sheets (the tilt reads weird inside form sheets)
+   - Items (c) Debts/Splits and (g) Today wrapper superseded by items 1 + 2 above
+
+5. **iOS cap add ios** — iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
+
+6. **Bridgefour Declyne section** — explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
@@ -115,4 +151,4 @@ Every session must end with three steps, in order:
 - Dedup key: `SHA256(date|description|amount|accountId)`.
 - No em dashes anywhere: copy, comments, code.
 - GPT never does arithmetic. All numbers in AI prompts come from our computed signals.
-- Four tabs only: Today / Budget / Debts / Grow. No more tabs.
+- Three tabs only: Today / Budget / Yield. Debts tab removed; debt cards + splits move into Budget. No more tabs without explicit approval.
