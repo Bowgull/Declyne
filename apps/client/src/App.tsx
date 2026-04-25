@@ -13,6 +13,7 @@ import Merchants from './pages/Merchants';
 import Credit from './pages/Credit';
 import Goals from './pages/Goals';
 import Holdings from './pages/Holdings';
+import CcStatements from './pages/CcStatements';
 import Onboarding from './pages/Onboarding';
 import PhaseJourney from './pages/PhaseJourney';
 import { api } from './lib/api';
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/settings/credit" element={<Credit />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/holdings" element={<Holdings />} />
+          <Route path="/settings/cc-statements" element={<CcStatements />} />
           <Route path="/phase" element={<PhaseJourney />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>

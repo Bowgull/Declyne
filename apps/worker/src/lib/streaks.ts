@@ -60,6 +60,36 @@ export function ccPayoffStreak(periods: CcPeriodRow[]): number {
   );
 }
 
+export interface CcStatementRow {
+  debt_id: string;
+  statement_date: string;
+  paid_in_full: number;
+}
+
+export function ccPayoffStreakFromStatements(
+  snapshots: CcStatementRow[],
+  ccDebtIds: string[],
+): number {
+  // Per-debt newest-first leading paid_in_full streak; aggregate = MIN across CC debts.
+  // A debt with no statements contributes 0 (cannot prove payoff). Returns 0 if no debts.
+  if (ccDebtIds.length === 0) return 0;
+  const byDebt = new Map<string, CcStatementRow[]>();
+  for (const id of ccDebtIds) byDebt.set(id, []);
+  for (const s of snapshots) {
+    const arr = byDebt.get(s.debt_id);
+    if (arr) arr.push(s);
+  }
+  let min = Infinity;
+  for (const id of ccDebtIds) {
+    const arr = (byDebt.get(id) ?? []).slice().sort((a, b) =>
+      a.statement_date < b.statement_date ? 1 : a.statement_date > b.statement_date ? -1 : 0,
+    );
+    const n = countLeadingTrue(arr.map((s) => s.paid_in_full === 1));
+    if (n < min) min = n;
+  }
+  return min === Infinity ? 0 : min;
+}
+
 export interface DebtCycleDef {
   debt_id: string;
   principal_cents: number;
@@ -209,6 +239,24 @@ export async function computeAndStoreStreaks(env: Env): Promise<StreakComputeRes
   const ccDebtIds = ccDebts.results.map((r) => r.debt_id);
   const ccAccountIds = ccDebts.results.map((r) => r.account_id);
 
+  // Prefer statement snapshots when any CC debt has at least one row.
+  let ccStreak = 0;
+  let ccStreakSource: 'statements' | 'periods' = 'periods';
+  if (ccDebtIds.length) {
+    const placeholders = ccDebtIds.map(() => '?').join(',');
+    const stmts = await env.DB.prepare(
+      `SELECT debt_id, statement_date, paid_in_full FROM cc_statement_snapshots
+       WHERE debt_id IN (${placeholders})
+       ORDER BY statement_date DESC LIMIT 240`,
+    )
+      .bind(...ccDebtIds)
+      .all<CcStatementRow>();
+    if (stmts.results.length > 0) {
+      ccStreak = ccPayoffStreakFromStatements(stmts.results, ccDebtIds);
+      ccStreakSource = 'statements';
+    }
+  }
+
   const ccPeriods: CcPeriodRow[] = [];
   for (const p of periods) {
     let paid = 0;
@@ -236,7 +284,9 @@ export async function computeAndStoreStreaks(env: Env): Promise<StreakComputeRes
     }
     ccPeriods.push({ paid_cents: paid, spent_cents: spent });
   }
-  const ccStreak = ccPayoffStreak(ccPeriods);
+  if (ccStreakSource === 'periods') {
+    ccStreak = ccPayoffStreak(ccPeriods);
+  }
 
   // Missed min payment: walk last 6 cycles per debt.
   const debtsRows = await env.DB.prepare(

@@ -239,6 +239,17 @@ export const cron_runs = sqliteTable('cron_runs', {
   detail: text('detail'),
 });
 
+export const cc_statement_snapshots = sqliteTable('cc_statement_snapshots', {
+  id: text('id').primaryKey(),
+  debt_id: text('debt_id').notNull().references(() => debts.id),
+  statement_date: text('statement_date').notNull(),
+  statement_balance_cents: integer('statement_balance_cents').notNull(),
+  min_payment_cents: integer('min_payment_cents').notNull(),
+  due_date: text('due_date').notNull(),
+  paid_in_full: integer('paid_in_full').notNull().default(0),
+  created_at: text('created_at').notNull(),
+});
+
 export const coach_messages = sqliteTable('coach_messages', {
   id: text('id').primaryKey(),
   generated_at: text('generated_at').notNull(),
