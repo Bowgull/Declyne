@@ -105,7 +105,7 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
   if (!unlocked) {
     return (
       <div className="ledger-page">
-        <LedgerHeader kicker="§ GROW" title="Locked" subtitle="unlocks at phase 4" />
+        <LedgerHeader kicker="§ YIELD" title="Locked" subtitle="unlocks at phase 4" />
         <section className="ledger-section">
           <span className="ledger-section-kicker"><span className="num">×</span>Sealed</span>
           <p className="text-sm text-[color:var(--color-text-muted)] pt-4 pb-2">
@@ -124,7 +124,7 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
   return (
     <div className="ledger-page">
       <LedgerHeader
-        kicker="§ GROW"
+        kicker="§ YIELD"
         title="Portfolio"
         subtitle={snap ? `as of ${snap.as_of}` : undefined}
         action={
@@ -252,12 +252,12 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
 
       <section className="ledger-section">
         <span className="ledger-section-kicker"><span className="num">03</span>Recommendation</span>
-        <div className="pt-4 pb-2 flex flex-col gap-3">
-          <p className="text-sm text-[color:var(--color-text-muted)]">
-            Requires fresh prices and computed signals. Hit Refresh first.
+        <div className="pt-4 pb-2 flex flex-col gap-4">
+          <p className="text-xs text-[color:var(--color-text-muted)] uppercase tracking-[0.14em]">
+            Refresh prices first. GPT reads computed signals — no math.
           </p>
           <button
-            className="btn-primary"
+            className="stamp stamp-gold"
             onClick={() => recommend.mutate()}
             disabled={recommend.isPending}
           >
@@ -267,19 +267,30 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
             <p className="text-xs text-[color:var(--color-danger,#b00)]">{recErr}</p>
           )}
           {rec && (
-            <div className="flex flex-col gap-1 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="font-medium uppercase">{rec.action}</span>
-                <span className="num">{rec.symbol}</span>
-                <span className="text-xs text-[color:var(--color-text-muted)] uppercase">
-                  {rec.wrapper}
-                </span>
+            <div className="flex flex-col">
+              <div className="ledger-row">
+                <div className="ledger-row-main">
+                  <span className="ledger-row-label">
+                    <span
+                      className="num mr-2"
+                      style={{ color: 'var(--color-accent-gold)', fontSize: 13, letterSpacing: '0.18em' }}
+                    >
+                      {rec.action.toUpperCase()}
+                    </span>
+                    {rec.symbol}
+                    <span className="ml-2 text-xs text-[color:var(--color-text-muted)] uppercase tracking-wider">
+                      {rec.wrapper}
+                    </span>
+                  </span>
+                  <span className="ledger-row-hint">{rec.reason}</span>
+                </div>
               </div>
-              <p>{rec.reason}</p>
               {rec.cited_signals?.length > 0 && (
-                <p className="text-xs text-[color:var(--color-text-muted)]">
-                  Cited: {rec.cited_signals.join(', ')}
-                </p>
+                <div className="ledger-row">
+                  <div className="ledger-row-main">
+                    <span className="ledger-row-hint">Cited: {rec.cited_signals.join(', ')}</span>
+                  </div>
+                </div>
               )}
             </div>
           )}

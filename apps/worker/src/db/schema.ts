@@ -110,6 +110,8 @@ export const splits = sqliteTable('splits', {
   reason: text('reason').notNull(),
   created_at: text('created_at').notNull(),
   closed_at: text('closed_at'),
+  source_txn_id: text('source_txn_id').references(() => transactions.id),
+  settlement_txn_id: text('settlement_txn_id').references(() => transactions.id),
 });
 
 export const split_events = sqliteTable('split_events', {

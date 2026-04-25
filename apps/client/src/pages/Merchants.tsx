@@ -53,13 +53,13 @@ export default function Merchants() {
         action={<Link to="/settings" className="stamp">Back</Link>}
       />
 
-      <section className="card flex flex-col gap-3">
-        <label className="field-label">Filter</label>
-        <div className="flex gap-2">
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">01</span>Filter</span>
+        <div className="flex gap-2 pt-4 pb-2">
           {(['unverified', 'all', 'verified'] as const).map((s) => (
             <button
               key={s}
-              className={status === s ? 'btn-primary flex-1' : 'btn-outline flex-1'}
+              className={status === s ? 'btn-primary flex-1' : 'stamp stamp-square flex-1'}
               onClick={() => setStatus(s)}
             >
               {s}
@@ -70,43 +70,42 @@ export default function Merchants() {
           className="field"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search name or normalized key"
+          placeholder="Search name or key"
         />
       </section>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          {merchants.data ? `${rows.length} merchants` : 'Loading.'}
-        </h2>
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">02</span>Merchants</span>
+        <span className="ledger-section-meta text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+          {merchants.data ? `${rows.length}` : '—'}
+        </span>
         {rows.length === 0 && merchants.data ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">Nothing here.</p>
+          <p className="text-sm text-[color:var(--color-text-muted)] pt-4">Nothing here.</p>
         ) : null}
-        <ul className="flex flex-col gap-2">
+        <div className="flex flex-col pt-2">
           {rows.map((m) => (
-            <li key={m.id}>
-              <button
-                className="w-full text-left flex flex-col gap-1 border-b border-[color:var(--color-line)] pb-2"
-                onClick={() => setEditing(m)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{m.display_name}</span>
-                  <span className="text-xs text-[color:var(--color-text-muted)]">
-                    {m.verified ? 'verified' : 'unverified'}
-                  </span>
-                </div>
-                <div className="text-xs text-[color:var(--color-text-muted)] num">
-                  {m.normalized_key}
-                </div>
-                <div className="text-xs text-[color:var(--color-text-muted)]">
+            <button
+              key={m.id}
+              className="ledger-row text-left w-full"
+              onClick={() => setEditing(m)}
+            >
+              <div className="ledger-row-main">
+                <span className="ledger-row-label">{m.display_name}</span>
+                <span className="ledger-row-hint num">{m.normalized_key}</span>
+              </div>
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <span className="num text-xs" style={{ color: m.verified ? 'var(--color-ok)' : 'var(--color-text-muted)' }}>
+                  {m.verified ? 'verified' : 'unverified'}
+                </span>
+                <span className="num text-[10px] text-[color:var(--color-text-muted)]">
                   {m.txn_count} txns
-                  {m.uncategorized_txn_count > 0 ? ` · ${m.uncategorized_txn_count} uncategorized` : ''}
-                  {m.category_name ? ` · ${m.category_name}` : ' · no default'}
-                  {m.last_seen_at ? ` · last ${m.last_seen_at.slice(0, 10)}` : ''}
-                </div>
-              </button>
-            </li>
+                  {m.uncategorized_txn_count > 0 ? ` · ${m.uncategorized_txn_count} unc.` : ''}
+                </span>
+              </div>
+              <span className="ledger-row-chevron">&rsaquo;</span>
+            </button>
           ))}
-        </ul>
+        </div>
       </section>
 
       {editing && (
@@ -205,7 +204,7 @@ function EditSheet({
         )}
 
         <div className="flex gap-2">
-          <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
+          <button className="stamp stamp-square flex-1" onClick={onClose}>Cancel</button>
           <button
             className="btn-primary flex-1"
             onClick={() => save.mutate()}
