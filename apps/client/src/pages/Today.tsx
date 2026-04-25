@@ -81,6 +81,19 @@ export default function Today() {
           description_raw: string;
           days_ago: number;
         } | null;
+        next_bill: {
+          merchant_name: string;
+          amount_cents: number;
+          next_due: string;
+          days_until: number;
+        } | null;
+        printing_ahead: Array<{
+          kind: 'bill' | 'payday';
+          label: string;
+          amount_cents: number;
+          due_date: string;
+          days_until: number;
+        }>;
       }>('/api/today'),
   });
 
@@ -119,6 +132,8 @@ export default function Today() {
 
   const openSplits = splits.data?.splits ?? [];
   const lastInd = todayExtras.data?.last_indulgence ?? null;
+  const nextBill = todayExtras.data?.next_bill ?? null;
+  const printingAhead = todayExtras.data?.printing_ahead ?? [];
 
   return (
     <div className="px-3 pt-4 pb-6">
@@ -160,12 +175,21 @@ export default function Today() {
           {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
         </button>
 
-        {/* NEXT block (placeholder until recurring detection ships) */}
+        {/* NEXT block */}
         <div className="perf pt-4">
           <div className="label-tag mb-1">Next</div>
-          <div className="text-sm ink-muted">
-            Bill detection coming next. Until then, watch the tank.
-          </div>
+          {nextBill ? (
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="text-sm" style={{ color: 'var(--color-ink)' }}>
+                {nextBill.merchant_name}
+              </div>
+              <div className="num text-sm" style={{ color: 'var(--color-ink)' }}>
+                {formatCents(nextBill.amount_cents)} &middot; {nextBill.days_until === 0 ? 'today' : `${nextBill.days_until}d`}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm ink-muted">No bills inside the 14d horizon.</div>
+          )}
         </div>
 
         {/* Single line: next reconciliation */}
@@ -179,9 +203,38 @@ export default function Today() {
         {/* PRINTING AHEAD */}
         <div className="perf pt-4">
           <div className="label-tag mb-2">Printing ahead</div>
-          <div className="text-sm ink-muted">
-            14d horizon will print here once recurring bills + payday cadence are detected.
-          </div>
+          {printingAhead.length === 0 ? (
+            <div className="text-sm ink-muted">Nothing inside the 14d horizon.</div>
+          ) : (
+            <ul className="flex flex-col">
+              {printingAhead.map((row) => (
+                <li
+                  key={`${row.kind}-${row.due_date}-${row.label}`}
+                  className="flex items-baseline justify-between py-2"
+                  style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}
+                >
+                  <div className="flex items-baseline gap-3">
+                    <div
+                      className="num label-tag"
+                      style={{ width: 36, color: 'var(--color-ink-muted)' }}
+                    >
+                      +{row.days_until}d
+                    </div>
+                    <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
+                      {row.kind === 'payday' && <span className="cat-dot income" />}
+                      {row.label}
+                    </div>
+                  </div>
+                  <div
+                    className="num text-sm"
+                    style={{ color: row.kind === 'payday' ? 'var(--cat-income)' : 'var(--color-ink)' }}
+                  >
+                    {row.kind === 'payday' ? '+' : ''}{formatCents(row.amount_cents)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* OPEN TABS */}
