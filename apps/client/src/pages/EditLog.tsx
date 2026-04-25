@@ -15,6 +15,10 @@ type Entry = {
   created_at: string;
 };
 
+const perforation: React.CSSProperties = {
+  borderTop: '1px dashed var(--color-hairline)',
+};
+
 export default function EditLog() {
   const [entityType, setEntityType] = useState('');
 
@@ -31,60 +35,76 @@ export default function EditLog() {
     },
   });
 
+  const list = entries.data?.entries ?? [];
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Edit log</h1>
-        <Link to="/settings" className="text-sm text-[color:var(--color-text-muted)]">
-          Back
-        </Link>
-      </div>
+    <div className="pb-6">
+      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        <header className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mascot-mark" aria-hidden="true" />
+            <div>
+              <div className="display text-lg tracking-tight">AUDIT TAPE</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                {entries.isLoading ? 'Loading…' : `${list.length} entries`}
+              </div>
+            </div>
+          </div>
+          <Link to="/settings" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+            Close
+          </Link>
+        </header>
 
-      <section className="card flex flex-col gap-2">
-        <label className="field-label">Filter</label>
-        <select
-          className="field"
-          value={entityType}
-          onChange={(e) => setEntityType(e.target.value)}
-        >
-          <option value="">All entities</option>
-          {types.data?.entity_types.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </section>
+        <div className="pt-3" style={perforation}>
+          <label className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] block mb-1">
+            Filter
+          </label>
+          <select
+            className="field"
+            value={entityType}
+            onChange={(e) => setEntityType(e.target.value)}
+          >
+            <option value="">All entities</option>
+            {types.data?.entity_types.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <section className="card flex flex-col gap-3">
-        <h2 className="text-xs uppercase tracking-wider text-[color:var(--color-text-muted)]">
-          {entries.data ? `${entries.data.entries.length} entries` : 'Loading...'}
-        </h2>
-        {entries.data && entries.data.entries.length === 0 ? (
-          <p className="text-sm text-[color:var(--color-text-muted)]">No entries.</p>
-        ) : null}
-        <ul className="flex flex-col gap-3">
-          {entries.data?.entries.map((e) => (
-            <li key={e.id} className="flex flex-col gap-1 border-b border-[color:var(--color-line)] pb-2 last:border-b-0">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">
-                  {e.entity_type}.{e.field}
-                </span>
-                <span className="text-xs text-[color:var(--color-text-muted)]">
-                  {new Date(e.created_at).toLocaleString('en-CA')}
-                </span>
+        {list.length === 0 ? (
+          <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>
+            No entries.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {list.map((e) => (
+              <div key={e.id} className="pt-3 mt-3 flex flex-col gap-1" style={perforation}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-sm font-medium truncate">
+                    {e.entity_type}.{e.field}
+                  </div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)] shrink-0">
+                    {new Date(e.created_at).toLocaleString('en-CA')}
+                  </div>
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)] truncate">
+                  {e.entity_id} · {e.actor} · {e.reason}
+                </div>
+                <div className="text-xs num break-all">
+                  <span className="text-[color:var(--color-text-muted)]">{e.old_value ?? '-'}</span>
+                  {' -> '}
+                  <span>{e.new_value ?? '-'}</span>
+                </div>
               </div>
-              <div className="text-xs text-[color:var(--color-text-muted)]">
-                {e.entity_id} · {e.actor} · {e.reason}
-              </div>
-              <div className="text-sm num">
-                <span className="text-[color:var(--color-text-muted)]">{e.old_value ?? '-'}</span>
-                {' -> '}
-                <span>{e.new_value ?? '-'}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+          ** End of tape **
+        </div>
       </section>
     </div>
   );

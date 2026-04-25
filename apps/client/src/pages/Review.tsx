@@ -20,6 +20,10 @@ interface Category {
   group: string;
 }
 
+const perforation: React.CSSProperties = {
+  borderTop: '1px dashed var(--color-hairline)',
+};
+
 const REASON_LABEL: Record<ReviewItem['reason'], string> = {
   uncategorized: 'Uncategorized',
   new_merchant: 'New merchant',
@@ -48,40 +52,50 @@ export default function Review() {
   });
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Review queue</h1>
-          <p className="text-sm text-[color:var(--color-text-muted)]">
-            {items.isLoading ? 'Loading…' : `${list.length} to resolve`}
-          </p>
+    <div className="pb-6">
+      <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        <header className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mascot-mark" aria-hidden="true" />
+            <div>
+              <div className="display text-lg tracking-tight">REVIEW</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                {items.isLoading ? 'Loading…' : `${list.length} unfiled`}
+              </div>
+            </div>
+          </div>
+          <Link to="/today" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+            Close
+          </Link>
+        </header>
+
+        {!items.isLoading && list.length === 0 ? (
+          <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>
+            Queue clear.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {list.map((it) => (
+              <ReviewLine
+                key={it.id}
+                item={it}
+                categories={cats}
+                onResolve={(category_id) => resolve.mutate({ id: it.id, category_id })}
+                pending={resolve.isPending}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="pt-3 text-center text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]" style={perforation}>
+          {list.length === 0 ? '** Queue clear **' : `** ${list.length} unfiled **`}
         </div>
-        <Link to="/today" className="btn-outline">Back</Link>
-      </header>
-
-      {!items.isLoading && list.length === 0 && (
-        <section className="card">
-          <p className="text-sm text-[color:var(--color-text-muted)]">Queue clear.</p>
-        </section>
-      )}
-
-      <ul className="flex flex-col gap-3">
-        {list.map((it) => (
-          <li key={it.id}>
-            <ReviewCard
-              item={it}
-              categories={cats}
-              onResolve={(category_id) => resolve.mutate({ id: it.id, category_id })}
-              pending={resolve.isPending}
-            />
-          </li>
-        ))}
-      </ul>
+      </section>
     </div>
   );
 }
 
-function ReviewCard({
+function ReviewLine({
   item,
   categories,
   onResolve,
@@ -93,24 +107,20 @@ function ReviewCard({
   pending: boolean;
 }) {
   const [selected, setSelected] = useState('');
+  const isOut = item.amount_cents < 0;
   return (
-    <article className="receipt relative" aria-label={item.description_raw}>
-      <span className="stub stub-top" aria-hidden />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--color-text-muted)]">
-            {REASON_LABEL[item.reason]} · {new Date(item.posted_at).toLocaleDateString('en-CA')}
-          </div>
-          <div className="mt-1 truncate text-base font-semibold">{item.description_raw}</div>
+    <div className="pt-3 mt-3 flex flex-col gap-2" style={perforation}>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+          {REASON_LABEL[item.reason]} · {new Date(item.posted_at).toLocaleDateString('en-CA')}
         </div>
-        <div
-          className="num text-lg shrink-0"
-          style={{ color: item.amount_cents < 0 ? 'var(--color-danger)' : 'var(--color-ok)' }}
-        >
-          {formatCents(item.amount_cents)}
+        <div className="num text-base shrink-0">
+          {isOut ? '−' : '+'}
+          {formatCents(Math.abs(item.amount_cents))}
         </div>
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="text-sm truncate">{item.description_raw}</div>
+      <div className="flex gap-2">
         <select
           className="field flex-1"
           value={selected}
@@ -132,7 +142,6 @@ function ReviewCard({
           Resolve
         </button>
       </div>
-      <span className="stub stub-bottom" aria-hidden />
-    </article>
+    </div>
   );
 }
