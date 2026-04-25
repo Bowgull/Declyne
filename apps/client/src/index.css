@@ -175,26 +175,10 @@
   }
 
   .receipt {
-    background: var(--color-bg-card);
-    border: 1px solid var(--color-hairline);
-    border-radius: 0;
-    padding: 16px;
-    position: relative;
-    font-family: var(--font-mono);
-  }
-  .receipt::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    left: 0;
-    right: 0;
-    height: 8px;
-    background-image: radial-gradient(circle at 4px 0, var(--color-bg-primary) 3px, transparent 3px);
-    background-size: 8px 8px;
-    background-position: 0 -4px;
-  }
-
-  .receipt-paper {
+    --color-bg-card: var(--color-paper);
+    --color-text-primary: var(--color-ink);
+    --color-text-muted: var(--color-ink-muted);
+    --color-hairline: var(--color-hairline-ink);
     background: var(--color-paper);
     color: var(--color-ink);
     border: none;
@@ -212,55 +196,53 @@
       url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.08  0 0 0 0 0.11  0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>");
     isolation: isolate;
   }
-  .receipt-paper::before,
-  .receipt-paper::after {
+  .receipt.stub-top::before,
+  .receipt.stub-bottom::after,
+  .receipt::before,
+  .receipt::after {
+    /* unset legacy stub */
+  }
+  .receipt::before {
     content: '';
     position: absolute;
+    top: -5px;
     left: 0;
     right: 0;
     height: 10px;
     background-image: radial-gradient(circle at 5px 0, var(--color-bg-primary) 4px, transparent 4.5px);
     background-size: 10px 10px;
+    background-position: 0 -5px;
     pointer-events: none;
     z-index: 1;
   }
-  .receipt-paper::before {
-    top: -5px;
-    background-position: 0 -5px;
-  }
-  .receipt-paper::after {
+  .receipt::after {
+    content: '';
+    position: absolute;
     bottom: -5px;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background-image: radial-gradient(circle at 5px 0, var(--color-bg-primary) 4px, transparent 4.5px);
+    background-size: 10px 10px;
     background-position: 0 0;
     transform: scaleY(-1);
+    pointer-events: none;
+    z-index: 1;
   }
-  .receipt-paper .ink-muted { color: var(--color-ink-muted); }
-  .receipt-paper .perf { border-top: 1px dashed var(--color-hairline-ink); }
-  .receipt-paper .row-tap {
+  .receipt > * { position: relative; z-index: 2; }
+  .receipt .ink-muted { color: var(--color-ink-muted); }
+  .receipt .perf { border-top: 1px dashed var(--color-hairline-ink); }
+  .receipt .row-tap {
     margin: 0 -20px;
     padding: 14px 20px 0;
     transition: background-color 120ms ease, transform 120ms ease;
     display: block;
   }
-  .receipt-paper .row-tap:active {
+  .receipt .row-tap:active {
     background-color: rgba(26, 20, 29, 0.04);
     transform: scale(0.997);
   }
-  .receipt-paper .mascot-watermark {
-    position: absolute;
-    right: -10px;
-    top: 50%;
-    width: 220px;
-    height: 220px;
-    transform: translateY(-50%);
-    background-image: url('/brand/mascot-head.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    opacity: 0.06;
-    pointer-events: none;
-    z-index: 0;
-  }
-  .receipt-paper > * { position: relative; z-index: 2; }
+  .receipt-paper { /* legacy alias */ }
 
   .hero-num {
     font-family: var(--font-display);
@@ -332,18 +314,15 @@
   }
 
   .mascot-sigil {
-    width: 64px;
-    height: 64px;
-    background-image: url('/brand/mascot-head.png');
-    background-size: cover;
+    width: 96px;
+    height: 96px;
+    background-image: url('/brand/mascot-charcoal.png');
+    background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
     display: inline-block;
     flex-shrink: 0;
-    -webkit-mask-image: radial-gradient(circle at center, black 70%, transparent 100%);
-    mask-image: radial-gradient(circle at center, black 70%, transparent 100%);
-    mix-blend-mode: screen;
-    filter: saturate(1.05) contrast(1.05);
+    filter: drop-shadow(0 1px 0 rgba(26, 20, 29, 0.18));
   }
 
   .field {

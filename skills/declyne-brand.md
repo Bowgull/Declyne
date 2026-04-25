@@ -5,7 +5,7 @@ description: Declyne visual and voice system. Four-tab nav, single mascot PNG as
 
 # Declyne Brand Skill
 
-Declyne sits inside the Bridge Four family (Bowgull, Bowgull). It borrows the same register: grunge plain tech. Apple, Garmin, Wealthsimple shape. No fantasy vocabulary, no RPG words, no glyphs or runes or quests, even though the mascot looks like a familiar.
+Declyne sits inside the Bridge Four family (Bowgull). It borrows the same register: grunge plain tech. Apple, Garmin, Wealthsimple shape. No fantasy vocabulary, no RPG words, no glyphs or runes or quests, even though the mascot looks like a familiar.
 
 ## Palette
 
