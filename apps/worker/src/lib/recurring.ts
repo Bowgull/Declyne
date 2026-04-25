@@ -28,9 +28,9 @@ const MS_PER_DAY = 86_400_000;
 // Only treat these category groups as "bills". Indulgence/lifestyle are
 // discretionary; income flows the other way.
 const BILL_GROUPS = new Set(['essentials', 'debt', 'transfer']);
-// Cadence sanity rails: shorter than 5 days is noise (dupes, splits);
-// longer than 35 days is no longer a recurring monthly bill.
-const MIN_CADENCE_DAYS = 5;
+// Cadence sanity rails: bills are roughly monthly (or biweekly at the
+// shortest). Anything tighter is groceries/gas noise, not a "bill".
+const MIN_CADENCE_DAYS = 14;
 const MAX_CADENCE_DAYS = 35;
 const MIN_OCCURRENCES = 3;
 

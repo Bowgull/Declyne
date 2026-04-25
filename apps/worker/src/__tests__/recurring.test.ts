@@ -79,7 +79,7 @@ describe('detectRecurring', () => {
     expect(out).toEqual([]);
   });
 
-  it('rejects merchants with cadence outside [5, 35] days', () => {
+  it('rejects merchants with cadence outside [14, 35] days', () => {
     const out = detectRecurring(
       [
         mk('m1', 'Coffee', 'essentials', '2026-04-20', -300),
