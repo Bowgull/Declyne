@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { computeSignalsForSymbol } from '../lib/signals.js';
 import { newId, nowIso } from '../lib/ids.js';
+import { redactSensitive } from '../lib/logRedact.js';
 
 export const investmentRoutes = new Hono<{ Bindings: Env }>();
 
@@ -125,7 +126,8 @@ investmentRoutes.post('/recommend', async (c) => {
 
   if (!openaiRes.ok) {
     const err = await openaiRes.text();
-    return c.json({ error: 'openai_error', detail: err }, 502);
+    console.error('openai_error', redactSensitive(err));
+    return c.json({ error: 'openai_error' }, 502);
   }
 
   const ai = (await openaiRes.json()) as { choices: Array<{ message: { content: string } }> };
