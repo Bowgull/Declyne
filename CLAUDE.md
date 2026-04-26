@@ -15,9 +15,9 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `4f93cdac-6c5e-4bef-b1dc-34f0d37e8869` (session 43 worker code on branch awaits deploy from local machine — `pnpm --filter @declyne/worker run deploy`)
 
-## Repo state (2026-04-26 handoff, end of session 49)
+## Repo state (2026-04-26 handoff, end of session 50)
 
-Sessions through 49 pushed to `origin/main`. Sessions 1-8 squashed in `67b52f2`; sessions 9-42 each their own commit; sessions 43-48 shipped as the **security/compliance uplift series** (six sessions: SQLi hotfix, CI security automation, transport hardening, iOS Keychain, compliance docs + data-purge route, log redaction + LLM error sanitize + portfolio README); session 49 cleared three of the five remaining follow-ups (in-app token rotation UI, recommend-route rate limit, drop legacy `splits.counterparty` column). Worker auto-deploys via CI on every push to `main` ([`.github/workflows/deploy-worker.yml`](.github/workflows/deploy-worker.yml)) — no manual `wrangler deploy` step. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
+Sessions through 50 pushed to `origin/main`. Sessions 1-8 squashed in `67b52f2`; sessions 9-42 each their own commit; sessions 43-48 shipped as the **security/compliance uplift series** (six sessions: SQLi hotfix, CI security automation, transport hardening, iOS Keychain, compliance docs + data-purge route, log redaction + LLM error sanitize + portfolio README); session 49 cleared three of the five remaining follow-ups (in-app token rotation UI, recommend-route rate limit, drop legacy `splits.counterparty` column); session 50 shipped automated D1 -> R2 backup. Worker auto-deploys via CI on every push to `main` ([`.github/workflows/deploy-worker.yml`](.github/workflows/deploy-worker.yml)) — no manual `wrangler deploy` step. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
 
 ## Key commands
 
@@ -30,7 +30,9 @@ pnpm test             # 172 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 49, 2026-04-26)
+## What's built (through session 50, 2026-04-26)
+
+- **Automated D1 -> R2 backup, session 50** (2026-04-26): closes the session 48 follow-up. New [``.github/workflows/backup-d1.yml``](.github/workflows/backup-d1.yml) — weekly cron Sunday 3am UTC + manual dispatch. Uses two GitHub secrets: `CLOUDFLARE_D1_TOKEN` (new "Declyne D1 Backup" token, D1:Read scope, minted via browser automation) for the `wrangler d1 export declyne --remote` step, and the existing `CLOUDFLARE_API_TOKEN` (Edit Cloudflare Workers, includes R2 write) for the `wrangler r2 object put declyne-backups/...` upload step. Bucket `declyne-backups` is created idempotently on each run. [`docs/runbooks/backup-d1-to-r2.md`](docs/runbooks/backup-d1-to-r2.md) updated to document the automation. No worker code changed.
 
 - **Security/compliance follow-ups, session 49** (2026-04-26): closed three of the five remaining items from the session 43-48 program. **(1) In-app token rotation UI**: new "08 API token" ledger section in [`apps/client/src/pages/Settings.tsx`](apps/client/src/pages/Settings.tsx) with Rotate-token (purple stamp opens a bottom-sheet password input that calls `setToken()` from [`tokenStore.ts`](apps/client/src/lib/tokenStore.ts) → Keychain) and Clear-token (danger stamp calls `clearToken()`). Closes the session 46 follow-up — token rotation no longer needs the `.env.local` cold-restart path documented in [`docs/runbooks/rotate-api-token.md`](docs/runbooks/rotate-api-token.md). **(2) Rate limiting on `/api/invest/recommend`**: `RECOMMEND_LIMIT_PER_HOUR = 10` cap in [`apps/worker/src/routes/investment.ts`](apps/worker/src/routes/investment.ts) — counts rows in `recommendations` where `generated_at >= now-1h` and returns 429 `{error:'rate_limited', limit, window:'hour'}` if over. Uses existing infrastructure (no new table, no Cloudflare dashboard binding config), defending against runaway loops or token-leak abuse on the only money-cost route. **(3) Drop legacy `splits.counterparty` text column**: migration [`apps/worker/drizzle/0009_drop_splits_counterparty.sql`](apps/worker/drizzle/0009_drop_splits_counterparty.sql) (`ALTER TABLE splits DROP COLUMN counterparty`) applied to remote D1 (changes:1, num_tables:27). Schema, all worker routes (splits/export/reconciliation), `Debts.tsx` Split type (renamed `counterparty` → `counterparty_name` to match the GET /api/splits join), POST body in SplitSheet (now sends `counterparty_name` matching what `parseSplitInput` expects — also fixes a pre-existing bug where the legacy field name was being rejected), `packages/shared/src/types.ts`, and all three seed files cleaned. Test count unchanged at 172. Worker auto-deploys via CI.
 
@@ -100,11 +102,9 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **Automated D1 -> R2 backup** (session 48 follow-up). Manual procedure in [`docs/runbooks/backup-d1-to-r2.md`](docs/runbooks/backup-d1-to-r2.md). Automated version needs a second Cloudflare token with D1-read scope.
+1. **iOS `cap add ios`** (blocked on physical device). iOS project folder doesn't exist yet, `cap:run` will fail. When a physical iPhone + Mac with Xcode are available, run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` `webDir` points to `dist`. Splash screen + iOS app icon deferred until then.
 
-2. **iOS `cap add ios`** (blocked on physical device). iOS project folder doesn't exist yet, `cap:run` will fail. When a physical iPhone + Mac with Xcode are available, run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` `webDir` points to `dist`. Splash screen + iOS app icon deferred until then.
-
-3. **OpenAI zero-data-retention application** (session 48 deferred). Manual application form, not code. Until granted, the "GPT never does arithmetic" rule keeps PII out of prompts.
+2. **OpenAI zero-data-retention application** (session 48 deferred). Manual application form, not code. Until granted, the "GPT never does arithmetic" rule keeps PII out of prompts.
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
