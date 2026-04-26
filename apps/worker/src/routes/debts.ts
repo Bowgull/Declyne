@@ -5,6 +5,104 @@ import { writeEditLog } from '../lib/editlog.js';
 
 export const debtsRoutes = new Hono<{ Bindings: Env }>();
 
+type MinPaymentType = 'fixed' | 'percent';
+
+type DebtRow = {
+  id: string;
+  name: string;
+  principal_cents: number;
+  interest_rate_bps: number;
+  min_payment_type: MinPaymentType;
+  min_payment_value: number;
+  statement_date: number;
+  payment_due_date: number;
+  account_id_linked: string | null;
+  archived: number;
+};
+
+export type DebtPatch = {
+  name?: string;
+  principal_cents?: number;
+  interest_rate_bps?: number;
+  min_payment_type?: MinPaymentType;
+  min_payment_value?: number;
+  statement_date?: number;
+  payment_due_date?: number;
+  account_id_linked?: string | null;
+  archived?: 0 | 1;
+};
+
+const ALLOWED_PATCH_FIELDS: ReadonlyArray<keyof DebtPatch> = [
+  'name',
+  'principal_cents',
+  'interest_rate_bps',
+  'min_payment_type',
+  'min_payment_value',
+  'statement_date',
+  'payment_due_date',
+  'account_id_linked',
+  'archived',
+];
+
+function isDayOfMonth(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 1 && n <= 31 && Math.floor(n) === n;
+}
+
+export function parseDebtPatch(raw: unknown): DebtPatch | { error: string } {
+  if (!raw || typeof raw !== 'object') return { error: 'body required' };
+  const b = raw as Record<string, unknown>;
+  const out: DebtPatch = {};
+
+  if ('name' in b) {
+    if (typeof b.name !== 'string') return { error: 'name must be string' };
+    const v = b.name.trim();
+    if (!v) return { error: 'name required' };
+    if (v.length > 120) return { error: 'name too long' };
+    out.name = v;
+  }
+  if ('principal_cents' in b) {
+    const n = Number(b.principal_cents);
+    if (!Number.isFinite(n) || n < 0 || n > 1_000_000_000_00) return { error: 'principal_cents must be 0..100000000000' };
+    out.principal_cents = Math.round(n);
+  }
+  if ('interest_rate_bps' in b) {
+    const n = Number(b.interest_rate_bps);
+    if (!Number.isFinite(n) || n < 0 || n > 50_000) return { error: 'interest_rate_bps must be 0..50000' };
+    out.interest_rate_bps = Math.round(n);
+  }
+  if ('min_payment_type' in b) {
+    if (b.min_payment_type !== 'fixed' && b.min_payment_type !== 'percent') {
+      return { error: 'min_payment_type must be fixed|percent' };
+    }
+    out.min_payment_type = b.min_payment_type;
+  }
+  if ('min_payment_value' in b) {
+    const n = Number(b.min_payment_value);
+    if (!Number.isFinite(n) || n < 0 || n > 1_000_000_000_00) return { error: 'min_payment_value must be 0..100000000000' };
+    out.min_payment_value = Math.round(n);
+  }
+  if ('statement_date' in b) {
+    const n = Number(b.statement_date);
+    if (!isDayOfMonth(n)) return { error: 'statement_date must be 1..31' };
+    out.statement_date = n;
+  }
+  if ('payment_due_date' in b) {
+    const n = Number(b.payment_due_date);
+    if (!isDayOfMonth(n)) return { error: 'payment_due_date must be 1..31' };
+    out.payment_due_date = n;
+  }
+  if ('account_id_linked' in b) {
+    const v = b.account_id_linked;
+    if (v === null || v === '') out.account_id_linked = null;
+    else if (typeof v === 'string') out.account_id_linked = v.trim() || null;
+    else return { error: 'account_id_linked must be string or null' };
+  }
+  if ('archived' in b) {
+    out.archived = b.archived === true || b.archived === 1 ? 1 : 0;
+  }
+  return out;
+}
+
 debtsRoutes.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT * FROM debts WHERE archived = 0 ORDER BY interest_rate_bps DESC`).all();
   return c.json({ debts: results });
@@ -15,7 +113,7 @@ debtsRoutes.post('/', async (c) => {
     name: string;
     principal_cents: number;
     interest_rate_bps: number;
-    min_payment_type: 'fixed' | 'percent';
+    min_payment_type: MinPaymentType;
     min_payment_value: number;
     statement_date: number;
     payment_due_date: number;
@@ -47,28 +145,40 @@ debtsRoutes.post('/', async (c) => {
 
 debtsRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id');
-  const patch = (await c.req.json()) as Record<string, string | number>;
-  const existing = await c.env.DB.prepare(`SELECT * FROM debts WHERE id = ?`).bind(id).first<Record<string, unknown>>();
+  const patch = parseDebtPatch(await c.req.json().catch(() => null));
+  if ('error' in patch) return c.json({ error: patch.error }, 400);
+
+  const existing = await c.env.DB.prepare(`SELECT * FROM debts WHERE id = ?`).bind(id).first<DebtRow>();
   if (!existing) return c.json({ error: 'not found' }, 404);
-  const logs = [];
-  for (const [field, value] of Object.entries(patch)) {
-    if (existing[field] !== value) {
-      logs.push({
-        entity_type: 'debt',
-        entity_id: id,
-        field,
-        old_value: existing[field] == null ? null : String(existing[field]),
-        new_value: value == null ? null : String(value),
-        actor: 'user' as const,
-        reason: 'debt_update',
-      });
-    }
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  const logs: Parameters<typeof writeEditLog>[1] = [];
+
+  for (const f of ALLOWED_PATCH_FIELDS) {
+    if (patch[f] === undefined) continue;
+    const oldVal = (existing as Record<string, unknown>)[f];
+    const newVal = patch[f] as unknown;
+    if (oldVal === newVal) continue;
+    updates.push(`${f} = ?`);
+    values.push(newVal);
+    logs.push({
+      entity_type: 'debt',
+      entity_id: id,
+      field: f,
+      old_value: oldVal === null ? null : String(oldVal),
+      new_value: newVal === null ? null : String(newVal),
+      actor: 'user',
+      reason: 'debt_update',
+    });
   }
-  const keys = Object.keys(patch);
-  if (keys.length > 0) {
-    const setClause = keys.map((k) => `${k} = ?`).join(', ');
-    await c.env.DB.prepare(`UPDATE debts SET ${setClause} WHERE id = ?`).bind(...Object.values(patch), id).run();
-  }
+
+  if (!updates.length) return c.json({ ok: true, changed: 0 });
+
+  await c.env.DB.prepare(`UPDATE debts SET ${updates.join(', ')} WHERE id = ?`)
+    .bind(...values, id)
+    .run();
   await writeEditLog(c.env, logs);
-  return c.json({ ok: true });
+
+  return c.json({ ok: true, changed: updates.length });
 });
