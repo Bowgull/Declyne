@@ -27,14 +27,6 @@ function pad(n: number, w: number) {
   return String(n).padStart(w, '0');
 }
 
-function isoWeek(d: Date) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
-}
-
 function daysUntilNextSunday(today: Date) {
   const d = today.getDay();
   if (d === 0) return 0;
@@ -105,7 +97,6 @@ export default function Today() {
   });
 
   const now = new Date();
-  const wk = isoWeek(now);
   const dateLabel = now
     .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     .toUpperCase();
@@ -115,14 +106,59 @@ export default function Today() {
   const streak = reconciliation.data?.reconciliation_streak ?? 0;
   const remaining = tank.data?.remaining_cents ?? 0;
   const daysLeft = tank.data?.days_remaining ?? 0;
+  const paycheque = tank.data?.paycheque_cents ?? 0;
   const sundayDays = daysUntilNextSunday(now);
 
+  // Burn-rate color for "Left in tank" hero. Reactive from day one: before any
+  // spend daily_burn=0 → runway=infinity → green. First charge recomputes.
+  function tankColor(): string {
+    if (!tank.data?.period) return 'var(--color-ink)';
+    if (remaining <= 0) return 'var(--cat-indulgence)';
+    const periodStart = new Date(tank.data.period.start_date + 'T00:00:00');
+    const periodEnd = new Date(tank.data.period.end_date + 'T00:00:00');
+    const totalDays = Math.max(
+      1,
+      Math.round((periodEnd.getTime() - periodStart.getTime()) / 86_400_000) + 1,
+    );
+    const daysElapsed = Math.max(0, totalDays - daysLeft);
+    const spent = Math.max(0, paycheque - remaining);
+    if (daysElapsed === 0 || spent === 0) return 'var(--cat-savings)';
+    if (daysLeft <= 0) return 'var(--cat-savings)';
+    const dailyBurn = spent / daysElapsed;
+    const runway = remaining / dailyBurn;
+    const ratio = runway / daysLeft;
+    if (ratio >= 1.15) return 'var(--cat-savings)';
+    if (ratio >= 0.85) return 'var(--color-accent-gold)';
+    return 'var(--cat-indulgence)';
+  }
   const heroStates = [
     { label: 'Left in tank', value: formatCents(remaining), sub: `${daysLeft}d to payday` },
     { label: 'Days to payday', value: `${daysLeft}d`, sub: tank.data?.period?.end_date ?? '' },
     { label: 'Reconciliation streak', value: `${streak}`, sub: streak === 1 ? 'week kept' : 'weeks kept' },
   ];
   const hero = heroStates[heroIdx % heroStates.length]!;
+  const activeHero = heroIdx % heroStates.length;
+
+  // Streak color: gold ≥4 (locked-in), sage 1-3 (building), ink at 0 (reset).
+  function streakColor(n: number): string {
+    if (n >= 4) return 'var(--color-accent-gold)';
+    if (n >= 1) return 'var(--cat-savings)';
+    return 'var(--color-ink)';
+  }
+  const streakPillClass = streak >= 4 ? 'pill-gold' : streak >= 1 ? 'pill-sage' : '';
+
+  // Days-till-payday color: ink at >7d (no signal yet), gold at 3-7d (warming),
+  // mascot purple at ≤2d (inflow imminent — uses the brand income color).
+  function paydayColor(d: number): string {
+    if (d <= 2) return 'var(--cat-income)';
+    if (d <= 7) return 'var(--color-accent-gold)';
+    return 'var(--color-ink)';
+  }
+
+  let heroColor = 'var(--color-ink)';
+  if (activeHero === 0) heroColor = tankColor();
+  else if (activeHero === 1) heroColor = paydayColor(daysLeft);
+  else if (activeHero === 2) heroColor = streakColor(streak);
 
   // Show counterparties with at least one open tab. Sort by absolute net cents
   // descending so the biggest open balance leads.
@@ -199,19 +235,33 @@ export default function Today() {
             className="mascot-sigil"
             aria-hidden="true"
             style={{
-              width: 168,
-              height: 168,
-              marginLeft: -22,
+              width: 116,
+              height: 116,
+              marginLeft: -14,
               flexShrink: 0,
             }}
           />
           <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 28 }}>
-            <DeclyneWordmark fontSize={38} />
-            <div className="label-tag mt-2" style={{ fontSize: 9 }}>
-              RCPT {pad(rcpt, 4)} &middot; WK {pad(wk, 2)} &middot; {dateLabel}
-            </div>
+            <DeclyneWordmark fontSize={44} />
           </div>
         </header>
+
+        <div
+          style={{
+            marginTop: 4,
+            borderTop: '3px double var(--color-ink-muted)',
+            borderBottom: '3px double var(--color-ink-muted)',
+            padding: '8px 0',
+            textAlign: 'center',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: 'var(--color-ink)',
+          }}
+        >
+          RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp; JB &nbsp;&middot;&nbsp; {dateLabel}
+        </div>
 
         <button
           type="button"
@@ -219,13 +269,13 @@ export default function Today() {
           className="perf pt-4 text-left"
           style={{ background: 'transparent', border: 0, padding: 0, paddingTop: '1rem', cursor: 'pointer' }}
         >
-          <div className="label-tag mb-1">{hero.label}</div>
-          <div className="hero-num" style={{ color: 'var(--color-ink)' }}>{hero.value}</div>
+          <div className="section-label mb-2">{hero.label}</div>
+          <div className="hero-num" style={{ color: heroColor, transition: 'color 240ms ease' }}>{hero.value}</div>
           {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
         </button>
 
         <div className="perf pt-4">
-          <div className="label-tag mb-1">Next</div>
+          <div className="section-label mb-2">Next</div>
           {nextBill ? (
             <div className="flex items-baseline justify-between gap-3">
               <div className="text-sm" style={{ color: 'var(--color-ink)' }}>{nextBill.merchant_name}</div>
@@ -239,14 +289,14 @@ export default function Today() {
         </div>
 
         <div className="perf pt-3 pb-1 flex items-baseline justify-between">
-          <div className="label-tag">Next reconciliation</div>
+          <div className="section-label">Next reconciliation</div>
           <div className="num text-xs" style={{ color: 'var(--color-ink)' }}>
             sunday &middot; {sundayDays === 0 ? 'today' : `${sundayDays}d`}
           </div>
         </div>
 
         <div className="perf pt-4">
-          <div className="label-tag mb-2">Printing ahead</div>
+          <div className="section-label mb-2">Printing ahead</div>
           {printingAhead.length === 0 ? (
             <div className="text-sm ink-muted">Nothing inside the 14d horizon.</div>
           ) : (
@@ -276,7 +326,7 @@ export default function Today() {
         {/* OPEN TABS — per-counterparty. Long-press to tear a new chit. */}
         <div className="perf pt-4">
           <div className="flex items-baseline justify-between mb-2">
-            <div className="label-tag">Open tabs</div>
+            <div className="section-label">Open tabs</div>
             <div className="label-tag">{openCps.length}</div>
           </div>
 
@@ -347,7 +397,7 @@ export default function Today() {
 
         <Link to="/phase" className="row-tap perf">
           <div className="flex items-baseline justify-between gap-3">
-            <div className="label-tag">Phase</div>
+            <div className="section-label">Phase</div>
             <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
               {phase.data ? `${phase.data.phase}. ${phase.data.name}` : '--'} &rsaquo;
             </div>
@@ -381,7 +431,7 @@ export default function Today() {
           <div className="flex items-baseline justify-between gap-3">
             <div className="label-tag">Streak</div>
             <div className="flex items-center gap-2">
-              {streak > 0 && <span className="pill-gold">{streak} wk</span>}
+              {streak > 0 && <span className={streakPillClass}>{streak} wk</span>}
               {streak === 0 && (
                 <div className="num text-base" style={{ color: 'var(--color-ink)' }}>reset</div>
               )}

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './env.js';
+import { isAllowedOrigin, securityHeaders } from './middleware/security.js';
 import { accountsRoutes } from './routes/accounts.js';
 import { importRoutes } from './routes/import.js';
 import { phaseRoutes } from './routes/phase.js';
@@ -32,14 +33,16 @@ import { auth } from './middleware/auth.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use('*', securityHeaders);
 app.use('*', cors({
-  origin: (o) => o ?? '*',
+  origin: (o) => (isAllowedOrigin(o) ? (o ?? '*') : ''),
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.get('/', (c) => c.json({ name: 'declyne-api', ok: true }));
 app.get('/health', (c) => c.json({ ok: true, as_of: new Date().toISOString() }));
+app.get('/healthz', (c) => c.json({ ok: true }));
 
 app.use('/api/*', auth);
 
@@ -74,7 +77,7 @@ app.route('/api', api);
 
 app.onError((err, c) => {
   console.error('worker error', err);
-  return c.json({ error: err.message }, 500);
+  return c.json({ error: 'internal' }, 500);
 });
 
 export default {

@@ -545,6 +545,68 @@
     border-radius: 999px;
     background: rgba(107, 90, 158, 0.08);
   }
+  /* Section subheader inside a receipt — slightly larger and darker than
+     .label-tag so it reads as a real section header instead of a footnote. */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+    font-weight: 700;
+  }
+  .pill-sage {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid var(--cat-savings);
+    color: var(--cat-savings);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    background: rgba(148, 168, 136, 0.08);
+  }
+
+  /* Section banner — receipt-cream surface. Hairline rule full-width with a
+     gold ordinal badge punching through on the left, and a Fraunces italic
+     title on the next line. Brand-cohesive (Fraunces + mono + gold) and gives
+     each section a clear visual handle without going full ledger-desk. */
+  .section-banner {
+    position: relative;
+    padding-top: 18px;
+    margin-top: 4px;
+    border-top: 1px dashed var(--color-hairline-ink);
+  }
+  .section-banner-badge {
+    position: absolute;
+    top: -7px;
+    left: 0;
+    padding: 0 6px 0 0;
+    background: var(--color-bg-card);
+    color: var(--color-accent-gold);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+  .section-banner-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22px;
+    line-height: 1.05;
+    color: var(--color-ink);
+    letter-spacing: -0.005em;
+  }
+  .section-banner-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+    margin-top: 2px;
+  }
 
   @keyframes paper-in {
     0% { opacity: 0; transform: translateY(6px); }
