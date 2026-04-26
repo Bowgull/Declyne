@@ -22,7 +22,7 @@ exportRoutes.get('/', async (c) => {
   await addSection('debts', `SELECT id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value, statement_date, payment_due_date, archived FROM debts`, [
     'id', 'name', 'principal_cents', 'interest_rate_bps', 'min_payment_type', 'min_payment_value', 'statement_date', 'payment_due_date', 'archived',
   ]);
-  await addSection('splits', `SELECT id, counterparty, direction, original_cents, remaining_cents, reason, created_at, closed_at FROM splits`, [
+  await addSection('splits', `SELECT s.id, COALESCE(cp.name, '') AS counterparty, s.direction, s.original_cents, s.remaining_cents, s.reason, s.created_at, s.closed_at FROM splits s LEFT JOIN counterparties cp ON cp.id = s.counterparty_id`, [
     'id', 'counterparty', 'direction', 'original_cents', 'remaining_cents', 'reason', 'created_at', 'closed_at',
   ]);
   await addSection('phase_log', `SELECT id, phase, entered_at, trigger_rule, metrics_json FROM phase_log ORDER BY entered_at`, [

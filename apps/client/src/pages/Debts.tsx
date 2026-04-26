@@ -20,7 +20,7 @@ interface Debt {
 
 interface Split {
   id: string;
-  counterparty: string;
+  counterparty_name: string;
   direction: 'josh_owes' | 'owes_josh';
   remaining_cents: number;
   reason: string;
@@ -87,10 +87,10 @@ export default function Debts() {
               key={s.id}
               onClick={() => setSettling(s)}
               className="ledger-row tap text-left w-full"
-              aria-label={`Settle ${s.counterparty}`}
+              aria-label={`Settle ${s.counterparty_name}`}
             >
               <div className="ledger-row-main">
-                <span className="ledger-row-label">{s.counterparty}</span>
+                <span className="ledger-row-label">{s.counterparty_name}</span>
                 <span className="ledger-row-hint">
                   {s.direction === 'josh_owes' ? 'You owe' : 'Owes you'} · {s.reason}
                 </span>
@@ -156,7 +156,7 @@ function SplitSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
       const amount_cents = parseMoneyToCents(amount);
       if (amount_cents <= 0) throw new Error('Amount must be greater than zero.');
       return api.post<{ id: string }>('/api/splits', {
-        counterparty: counterparty.trim(),
+        counterparty_name: counterparty.trim(),
         direction,
         amount_cents,
         reason: reason.trim(),
@@ -287,7 +287,7 @@ function SettleSheet({
       className="fixed inset-0 z-20 flex items-end justify-center bg-black/60"
       role="dialog"
       aria-modal="true"
-      aria-label={`Settle ${split.counterparty}`}
+      aria-label={`Settle ${split.counterparty_name}`}
       onClick={onClose}
     >
       <div
@@ -296,7 +296,7 @@ function SettleSheet({
       >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">{split.counterparty}</h2>
+            <h2 className="text-lg font-semibold">{split.counterparty_name}</h2>
             <p className="text-xs text-[color:var(--color-text-muted)]">
               Remaining {formatCents(split.remaining_cents)} · {split.reason}
             </p>

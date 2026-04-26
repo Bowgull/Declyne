@@ -94,10 +94,10 @@ splitsRoutes.post('/', async (c) => {
   const id = newId('split');
   const now = nowIso();
   await c.env.DB.prepare(
-    `INSERT INTO splits (id, counterparty, counterparty_id, direction, original_cents, remaining_cents, reason, created_at, closed_at)
-     VALUES (?,?,?,?,?,?,?,?,NULL)`,
+    `INSERT INTO splits (id, counterparty_id, direction, original_cents, remaining_cents, reason, created_at, closed_at)
+     VALUES (?,?,?,?,?,?,?,NULL)`,
   )
-    .bind(id, counterpartyName, counterpartyId, parsed.direction, parsed.amount_cents, parsed.amount_cents, parsed.reason, now)
+    .bind(id, counterpartyId, parsed.direction, parsed.amount_cents, parsed.amount_cents, parsed.reason, now)
     .run();
   await writeEditLog(c.env, [
     {
@@ -105,7 +105,7 @@ splitsRoutes.post('/', async (c) => {
       entity_id: id,
       field: 'create',
       old_value: null,
-      new_value: JSON.stringify({ ...parsed, counterparty_id: counterpartyId, counterparty: counterpartyName }),
+      new_value: JSON.stringify({ ...parsed, counterparty_id: counterpartyId, counterparty_name: counterpartyName }),
       actor: 'user',
       reason: 'split_create',
     },

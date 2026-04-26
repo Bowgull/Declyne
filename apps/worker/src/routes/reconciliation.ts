@@ -240,7 +240,7 @@ reconciliationRoutes.post('/complete', async (c) => {
 reconciliationRoutes.get('/tabs-to-match', async (c) => {
   const { results: openSplits } = await c.env.DB.prepare(
     `SELECT s.id, s.direction, s.remaining_cents, s.created_at, s.reason,
-            COALESCE(cp.name, s.counterparty) AS counterparty_name
+            COALESCE(cp.name, '') AS counterparty_name
      FROM splits s
      LEFT JOIN counterparties cp ON cp.id = s.counterparty_id
      WHERE s.closed_at IS NULL AND s.settlement_txn_id IS NULL AND s.remaining_cents > 0

@@ -53,9 +53,21 @@ investmentRoutes.post('/signals/recompute/:symbol', async (c) => {
   return c.json({ updated: signals.length });
 });
 
+// Rate limit: at most RECOMMEND_LIMIT_PER_HOUR successful generations per rolling hour.
+// Counted from recommendations.generated_at. OpenAI calls cost money; this caps damage if the bearer token leaks.
+const RECOMMEND_LIMIT_PER_HOUR = 10;
+
 investmentRoutes.post('/recommend', async (c) => {
   // Builds payload per declyne-investment skill and calls GPT-4o.
   // GPT never does arithmetic. All numbers come from our signals table.
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const recent = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM recommendations WHERE generated_at >= ?`,
+  ).bind(since).first<{ n: number }>();
+  if ((recent?.n ?? 0) >= RECOMMEND_LIMIT_PER_HOUR) {
+    return c.json({ error: 'rate_limited', limit: RECOMMEND_LIMIT_PER_HOUR, window: 'hour' }, 429);
+  }
+
   const body = (await c.req.json()) as { phase: number };
 
   const { results: holdings } = await c.env.DB.prepare(`SELECT * FROM holdings`).all();

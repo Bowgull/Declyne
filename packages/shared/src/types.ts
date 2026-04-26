@@ -71,7 +71,8 @@ export interface Debt {
 
 export interface Split {
   id: string;
-  counterparty: string;
+  counterparty_id: string | null;
+  counterparty_name?: string;
   direction: SplitDirection;
   original_cents: Cents;
   remaining_cents: Cents;

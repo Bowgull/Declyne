@@ -53,5 +53,7 @@ INSERT OR IGNORE INTO phase_log (id, phase, entered_at, trigger_rule, metrics_js
   VALUES ('phase_init', 1, datetime('now'), 'bootstrap', '{}');
 
 -- Bowgull split (Mexico). Directional per locked decisions.
-INSERT OR IGNORE INTO splits (id, counterparty, direction, original_cents, remaining_cents, reason, created_at)
-  VALUES ('split_bowgull_mexico', 'Bowgull', 'josh_owes', 0, 0, 'Mexico trip', datetime('now'));
+INSERT OR IGNORE INTO counterparties (id, name, default_settlement_method, archived_at, created_at)
+  VALUES ('cp_bowgull', 'Bowgull', 'etransfer', NULL, datetime('now'));
+INSERT OR IGNORE INTO splits (id, counterparty_id, direction, original_cents, remaining_cents, reason, created_at)
+  VALUES ('split_bowgull_mexico', 'cp_bowgull', 'josh_owes', 0, 0, 'Mexico trip', datetime('now'));
