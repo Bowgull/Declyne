@@ -43,19 +43,10 @@ npx wrangler d1 execute declyne --remote --file "/tmp/restore.sql"
 
 **Warning:** restoring overwrites current state. Run `DELETE /api/data/purge` first if you want a clean restore.
 
-## Automate
+## Automated backup
 
-Deferred. Cloudflare Workers can write to R2 on cron, but D1 → R2 export needs the wrangler CLI (no Worker-side D1 dump primitive yet). Two options when ready:
+Runs weekly via `.github/workflows/backup-d1.yml` (Sunday 3am UTC). Uses two secrets:
+- `CLOUDFLARE_D1_TOKEN` — "Declyne D1 Backup" token, D1:Read scope only (minted session 50)
+- `CLOUDFLARE_API_TOKEN` — "Edit Cloudflare Workers" token, includes R2 write
 
-1. **GitHub Actions weekly cron:** runs the manual procedure above. Needs `CLOUDFLARE_API_TOKEN` (already configured) + a service-account-style approach for R2 write. Simplest path.
-2. **Cloudflare D1 → R2 internal pipeline:** Wait for Cloudflare to ship a native primitive. Currently in private beta as of this commit.
-
-## Why we don't ship #1 yet
-
-The wrangler `d1 export` command in CI requires an extra Cloudflare API token scope (D1 read). The current `CLOUDFLARE_API_TOKEN` is the "Edit Cloudflare Workers" template — it can deploy Workers but not export D1 data. To enable automated backup:
-
-1. Mint a second token "Edit D1 + R2 Read/Write"
-2. Add as `CLOUDFLARE_BACKUP_TOKEN` repo secret
-3. Add `.github/workflows/backup-d1.yml` (weekly cron)
-
-Flagged as a follow-up. Until then, this runbook is the procedure.
+The workflow exports D1 to a temp file then uploads to R2, switching tokens between steps. Trigger manually via Actions → Backup D1 to R2 → Run workflow.
