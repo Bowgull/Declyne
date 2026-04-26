@@ -5,6 +5,57 @@ import { writeEditLog } from '../lib/editlog.js';
 
 export const reconciliationRoutes = new Hono<{ Bindings: Env }>();
 
+// Pure helper for split <-> transaction ambiguity detection.
+// A split is ambiguous when ≥2 candidate transactions match its expected
+// signed amount within ±3 days of created_at.
+//
+// Sign rule mirrors autoMatchSplits in import.ts:
+//   owes_josh   → expected = +remaining_cents (incoming)
+//   josh_owes   → expected = -remaining_cents (outgoing)
+export type SplitForMatch = {
+  id: string;
+  direction: 'owes_josh' | 'josh_owes';
+  remaining_cents: number;
+  created_at: string;
+};
+
+export type TxnForMatch = {
+  id: string;
+  posted_at: string;
+  amount_cents: number;
+};
+
+export function expectedSignedAmount(direction: 'owes_josh' | 'josh_owes', remaining_cents: number): number {
+  return direction === 'owes_josh' ? remaining_cents : -remaining_cents;
+}
+
+export function withinThreeDays(a: string, b: string): boolean {
+  const da = Date.parse(`${a.slice(0, 10)}T00:00:00Z`);
+  const db = Date.parse(`${b.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(da) || !Number.isFinite(db)) return false;
+  return Math.abs(da - db) <= 3 * 86_400_000;
+}
+
+export function findAmbiguousSplits<S extends SplitForMatch, T extends TxnForMatch>(
+  splits: S[],
+  txns: T[],
+): Array<{ split: S; candidates: T[] }> {
+  const out: Array<{ split: S; candidates: T[] }> = [];
+  for (const s of splits) {
+    const expected = expectedSignedAmount(s.direction, s.remaining_cents);
+    const candidates = txns.filter(
+      (t) => t.amount_cents === expected && withinThreeDays(t.posted_at, s.created_at),
+    );
+    if (candidates.length >= 2) out.push({ split: s, candidates });
+  }
+  return out;
+}
+
+export function isCandidateValid(split: SplitForMatch, txn: TxnForMatch): boolean {
+  if (txn.amount_cents !== expectedSignedAmount(split.direction, split.remaining_cents)) return false;
+  return withinThreeDays(txn.posted_at, split.created_at);
+}
+
 // Returns the most recent Sunday (>= today's day-of-week walks back).
 // `today` must be YYYY-MM-DD. Output YYYY-MM-DD. Sunday counts as itself.
 export function mostRecentSunday(today: string): string {
@@ -182,4 +233,127 @@ reconciliationRoutes.post('/complete', async (c) => {
     reconciliation_streak: nextStreak,
     last_reconciliation_at: now,
   });
+});
+
+// Surfaces open splits that the import auto-matcher skipped because ≥2 transactions
+// matched their amount + ±3d window. Josh picks the right one in Reconciliation.
+reconciliationRoutes.get('/tabs-to-match', async (c) => {
+  const { results: openSplits } = await c.env.DB.prepare(
+    `SELECT s.id, s.direction, s.remaining_cents, s.created_at, s.reason,
+            COALESCE(cp.name, s.counterparty) AS counterparty_name
+     FROM splits s
+     LEFT JOIN counterparties cp ON cp.id = s.counterparty_id
+     WHERE s.closed_at IS NULL AND s.settlement_txn_id IS NULL AND s.remaining_cents > 0
+     ORDER BY s.created_at DESC`,
+  ).all<{
+    id: string;
+    direction: 'owes_josh' | 'josh_owes';
+    remaining_cents: number;
+    created_at: string;
+    reason: string;
+    counterparty_name: string;
+  }>();
+
+  if (openSplits.length === 0) return c.json({ tabs: [] });
+
+  const tabs: Array<{
+    split: typeof openSplits[number];
+    candidates: Array<{
+      id: string;
+      posted_at: string;
+      amount_cents: number;
+      description_raw: string;
+      account_name: string;
+    }>;
+  }> = [];
+
+  for (const s of openSplits) {
+    const expected = expectedSignedAmount(s.direction, s.remaining_cents);
+    const day = s.created_at.slice(0, 10);
+    const { results: candidates } = await c.env.DB.prepare(
+      `SELECT t.id, t.posted_at, t.amount_cents, t.description_raw,
+              a.name AS account_name
+       FROM transactions t
+       JOIN accounts a ON a.id = t.account_id
+       WHERE t.amount_cents = ?
+         AND t.posted_at >= date(?, '-3 days')
+         AND t.posted_at <= date(?, '+3 days')
+       ORDER BY t.posted_at ASC`,
+    )
+      .bind(expected, day, day)
+      .all<{
+        id: string;
+        posted_at: string;
+        amount_cents: number;
+        description_raw: string;
+        account_name: string;
+      }>();
+
+    if (candidates.length >= 2) tabs.push({ split: s, candidates });
+  }
+
+  return c.json({ tabs });
+});
+
+reconciliationRoutes.post('/tabs-to-match/:split_id/match', async (c) => {
+  const splitId = c.req.param('split_id');
+  const body = (await c.req.json().catch(() => null)) as { transaction_id?: unknown } | null;
+  const txId = typeof body?.transaction_id === 'string' ? body.transaction_id : '';
+  if (!txId) return c.json({ error: 'transaction_id required' }, 400);
+
+  const split = await c.env.DB.prepare(
+    `SELECT id, direction, remaining_cents, created_at, closed_at, settlement_txn_id
+     FROM splits WHERE id = ?`,
+  )
+    .bind(splitId)
+    .first<{
+      id: string;
+      direction: 'owes_josh' | 'josh_owes';
+      remaining_cents: number;
+      created_at: string;
+      closed_at: string | null;
+      settlement_txn_id: string | null;
+    }>();
+  if (!split) return c.json({ error: 'split not found' }, 404);
+  if (split.closed_at || split.settlement_txn_id) return c.json({ error: 'split already closed' }, 409);
+  if (split.remaining_cents <= 0) return c.json({ error: 'split already settled' }, 409);
+
+  const txn = await c.env.DB.prepare(
+    `SELECT id, posted_at, amount_cents FROM transactions WHERE id = ?`,
+  )
+    .bind(txId)
+    .first<{ id: string; posted_at: string; amount_cents: number }>();
+  if (!txn) return c.json({ error: 'transaction not found' }, 404);
+
+  if (!isCandidateValid(split, txn)) {
+    return c.json({ error: 'transaction does not match split (amount or ±3d window)' }, 400);
+  }
+
+  const now = nowIso();
+  const eventId = newId('se');
+  const delta = -split.remaining_cents;
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE splits SET settlement_txn_id = ?, remaining_cents = 0, closed_at = ? WHERE id = ?`,
+    ).bind(txn.id, now, split.id),
+    c.env.DB.prepare(
+      `INSERT INTO split_events (id, split_id, delta_cents, transaction_id, note, created_at)
+       VALUES (?,?,?,?,?,?)`,
+    ).bind(eventId, split.id, delta, txn.id, 'matched in reconciliation', now),
+  ]);
+
+  await writeEditLog(c.env, [
+    {
+      entity_type: 'split',
+      entity_id: split.id,
+      field: 'settlement_txn_id',
+      old_value: null,
+      new_value: txn.id,
+      actor: 'user',
+      reason: 'split_user_matched',
+    },
+  ]);
+
+  return c.json({ ok: true, split_id: split.id, transaction_id: txn.id });
 });
