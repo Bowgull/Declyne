@@ -1,12 +1,14 @@
+import { getToken } from './tokenStore.js';
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787';
-const TOKEN = import.meta.env.VITE_API_TOKEN ?? '';
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const token = await getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${token}`,
     },
     body: body === undefined ? null : JSON.stringify(body),
   });
@@ -23,5 +25,4 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => req<T>('PATCH', path, body),
   del: <T>(path: string) => req<T>('DELETE', path),
   baseUrl: BASE_URL,
-  token: TOKEN,
 };
