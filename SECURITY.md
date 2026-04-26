@@ -26,7 +26,7 @@ This document maps implemented controls to OWASP ASVS 5.0 Level 2 categories. Ea
 |---|---|
 | Bearer token required on `/api/*` | [`apps/worker/src/middleware/auth.ts`](apps/worker/src/middleware/auth.ts) wired in [`apps/worker/src/index.ts`](apps/worker/src/index.ts) |
 | Token rotation runbook | [`docs/runbooks/rotate-api-token.md`](docs/runbooks/rotate-api-token.md) |
-| Token storage on client | iOS Keychain via `@capacitor-community/secure-storage` (session 46) — not yet wired |
+| Token storage on client | iOS Keychain via `capacitor-secure-storage-plugin` ([`apps/client/src/lib/tokenStore.ts`](apps/client/src/lib/tokenStore.ts)). `VITE_API_TOKEN` is a one-shot migration source only |
 
 ### V3. Session Management
 
@@ -120,6 +120,6 @@ This is a single-user app and not currently soliciting external reports. If you 
 
 ## Out of scope (accepted residual risk)
 
-- **Bearer token in iOS bundle.** Anyone who pulls the IPA off the device gets the token. Mitigated in session 46 by moving the token into the iOS Keychain on first launch.
+- **Bearer token migration window.** On the first launch after upgrading from a pre-Keychain build, the token is briefly read from `VITE_API_TOKEN` in the bundle to seed the Keychain. After that single read, the env value is no longer consulted. An attacker who pulls the IPA *before* the user has launched the new build can still recover the token from the bundle; once Keychain is seeded, the bundle value is dead weight.
 - **No rate limiting** on `/api/invest/recommend` (which proxies to OpenAI on user's billing). Deferred to a follow-up using Cloudflare Workers `RATE_LIMITER` binding.
 - **OpenAI data retention.** Investment-recommendation prompts go to OpenAI with default retention. Zero-data-retention application pending in session 48; until then, no real account numbers or names appear in prompts (only computed signals — see [`CLAUDE.md`](CLAUDE.md) rule "GPT never does arithmetic. All numbers in AI prompts come from our computed signals.")
