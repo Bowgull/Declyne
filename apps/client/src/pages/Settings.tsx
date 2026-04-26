@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { setToken, clearToken } from '../lib/tokenStore';
 import { scheduleAllNotifications } from '../native/notifications';
 import LedgerHeader from '../components/LedgerHeader';
 
@@ -55,6 +56,11 @@ export default function Settings() {
   const [fallbackDays, setFallbackDays] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
+  const [newToken, setNewToken] = useState('');
+  const [tokenSaving, setTokenSaving] = useState(false);
+  const [tokenMsg, setTokenMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setSourceId(s.paycheque_source_account_id ?? '');
@@ -262,6 +268,81 @@ export default function Settings() {
           </a>
         </div>
       </section>
+
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">08</span>API token</span>
+        <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
+          Stored in iOS Keychain (or browser secure storage). Paste a fresh token after rotating in Cloudflare.
+        </p>
+        <div className="flex gap-2 pt-1 pb-2">
+          <button className="stamp stamp-purple flex-1" onClick={() => { setNewToken(''); setTokenMsg(null); setTokenSheetOpen(true); }}>
+            Rotate token
+          </button>
+          <button
+            className="stamp stamp-danger flex-1"
+            onClick={async () => {
+              await clearToken();
+              setTokenMsg('Token cleared. Reload to enter a new one.');
+            }}
+          >
+            Clear
+          </button>
+        </div>
+        {tokenMsg && (
+          <p className="text-xs text-[color:var(--color-text-muted)] pb-2">{tokenMsg}</p>
+        )}
+      </section>
+
+      {tokenSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+          onClick={() => setTokenSheetOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[color:var(--color-bg-card)] rounded-t-2xl p-5 flex flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold">Rotate API token</h2>
+            <label className="field-label">New token</label>
+            <input
+              className="field"
+              type="password"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              value={newToken}
+              onChange={(e) => setNewToken(e.target.value)}
+              placeholder="paste here"
+            />
+            <p className="text-xs text-[color:var(--color-text-muted)]">
+              Stored in Keychain. The build-time env value is ignored after this is set.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                className="btn-primary flex-1"
+                disabled={tokenSaving || !newToken.trim()}
+                onClick={async () => {
+                  setTokenSaving(true);
+                  try {
+                    await setToken(newToken.trim());
+                    setTokenMsg('Token saved.');
+                    setTokenSheetOpen(false);
+                    setNewToken('');
+                  } finally {
+                    setTokenSaving(false);
+                  }
+                }}
+              >
+                {tokenSaving ? 'Saving.' : 'Save'}
+              </button>
+              <button className="stamp stamp-square flex-1" onClick={() => setTokenSheetOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

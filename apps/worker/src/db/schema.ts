@@ -102,7 +102,6 @@ export const counterparties = sqliteTable('counterparties', {
 
 export const splits = sqliteTable('splits', {
   id: text('id').primaryKey(),
-  counterparty: text('counterparty').notNull(),
   counterparty_id: text('counterparty_id').references(() => counterparties.id),
   direction: text('direction', { enum: ['josh_owes', 'owes_josh'] }).notNull(),
   original_cents: integer('original_cents').notNull(),
