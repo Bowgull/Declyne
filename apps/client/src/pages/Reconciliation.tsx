@@ -38,6 +38,27 @@ type WeekResponse = {
   transactions: Txn[];
 };
 
+type TabSplit = {
+  id: string;
+  direction: 'owes_josh' | 'josh_owes';
+  remaining_cents: number;
+  created_at: string;
+  reason: string;
+  counterparty_name: string;
+};
+
+type TabCandidate = {
+  id: string;
+  posted_at: string;
+  amount_cents: number;
+  description_raw: string;
+  account_name: string;
+};
+
+type TabsResponse = {
+  tabs: Array<{ split: TabSplit; candidates: TabCandidate[] }>;
+};
+
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function dayLabel(iso: string): string {
@@ -61,6 +82,21 @@ export default function Reconciliation() {
   const week = useQuery({
     queryKey: ['reconciliation-week'],
     queryFn: () => api.get<WeekResponse>('/api/reconciliation/week'),
+  });
+
+  const tabs = useQuery({
+    queryKey: ['reconciliation-tabs-to-match'],
+    queryFn: () => api.get<TabsResponse>('/api/reconciliation/tabs-to-match'),
+  });
+
+  const matchTab = useMutation({
+    mutationFn: ({ split_id, transaction_id }: { split_id: string; transaction_id: string }) =>
+      api.post<{ ok: true }>(`/api/reconciliation/tabs-to-match/${split_id}/match`, { transaction_id }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation-tabs-to-match'] });
+      qc.invalidateQueries({ queryKey: ['splits'] });
+      qc.invalidateQueries({ queryKey: ['counterparties'] });
+    },
   });
 
   const complete = useMutation({
@@ -161,6 +197,28 @@ export default function Reconciliation() {
           </div>
         </div>
 
+        {tabs.data && tabs.data.tabs.length > 0 && (
+          <div className="pt-3" style={perforation}>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] mb-2">
+              Tabs to match ({tabs.data.tabs.length})
+            </div>
+            <div className="text-[11px] text-[color:var(--color-text-muted)] mb-3">
+              Multiple transactions match these open tabs. Pick the one that settled it.
+            </div>
+            <div className="flex flex-col gap-4">
+              {tabs.data.tabs.map(({ split, candidates }) => (
+                <TabToMatch
+                  key={split.id}
+                  split={split}
+                  candidates={candidates}
+                  pending={matchTab.isPending && matchTab.variables?.split_id === split.id}
+                  onMatch={(transaction_id) => matchTab.mutate({ split_id: split.id, transaction_id })}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="pt-3" style={perforation}>
           <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] mb-2">
             Line items ({totals.count})
@@ -253,6 +311,58 @@ function SummaryRow({
         {sign === 'in' ? '+' : '−'}
         {formatCents(value)}
       </span>
+    </div>
+  );
+}
+
+function TabToMatch({
+  split,
+  candidates,
+  pending,
+  onMatch,
+}: {
+  split: TabSplit;
+  candidates: TabCandidate[];
+  pending: boolean;
+  onMatch: (transaction_id: string) => void;
+}) {
+  const directionLabel = split.direction === 'owes_josh' ? 'owes you' : 'you owe';
+  const hue = split.direction === 'owes_josh' ? 'savings' : 'indulgence';
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="min-w-0 flex-1 flex items-baseline gap-2">
+          <span className={`cat-dot ${hue}`} />
+          <div className="min-w-0">
+            <div className="truncate text-sm">{split.counterparty_name}</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+              {directionLabel} · {split.reason}
+            </div>
+          </div>
+        </div>
+        <div className="num text-sm shrink-0">{formatCents(split.remaining_cents)}</div>
+      </div>
+      <div className="mt-2 flex flex-col gap-1">
+        {candidates.map((t) => (
+          <button
+            key={t.id}
+            disabled={pending}
+            onClick={() => onMatch(t.id)}
+            className="row-tap flex items-baseline justify-between gap-3 text-left"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs">{t.description_raw}</div>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
+                {t.posted_at.slice(0, 10)} · {t.account_name}
+              </div>
+            </div>
+            <div className="num text-xs shrink-0">
+              {t.amount_cents > 0 ? '+' : '−'}
+              {formatCents(Math.abs(t.amount_cents))}
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
