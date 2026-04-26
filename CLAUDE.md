@@ -13,11 +13,11 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - D1 database: `declyne` (`0893ada8-cbdb-4b3c-896c-c93c792023f1`)
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
-- Latest worker version: `4f93cdac-6c5e-4bef-b1dc-34f0d37e8869`
+- Latest worker version: `4f93cdac-6c5e-4bef-b1dc-34f0d37e8869` (session 43 worker code on branch awaits deploy from local machine — `pnpm --filter @declyne/worker run deploy`)
 
-## Repo state (2026-04-25 handoff, end of session 42)
+## Repo state (2026-04-26 handoff, end of session 43)
 
-Clean working tree after session 42 (Ledger Desk round 2 + splits payment matching). All sessions through 42 pushed to `origin/main` at HEAD. Sessions 1-8 squashed in `67b52f2`; sessions 9-41 each their own commit; session 42 ships ledger desk round 2 + splits matching. Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
+Clean working tree after session 43 (Reconciliation TABS TO MATCH). Sessions through 42 pushed to `origin/main` at HEAD; session 43 ships on branch `claude/ritual-hand-off-feature-kGLf8`. Sessions 1-8 squashed in `67b52f2`; sessions 9-42 each their own commit; session 43 ships TABS TO MATCH on Reconciliation. Ask before `git push` and `git commit`. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,200, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
 
 ## Key commands
 
@@ -30,7 +30,9 @@ pnpm test             # 140 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 37, 2026-04-25)
+## What's built (through session 43, 2026-04-26)
+
+- Reconciliation TABS TO MATCH section (session 43): closes the loop on import-time splits payment matching shipped in session 42. New worker route `GET /api/reconciliation/tabs-to-match` returns open splits (`closed_at IS NULL AND settlement_txn_id IS NULL AND remaining_cents > 0`) that have ≥2 candidate transactions in the amount + ±3d window — exactly the ambiguous cases `autoMatchSplits` skips. New `POST /api/reconciliation/tabs-to-match/:split_id/match` accepts `{ transaction_id }`, validates the txn matches the split's expected signed amount + ±3d window via the same shared rule (`isCandidateValid`), then settles: sets `settlement_txn_id`, `remaining_cents=0`, `closed_at`, inserts a `split_event` with note "matched in reconciliation" and `delta_cents = -remaining_cents`, writes edit_log `entity_type='split'`, `field='settlement_txn_id'`, `actor='user'`, `reason='split_user_matched'`. Pure helpers `expectedSignedAmount`, `withinThreeDays`, `findAmbiguousSplits`, `isCandidateValid` exported from `apps/worker/src/routes/reconciliation.ts` for tests. **Reconciliation.tsx** gained a new `TABS TO MATCH (n)` perforated section between Summary and Line items — only renders when `tabs.length > 0`. Each tab shows counterparty + direction-tinted dot (sage if owes-you, sienna if you-owe) + reason + amount, then a list of candidate transaction `row-tap` buttons (description + posted_at + account, signed amount on right). Tap a candidate → POST match → invalidates `reconciliation-tabs-to-match`, `splits`, `counterparties` queries. Copy: "Multiple transactions match these open tabs. Pick the one that settled it." 15 new tests in `reconciliation.test.ts` (155 total: 141 worker + 14 shared, was 140). Worker code changed; redeploy from local: `pnpm --filter @declyne/worker run deploy`. Build: 404.15 kB JS / 31.81 kB CSS (+2.62 kB JS / +1.21 kB CSS). **Files changed:** `apps/worker/src/routes/reconciliation.ts`, `apps/worker/src/__tests__/reconciliation.test.ts`, `apps/client/src/pages/Reconciliation.tsx`. **Caveat:** the route fetches candidate txns per-split (one query each); fine for the typical case of <10 open splits, would want a single batched query if Josh ever ends up with hundreds of open tabs.
 
 - pnpm monorepo: `apps/client`, `apps/worker`, `packages/shared`
 - 27-table D1 schema, live and seeded
@@ -94,13 +96,11 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
-1. **Reconciliation TABS TO MATCH section (deferred from session 42).** Import-time auto-match + manual Stamp PAID from drill-in both shipped (session 42). Still missing: a "TABS TO MATCH" section in Reconciliation surfacing ambiguous split matches (multiple transactions at the same amount in the ±3d window). Would require storing match candidates somewhere (new table or a dedicated route) -- deferred until a real TD e-transfer CSV is available to confirm description format and validate the matching heuristic.
+1. **iOS cap add ios** -- iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
 
-2. **iOS cap add ios** -- iOS project folder doesn't exist yet, `cap:run` will fail. Run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` webDir points to `dist`. After ios/ exists, the notifications wired in session 23 will fire on physical-device install. Splash screen + iOS app icon deferred until then.
+2. **Wordmark system -- custom capitals pending approval (session 38 design).** Structural decision locked: each app = one custom capital letter (SVG, app color) + lowercase serif tail in app's display font. Colors locked: Waymark gold `#E8C860` (reference, do not touch), Declyne purple `#6b5a9e`, Sygnalist green `#6AD7A3`, Bridgefour burnt orange `#c8552e`. Tails: Waymark/Bridgefour Cinzel, Declyne Fraunces, Sygnalist DM Serif Display. Placeholder v3 glyphs are in `wordmark-preview.html` only. Next step: user re-runs Declyne D in Recraft.ai with `~/Desktop/waymark-w-reference.png` attached as style reference; approves D, then generates S + B; then wire approved SVG paths into app builds. Do NOT put any glyph into a build without explicit approval.
 
-3. **Wordmark system -- custom capitals pending approval (session 38 design).** Structural decision locked: each app = one custom capital letter (SVG, app color) + lowercase serif tail in app's display font. Colors locked: Waymark gold `#E8C860` (reference, do not touch), Declyne purple `#6b5a9e`, Sygnalist green `#6AD7A3`, Bridgefour burnt orange `#c8552e`. Tails: Waymark/Bridgefour Cinzel, Declyne Fraunces, Sygnalist DM Serif Display. Placeholder v3 glyphs are in `wordmark-preview.html` only. Next step: user re-runs Declyne D in Recraft.ai with `~/Desktop/waymark-w-reference.png` attached as style reference; approves D, then generates S + B; then wire approved SVG paths into app builds. Do NOT put any glyph into a build without explicit approval.
-
-4. **Bridgefour Declyne section** -- explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
+3. **Bridgefour Declyne section** -- explicitly held until Declyne is presentable. Reserve `/public/assets/declyne/` slot in Bridgefour repo and a token block in its globals.css when ready.
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
