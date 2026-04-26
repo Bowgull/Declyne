@@ -36,4 +36,26 @@ describe('parseAllocPatch', () => {
   it('rejects empty label on patch', () => {
     expect('error' in parseAllocPatch({ label: '   ' })).toBe(true);
   });
+
+  // SQL-injection defense: arbitrary attacker-controlled keys must be silently
+  // dropped. Only category_group, label, planned_cents may flow into the SET clause.
+  it('drops attacker-controlled keys not in the allowlist', () => {
+    const malicious = {
+      planned_cents: 5000,
+      'planned_cents = 0; DROP TABLE transactions; --': 1,
+      'stamped_at = ?; UPDATE settings SET value = ?; --': 'now',
+      pay_period_id: 'attacker_period',
+      stamped_at: '1970-01-01T00:00:00Z',
+      stamped_by: 'csv_match',
+      matched_txn_id: 'attacker_txn',
+      id: 'attacker_chosen_id',
+      __proto__: { admin: true },
+    };
+    const out = parseAllocPatch(malicious);
+    if ('error' in out) throw new Error(out.error);
+    expect(out).toEqual({ planned_cents: 5000 });
+    for (const k of Object.keys(out)) {
+      expect(k).toMatch(/^(category_group|label|planned_cents)$/);
+    }
+  });
 });
