@@ -20,8 +20,8 @@ Time required: ~3 minutes.
    Paste the new token at the prompt. The Worker hot-reloads in ~2 seconds; old token is invalidated server-side.
 
 3. **Update the iOS app**:
-   - **After session 46 ships:** open the iOS app, navigate to Settings → "Update API token", paste the new value. The app stores it in Keychain.
-   - **Before session 46 ships (current state):** the token is baked into the bundle as `VITE_API_TOKEN`. Update `apps/client/.env.production`, run `pnpm cap:run`, sideload the new build. The old build will start returning 401s on every API call until updated.
+   - **Quickest path:** open the iOS app, navigate to Settings → "Update API token", paste the new value. The app writes it into the iOS Keychain via `capacitor-secure-storage-plugin`. Subsequent requests read from Keychain. No rebuild needed.
+   - **Cold-restart path (e.g. forgot the in-app flow):** update `apps/client/.env.local` with the new `VITE_API_TOKEN`, call `clearToken()` from the JS console (or wipe app data), relaunch — the env value is read once on first launch and migrated into Keychain, then ignored.
 
 4. **Verify**:
    ```bash

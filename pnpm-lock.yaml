@@ -50,6 +50,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.11
         version: 5.100.1(react@19.2.5)
+      capacitor-secure-storage-plugin:
+        specifier: ^0.13.0
+        version: 0.13.0(@capacitor/core@8.3.1)
       papaparse:
         specifier: ^5.4.1
         version: 5.5.3
@@ -1782,6 +1785,11 @@ packages:
 
   caniuse-lite@1.0.30001790:
     resolution: {integrity: sha512-bOoxfJPyYo+ds6W0YfptaCWbFnJYjh2Y1Eow5lRv+vI2u8ganPZqNm1JwNh0t2ELQCqIWg4B3dWEusgAmsoyOw==}
+
+  capacitor-secure-storage-plugin@0.13.0:
+    resolution: {integrity: sha512-+rLC/9Z0LTaRRt6L6HjBwcDh5gqgI3NPmDSwo4hk41XQOy3EBrRo81VleIqFsowsMA3oMT+E59Bl8/HiWk0nhQ==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
@@ -4108,6 +4116,10 @@ snapshots:
       function-bind: 1.1.2
 
   caniuse-lite@1.0.30001790: {}
+
+  capacitor-secure-storage-plugin@0.13.0(@capacitor/core@8.3.1):
+    dependencies:
+      '@capacitor/core': 8.3.1
 
   chai@5.3.3:
     dependencies:
