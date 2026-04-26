@@ -31,6 +31,7 @@ import { reconciliationRoutes } from './routes/reconciliation.js';
 import { todayRoutes } from './routes/today.js';
 import { dataPurgeRoutes } from './routes/dataPurge.js';
 import { auth } from './middleware/auth.js';
+import { redactSensitive } from './lib/logRedact.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -78,7 +79,7 @@ api.route('/data/purge', dataPurgeRoutes);
 app.route('/api', api);
 
 app.onError((err, c) => {
-  console.error('worker error', err);
+  console.error('worker error', redactSensitive(err.message));
   return c.json({ error: 'internal' }, 500);
 });
 
