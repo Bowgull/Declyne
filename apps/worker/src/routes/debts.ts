@@ -104,7 +104,20 @@ export function parseDebtPatch(raw: unknown): DebtPatch | { error: string } {
 }
 
 debtsRoutes.get('/', async (c) => {
-  const { results } = await c.env.DB.prepare(`SELECT * FROM debts WHERE archived = 0 ORDER BY interest_rate_bps DESC`).all();
+  // Per-debt GL balance: SUM(credit) - SUM(debit) on the linked liability account
+  // (positive = liability owed). Joined left so debts without a GL link still appear.
+  const { results } = await c.env.DB.prepare(
+    `SELECT d.*,
+            COALESCE(
+              (SELECT SUM(jl.credit_cents) - SUM(jl.debit_cents)
+               FROM journal_lines jl
+               WHERE jl.account_id = d.account_id),
+              NULL
+            ) AS gl_balance_cents
+     FROM debts d
+     WHERE d.archived = 0
+     ORDER BY d.interest_rate_bps DESC`,
+  ).all();
   return c.json({ debts: results });
 });
 

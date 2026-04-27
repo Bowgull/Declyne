@@ -3,6 +3,7 @@ import type { Env } from '../env.js';
 import { computeTrialBalance } from '../lib/gl.js';
 import { runGlBackfill } from '../lib/glBackfill.js';
 import { runArApBackfill } from '../lib/glCounterparty.js';
+import { runDebtBackfill, reconcileStatements } from '../lib/debtGl.js';
 
 export const glRoutes = new Hono<{ Bindings: Env }>();
 
@@ -123,4 +124,20 @@ glAdminRoutes.post('/gl-backfill', async (c) => {
 glAdminRoutes.post('/arap-backfill', async (c) => {
   const out = await runArApBackfill(c.env);
   return c.json(out);
+});
+
+// POST /api/admin/debt-backfill — idempotent. Resolves GL accounts for debts,
+// posts opening-balance JEs for free-standing debts.
+glAdminRoutes.post('/debt-backfill', async (c) => {
+  const out = await runDebtBackfill(c.env);
+  return c.json(out);
+});
+
+// GET /api/gl/statement-reconcile?window_days=N — per-statement GL vs snapshot
+// mismatch. Read-only audit surface.
+glRoutes.get('/statement-reconcile', async (c) => {
+  const wRaw = Number(c.req.query('window_days') ?? 60);
+  const w = Number.isFinite(wRaw) && wRaw > 0 ? Math.min(Math.floor(wRaw), 730) : 60;
+  const rows = await reconcileStatements(c.env, w);
+  return c.json({ window_days: w, rows });
 });
