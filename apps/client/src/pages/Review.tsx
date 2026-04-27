@@ -135,11 +135,12 @@ function ReviewLine({
           ))}
         </select>
         <button
-          className="stamp stamp-square px-4 text-sm"
+          className="ink-glyph commit"
           onClick={() => selected && onResolve(selected)}
           disabled={!selected || pending}
+          aria-label="Commit category"
         >
-          Resolve
+          ▸
         </button>
       </div>
     </div>

@@ -182,12 +182,15 @@ export default function CounterpartyPage() {
                           <div className="flex gap-1.5">
                             {s.direction === 'they_owe' && (
                               <button
-                                className="stamp stamp-purple"
-                                style={{ padding: '3px 8px', fontSize: 10 }}
+                                className="postage"
+                                style={{ minWidth: 76, padding: '6px 8px 4px', transform: 'rotate(-2deg)' }}
                                 disabled={linkBusy === s.id}
                                 onClick={() => sendPaymentLink(s.id, s.remaining_cents, cp.name)}
                               >
-                                {linkBusy === s.id ? 'Sending.' : 'Send link'}
+                                <span className="postage-denom" style={{ fontSize: 8 }}>$0.47</span>
+                                <span className="postage-label" style={{ fontSize: 9 }}>
+                                  {linkBusy === s.id ? 'Sending' : <>Send<br />link</>}
+                                </span>
                               </button>
                             )}
                             <button
