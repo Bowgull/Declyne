@@ -4,6 +4,7 @@ import { computeTrialBalance } from '../lib/gl.js';
 import { runGlBackfill } from '../lib/glBackfill.js';
 import { runArApBackfill } from '../lib/glCounterparty.js';
 import { runDebtBackfill, reconcileStatements } from '../lib/debtGl.js';
+import { runHoldingsBackfill } from '../lib/glHoldings.js';
 
 export const glRoutes = new Hono<{ Bindings: Env }>();
 
@@ -130,6 +131,13 @@ glAdminRoutes.post('/arap-backfill', async (c) => {
 // posts opening-balance JEs for free-standing debts.
 glAdminRoutes.post('/debt-backfill', async (c) => {
   const out = await runDebtBackfill(c.env);
+  return c.json(out);
+});
+
+// POST /api/admin/holdings-backfill — idempotent. Creates Assets:Investments
+// accounts per holding lot, posts opening-balance JEs from cost basis.
+glAdminRoutes.post('/holdings-backfill', async (c) => {
+  const out = await runHoldingsBackfill(c.env);
   return c.json(out);
 });
 
