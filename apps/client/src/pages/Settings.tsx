@@ -327,8 +327,9 @@ export default function Settings() {
       <section className="ledger-section">
         <span className="ledger-section-kicker"><span className="num">08</span>Export</span>
         <div className="pt-3 pb-2">
-          <a className="stamp" href={`${api.baseUrl}/api/export`}>
-            Download sectioned CSV
+          <a className="sticker sticker-cool" href={`${api.baseUrl}/api/export`}>
+            <span className="sticker-glyph">⤓</span>
+            Export CSV
           </a>
         </div>
       </section>
@@ -343,13 +344,14 @@ export default function Settings() {
             Rotate token
           </button>
           <button
-            className="stamp stamp-danger flex-1"
+            className="sticker sticker-warn"
             onClick={async () => {
               await clearToken();
               setTokenMsg('Token cleared. Reload to enter a new one.');
             }}
           >
-            Clear
+            <span className="sticker-glyph">⊘</span>
+            Clear token
           </button>
         </div>
         {tokenMsg && (

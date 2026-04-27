@@ -184,14 +184,18 @@ export default function Plan() {
           <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
             <span>Rationale</span>
             <button
-              className="stamp stamp-square text-[10px]"
+              className="postage"
+              style={{ minWidth: 80, padding: '8px 10px 6px', transform: 'rotate(1.4deg)' }}
               disabled={refresh.isPending}
               onClick={() => {
                 setRefreshMsg(null);
                 refresh.mutate();
               }}
             >
-              {refresh.isPending ? 'Asking…' : 'Refresh'}
+              <span className="postage-denom" style={{ fontSize: 8 }}>AI</span>
+              <span className="postage-label" style={{ fontSize: 9 }}>
+                {refresh.isPending ? 'Asking' : <>Refresh<br />rationale</>}
+              </span>
             </button>
           </div>
           {data?.rationale ? (
