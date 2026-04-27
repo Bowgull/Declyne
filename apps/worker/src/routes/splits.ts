@@ -3,6 +3,7 @@ import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { disableLinksForSplit } from './paymentLinks.js';
+import { postSplitCreateJe, postSplitEventJe } from '../lib/glCounterparty.js';
 
 export const splitsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -111,13 +112,23 @@ splitsRoutes.post('/', async (c) => {
       reason: 'split_create',
     },
   ]);
+  await postSplitCreateJe(c.env, {
+    id,
+    counterparty_id: counterpartyId!,
+    direction: parsed.direction,
+    original_cents: parsed.amount_cents,
+    reason: parsed.reason,
+    created_at: now,
+  }).catch(() => null);
   return c.json({ id, counterparty_id: counterpartyId });
 });
 
 splitsRoutes.post('/:id/event', async (c) => {
   const id = c.req.param('id');
   const b = (await c.req.json()) as { delta_cents: number; transaction_id?: string; note?: string };
-  const split = await c.env.DB.prepare(`SELECT remaining_cents FROM splits WHERE id = ?`).bind(id).first<{ remaining_cents: number }>();
+  const split = await c.env.DB.prepare(`SELECT remaining_cents, direction FROM splits WHERE id = ?`)
+    .bind(id)
+    .first<{ remaining_cents: number; direction: 'i_owe' | 'they_owe' }>();
   if (!split) return c.json({ error: 'not found' }, 404);
   const newRemaining = split.remaining_cents + b.delta_cents;
   const eventId = newId('se');
@@ -140,6 +151,15 @@ splitsRoutes.post('/:id/event', async (c) => {
       reason: 'split_event',
     },
   ]);
+  await postSplitEventJe(c.env, {
+    event_id: eventId,
+    split_id: id,
+    direction: split.direction,
+    delta_cents: b.delta_cents,
+    transaction_id: b.transaction_id ?? null,
+    posted_at: now,
+    note: b.note ?? null,
+  }).catch(() => null);
   if (newRemaining <= 0) {
     await disableLinksForSplit(c.env, id, 'split_settled').catch(() => 0);
   }

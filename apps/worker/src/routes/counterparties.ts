@@ -71,11 +71,31 @@ counterpartiesRoutes.get('/', async (c) => {
   return c.json({ counterparties: rows });
 });
 
-// GET /api/counterparties/:id  -- drill-in: counterparty + splits + events
+// GET /api/counterparties/:id  -- drill-in: counterparty + splits + events + GL balance
 counterpartiesRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
-  const cp = await c.env.DB.prepare(`SELECT * FROM counterparties WHERE id = ?`).bind(id).first();
+  const cp = await c.env.DB.prepare(`SELECT * FROM counterparties WHERE id = ?`).bind(id).first<{
+    id: string;
+    name: string;
+    default_settlement_method: string | null;
+    archived_at: string | null;
+    created_at: string;
+    account_id: string | null;
+  }>();
   if (!cp) return c.json({ error: 'not found' }, 404);
+
+  // GL balance: debits - credits on the cp's GL account. Positive = they owe me,
+  // negative = I owe them. Falls back to 0 when account_id is unset.
+  let glBalanceCents = 0;
+  if (cp.account_id) {
+    const row = await c.env.DB.prepare(
+      `SELECT COALESCE(SUM(debit_cents), 0) AS d, COALESCE(SUM(credit_cents), 0) AS cr
+       FROM journal_lines WHERE account_id = ?`,
+    )
+      .bind(cp.account_id)
+      .first<{ d: number; cr: number }>();
+    glBalanceCents = (row?.d ?? 0) - (row?.cr ?? 0);
+  }
 
   const { results: splitRows } = await c.env.DB.prepare(
     `SELECT id, direction, original_cents, remaining_cents, reason, created_at, closed_at
@@ -106,7 +126,7 @@ counterpartiesRoutes.get('/:id', async (c) => {
             .all()
         ).results ?? [];
 
-  return c.json({ counterparty: cp, splits: splitRows ?? [], events });
+  return c.json({ counterparty: cp, splits: splitRows ?? [], events, gl_balance_cents: glBalanceCents });
 });
 
 counterpartiesRoutes.post('/', async (c) => {

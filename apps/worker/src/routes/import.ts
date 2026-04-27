@@ -6,6 +6,7 @@ import { detectPeriods, type PaycheckCandidate } from '../lib/payperiods.js';
 import { runCcStatementDerivation } from './ccStatements.js';
 import { draftForPeriod, autoMatchAllocations } from './allocations.js';
 import { disableLinksForSplit } from './paymentLinks.js';
+import { postSplitEventJe } from '../lib/glCounterparty.js';
 
 interface ImportRow {
   posted_at: string;
@@ -196,6 +197,16 @@ async function autoMatchSplits(env: import('../env.js').Env): Promise<number> {
         reason: 'split_auto_matched',
       },
     ]);
+
+    await postSplitEventJe(env, {
+      event_id: eventId,
+      split_id: split.id,
+      direction: split.direction as 'i_owe' | 'they_owe',
+      delta_cents: -split.remaining_cents,
+      transaction_id: txId,
+      posted_at: now,
+      note: 'auto-matched on import',
+    }).catch(() => null);
 
     await disableLinksForSplit(env, split.id, 'split_auto_matched').catch(() => 0);
 
