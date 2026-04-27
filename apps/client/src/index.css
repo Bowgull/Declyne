@@ -792,6 +792,23 @@
     background: transparent;
     border: 1px dashed var(--cat-uncategorized);
   }
+
+  /* Row-type glyph vocabulary. Tags every money row by what kind of movement
+     it is — recurring bill, payment, income, transfer, one-off, unreconciled.
+     Mono, ink color, fixed 16px slot so labels align across rows. */
+  .row-glyph {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1;
+    color: var(--color-ink);
+    flex: none;
+  }
+  .row-glyph.muted { color: var(--color-ink-muted); }
+  .row-glyph.income { color: var(--cat-income); }
+  .row-glyph.debt { color: var(--cat-debt); }
   .cat-rule {
     width: 3px;
     align-self: stretch;
