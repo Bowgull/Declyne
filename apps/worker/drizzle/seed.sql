@@ -56,4 +56,4 @@ INSERT OR IGNORE INTO phase_log (id, phase, entered_at, trigger_rule, metrics_js
 INSERT OR IGNORE INTO counterparties (id, name, default_settlement_method, archived_at, created_at)
   VALUES ('cp_bowgull', 'Bowgull', 'etransfer', NULL, datetime('now'));
 INSERT OR IGNORE INTO splits (id, counterparty_id, direction, original_cents, remaining_cents, reason, created_at)
-  VALUES ('split_bowgull_mexico', 'cp_bowgull', 'josh_owes', 0, 0, 'Mexico trip', datetime('now'));
+  VALUES ('split_bowgull_mexico', 'cp_bowgull', 'i_owe', 0, 0, 'Mexico trip', datetime('now'));

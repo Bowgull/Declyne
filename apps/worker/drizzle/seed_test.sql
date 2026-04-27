@@ -335,9 +335,9 @@ INSERT OR REPLACE INTO split_events (id, split_id, delta_cents, transaction_id, 
 -- Open tabs (mid-May): Marcus owes you brunch, you owe Priya tapas, Diego owes you pho.
 DELETE FROM splits WHERE id IN ('split_marcus_brunch','split_priya_tapas','split_diego_pho');
 INSERT OR REPLACE INTO splits (id, counterparty_id, direction, original_cents, remaining_cents, reason, created_at, closed_at) VALUES
-  ('split_marcus_brunch','cp_marcus','owes_josh',4750,4750,'Lady Marmalade brunch','2026-05-09T15:30:00Z',NULL),
-  ('split_priya_tapas',  'cp_priya', 'josh_owes',8200,8200,'Bar Raval tapas',      '2026-05-05T22:10:00Z',NULL),
-  ('split_diego_pho',    'cp_diego', 'owes_josh',3600,3600,'Golden Turtle dinner', '2026-05-11T20:45:00Z',NULL);
+  ('split_marcus_brunch','cp_marcus','they_owe',4750,4750,'Lady Marmalade brunch','2026-05-09T15:30:00Z',NULL),
+  ('split_priya_tapas',  'cp_priya', 'i_owe',   8200,8200,'Bar Raval tapas',      '2026-05-05T22:10:00Z',NULL),
+  ('split_diego_pho',    'cp_diego', 'they_owe',3600,3600,'Golden Turtle dinner', '2026-05-11T20:45:00Z',NULL);
 
 -- Credit snapshots (monthly trail, latest 2026-05-12)
 DELETE FROM credit_snapshots;

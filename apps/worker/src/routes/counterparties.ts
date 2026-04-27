@@ -38,9 +38,9 @@ counterpartiesRoutes.get('/', async (c) => {
        cp.default_settlement_method,
        cp.archived_at,
        cp.created_at,
-       COALESCE(SUM(CASE WHEN s.closed_at IS NULL AND s.direction = 'owes_josh'
+       COALESCE(SUM(CASE WHEN s.closed_at IS NULL AND s.direction = 'they_owe'
                          THEN s.remaining_cents ELSE 0 END), 0) AS owes_you_cents,
-       COALESCE(SUM(CASE WHEN s.closed_at IS NULL AND s.direction = 'josh_owes'
+       COALESCE(SUM(CASE WHEN s.closed_at IS NULL AND s.direction = 'i_owe'
                          THEN s.remaining_cents ELSE 0 END), 0) AS you_owe_cents,
        COUNT(CASE WHEN s.closed_at IS NULL THEN 1 END) AS open_tab_count,
        MAX(s.created_at) AS last_tab_at
@@ -84,7 +84,7 @@ counterpartiesRoutes.get('/:id', async (c) => {
     .bind(id)
     .all<{
       id: string;
-      direction: 'josh_owes' | 'owes_josh';
+      direction: 'i_owe' | 'they_owe';
       original_cents: number;
       remaining_cents: number;
       reason: string;

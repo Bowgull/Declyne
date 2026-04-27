@@ -13,7 +13,7 @@ type Detail = {
   };
   splits: Array<{
     id: string;
-    direction: 'josh_owes' | 'owes_josh';
+    direction: 'i_owe' | 'they_owe';
     original_cents: number;
     remaining_cents: number;
     reason: string;
@@ -62,10 +62,10 @@ export default function CounterpartyPage() {
   const { counterparty: cp, splits, events } = detail.data;
 
   const owesYou = splits
-    .filter((s) => s.closed_at === null && s.direction === 'owes_josh')
+    .filter((s) => s.closed_at === null && s.direction === 'they_owe')
     .reduce((a, s) => a + s.remaining_cents, 0);
   const youOwe = splits
-    .filter((s) => s.closed_at === null && s.direction === 'josh_owes')
+    .filter((s) => s.closed_at === null && s.direction === 'i_owe')
     .reduce((a, s) => a + s.remaining_cents, 0);
   const net = owesYou - youOwe;
 
@@ -116,7 +116,7 @@ export default function CounterpartyPage() {
             <ul className="flex flex-col">
               {splits.map((s) => {
                 const sEvents = events.filter((e) => e.split_id === s.id);
-                const dirLabel = s.direction === 'owes_josh' ? 'owes you' : 'you owe';
+                const dirLabel = s.direction === 'they_owe' ? 'owes you' : 'you owe';
                 return (
                   <li
                     key={s.id}
@@ -137,7 +137,7 @@ export default function CounterpartyPage() {
                           style={{
                             color: s.closed_at
                               ? 'var(--color-ink-muted)'
-                              : s.direction === 'owes_josh'
+                              : s.direction === 'they_owe'
                               ? 'var(--cat-savings)'
                               : 'var(--cat-indulgence)',
                             textDecoration: s.closed_at ? 'line-through' : 'none',

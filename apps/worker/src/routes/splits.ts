@@ -19,7 +19,7 @@ splitsRoutes.get('/', async (c) => {
 export type SplitInput = {
   counterparty_id: string | undefined;
   counterparty_name: string | undefined;
-  direction: 'josh_owes' | 'owes_josh';
+  direction: 'i_owe' | 'they_owe';
   amount_cents: number;
   reason: string;
 };
@@ -28,7 +28,7 @@ export function parseSplitInput(b: unknown): SplitInput | { error: string } {
   if (!b || typeof b !== 'object') return { error: 'invalid body' };
   const o = b as Record<string, unknown>;
   const direction = o.direction;
-  if (direction !== 'josh_owes' && direction !== 'owes_josh') return { error: 'direction invalid' };
+  if (direction !== 'i_owe' && direction !== 'they_owe') return { error: 'direction invalid' };
   const amount = Number(o.amount_cents);
   if (!Number.isFinite(amount) || amount <= 0 || amount > 1e9) return { error: 'amount invalid' };
   const reason = typeof o.reason === 'string' ? o.reason.trim() : '';

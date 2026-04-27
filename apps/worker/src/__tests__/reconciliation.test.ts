@@ -53,10 +53,10 @@ describe('isCompletedThisWeek', () => {
 
 describe('expectedSignedAmount', () => {
   it('owes_josh expects positive (incoming)', () => {
-    expect(expectedSignedAmount('owes_josh', 4750)).toBe(4750);
+    expect(expectedSignedAmount('they_owe', 4750)).toBe(4750);
   });
   it('josh_owes expects negative (outgoing)', () => {
-    expect(expectedSignedAmount('josh_owes', 8200)).toBe(-8200);
+    expect(expectedSignedAmount('i_owe', 8200)).toBe(-8200);
   });
 });
 
@@ -80,7 +80,7 @@ describe('withinThreeDays', () => {
 describe('findAmbiguousSplits', () => {
   const splitA = {
     id: 'split_a',
-    direction: 'owes_josh' as const,
+    direction: 'they_owe' as const,
     remaining_cents: 4750,
     created_at: '2026-04-20T12:00:00Z',
   };
@@ -108,7 +108,7 @@ describe('findAmbiguousSplits', () => {
   });
 
   it('respects sign for josh_owes', () => {
-    const splitB = { id: 'split_b', direction: 'josh_owes' as const, remaining_cents: 8200, created_at: '2026-04-20' };
+    const splitB = { id: 'split_b', direction: 'i_owe' as const, remaining_cents: 8200, created_at: '2026-04-20' };
     const txns = [
       { id: 't1', posted_at: '2026-04-20', amount_cents: -8200 },
       { id: 't2', posted_at: '2026-04-21', amount_cents: -8200 },
@@ -120,7 +120,7 @@ describe('findAmbiguousSplits', () => {
   });
 
   it('handles multiple splits independently', () => {
-    const splitB = { id: 'split_b', direction: 'owes_josh' as const, remaining_cents: 1000, created_at: '2026-04-20' };
+    const splitB = { id: 'split_b', direction: 'they_owe' as const, remaining_cents: 1000, created_at: '2026-04-20' };
     const txns = [
       { id: 't1', posted_at: '2026-04-19', amount_cents: 4750 },
       { id: 't2', posted_at: '2026-04-21', amount_cents: 4750 },
@@ -135,7 +135,7 @@ describe('findAmbiguousSplits', () => {
 describe('isCandidateValid', () => {
   const split = {
     id: 'split_a',
-    direction: 'owes_josh' as const,
+    direction: 'they_owe' as const,
     remaining_cents: 4750,
     created_at: '2026-04-20',
   };

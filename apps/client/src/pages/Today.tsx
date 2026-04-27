@@ -203,7 +203,7 @@ export default function Today() {
     mutationFn: (input: {
       counterparty_id?: string;
       counterparty_name?: string;
-      direction: 'josh_owes' | 'owes_josh';
+      direction: 'i_owe' | 'they_owe';
       amount_cents: number;
       reason: string;
     }) => api.post<{ id: string }>('/api/splits', input),
@@ -220,48 +220,41 @@ export default function Today() {
   return (
     <div className="px-3 pt-4 pb-6">
       <section className="receipt paper-in flex flex-col gap-5">
-        <header className="relative flex items-center" style={{ gap: 10, marginBottom: 4 }}>
-          <Link
-            to="/settings"
-            aria-label="Settings"
-            style={{ color: 'var(--color-ink-muted)', position: 'absolute', top: 0, right: 0 }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </Link>
-          <span
-            className="mascot-sigil"
-            aria-hidden="true"
+        <header className="flex flex-col" style={{ marginBottom: 4 }}>
+          <div style={{ height: 3, background: 'var(--color-ink)' }} />
+          <div className="flex items-center justify-between" style={{ padding: '14px 0 12px' }}>
+            <span
+              className="mascot-sigil"
+              aria-hidden="true"
+              style={{ width: 32, height: 32, flexShrink: 0 }}
+            />
+            <DeclyneWordmark fontSize={28} />
+            <Link
+              to="/settings"
+              aria-label="Settings"
+              style={{ color: 'var(--color-ink-muted)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </Link>
+          </div>
+          <div style={{ height: 1, background: 'rgba(26,20,29,0.25)' }} />
+          <div
             style={{
-              width: 116,
-              height: 116,
-              marginLeft: -14,
-              flexShrink: 0,
+              padding: '10px 0 0',
+              textAlign: 'center',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-muted)',
             }}
-          />
-          <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 28 }}>
-            <DeclyneWordmark fontSize={44} />
+          >
+            {dateLabel} &nbsp;&middot;&nbsp; RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp; {daysLeft}D TO PAYDAY
           </div>
         </header>
-
-        <div
-          style={{
-            marginTop: 4,
-            borderTop: '3px double var(--color-ink-muted)',
-            borderBottom: '3px double var(--color-ink-muted)',
-            padding: '8px 0',
-            textAlign: 'center',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 12,
-            letterSpacing: '0.28em',
-            textTransform: 'uppercase',
-            color: 'var(--color-ink)',
-          }}
-        >
-          RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp; JB &nbsp;&middot;&nbsp; {dateLabel}
-        </div>
 
         <button
           type="button"
@@ -461,7 +454,7 @@ function ChitForm({
   onSubmit: (input: {
     counterparty_id?: string;
     counterparty_name?: string;
-    direction: 'josh_owes' | 'owes_josh';
+    direction: 'i_owe' | 'they_owe';
     amount_cents: number;
     reason: string;
   }) => void;
@@ -471,9 +464,9 @@ function ChitForm({
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   // Default direction: if prefilled, repeat their existing balance direction;
-  // else owes_josh (positive — they owe you).
-  const [direction, setDirection] = useState<'owes_josh' | 'josh_owes'>(
-    prefilledCounterparty?.direction === 'you_owe' ? 'josh_owes' : 'owes_josh',
+  // else they_owe (positive — they owe you).
+  const [direction, setDirection] = useState<'they_owe' | 'i_owe'>(
+    prefilledCounterparty?.direction === 'you_owe' ? 'i_owe' : 'they_owe',
   );
 
   function handleSubmit(e: React.FormEvent) {
@@ -507,7 +500,7 @@ function ChitForm({
       <button type="button" onClick={onDiscard} className="chit-discard" aria-label="Discard chit">×</button>
       <div className="flex items-baseline justify-between">
         <div className="label-tag">New chit</div>
-        <div className="label-tag">{direction === 'owes_josh' ? 'owes you' : 'you owe'}</div>
+        <div className="label-tag">{direction === 'they_owe' ? 'owes you' : 'you owe'}</div>
       </div>
 
       {prefilledCounterparty ? (
@@ -528,16 +521,16 @@ function ChitForm({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => setDirection('owes_josh')}
-          className={`stamp ${direction === 'owes_josh' ? 'stamp-purple' : ''}`}
+          onClick={() => setDirection('they_owe')}
+          className={`stamp ${direction === 'they_owe' ? 'stamp-purple' : ''}`}
           style={{ flex: 1 }}
         >
           owes you
         </button>
         <button
           type="button"
-          onClick={() => setDirection('josh_owes')}
-          className={`stamp ${direction === 'josh_owes' ? 'stamp-purple' : ''}`}
+          onClick={() => setDirection('i_owe')}
+          className={`stamp ${direction === 'i_owe' ? 'stamp-purple' : ''}`}
           style={{ flex: 1 }}
         >
           you owe
