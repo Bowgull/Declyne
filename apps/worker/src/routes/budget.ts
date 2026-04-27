@@ -6,7 +6,7 @@ export const budgetRoutes = new Hono<{ Bindings: Env }>();
 budgetRoutes.get('/variance', async (c) => {
   // Current pay period variance by category.
   const period = await c.env.DB.prepare(
-    `SELECT id, start_date, end_date FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+    `SELECT id, start_date, end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first<{ id: string; start_date: string; end_date: string }>();
   if (!period) return c.json({ period: null, rows: [] });
 
@@ -72,7 +72,7 @@ budgetRoutes.get('/tank', async (c) => {
   // Current pay period tank state: paycheque in, spend by category group, days remaining.
   const period = await c.env.DB.prepare(
     `SELECT id, start_date, end_date, paycheque_cents
-     FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+     FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first<{ id: string; start_date: string; end_date: string; paycheque_cents: number }>();
   if (!period) return c.json({ period: null });
 

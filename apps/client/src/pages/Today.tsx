@@ -137,15 +137,13 @@ export default function Today() {
 
   // Streak color: gold ≥4 (locked-in), sage 1-3 (building), ink at 0 (reset).
   function streakColor(n: number): string {
-    if (n >= 4) return 'var(--color-accent-gold)';
+    if (n >= 2) return 'var(--color-accent-gold)';
     if (n >= 1) return 'var(--cat-savings)';
     return 'var(--color-ink)';
   }
-  // Days-till-payday color: ink at >7d (no signal yet), gold at 3-7d (warming),
-  // mascot purple at ≤2d (inflow imminent — uses the brand income color).
   function paydayColor(d: number): string {
-    if (d <= 2) return 'var(--cat-income)';
-    if (d <= 7) return 'var(--color-accent-gold)';
+    if (d <= 7) return 'var(--cat-income)';
+    if (d <= 14) return 'var(--color-accent-gold)';
     return 'var(--color-ink)';
   }
 
@@ -244,7 +242,8 @@ export default function Today() {
               color: 'var(--color-ink-muted)',
             }}
           >
-            {dateLabel} &nbsp;&middot;&nbsp; RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp; {daysLeft}D TO PAYDAY
+            {dateLabel} &nbsp;&middot;&nbsp; RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp;{' '}
+            <span style={{ color: paydayColor(daysLeft) }}>{daysLeft}D TO PAYDAY</span>
           </div>
         </header>
 

@@ -68,7 +68,7 @@ todayRoutes.get('/', async (c) => {
   const bills = detectRecurring(txnRows, today, HORIZON_DAYS);
 
   const period = await c.env.DB.prepare(
-    `SELECT end_date, paycheque_cents FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+    `SELECT end_date, paycheque_cents FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first<{ end_date: string; paycheque_cents: number }>();
   const payday = predictNextPayday(period ?? null, today, HORIZON_DAYS);
 

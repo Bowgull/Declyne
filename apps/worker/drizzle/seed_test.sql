@@ -303,7 +303,7 @@ INSERT OR REPLACE INTO review_queue (id, transaction_id, reason, resolved_at) VA
 INSERT OR REPLACE INTO debts (id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value, statement_date, payment_due_date, account_id_linked, archived) VALUES
   ('debt_td_visa', 'TD Visa',          298000, 1999, 'percent', 300, 10, 3,  'acc_td_visa', 0),
   ('debt_capone',  'Capital One',      136500, 2499, 'fixed',  5000, 18, 11, 'acc_capone',  0),
-  ('debt_bowgull', 'Bowgull (Mexico)', 110000, 0,    'fixed', 10000, 1,  1,  NULL,          0);
+  ('debt_bowgull', 'Luther (Mexico)', 110000, 0,    'fixed', 10000, 1,  1,  NULL,          0);
 
 -- Debt payments mirror of CC payments
 DELETE FROM debt_payments;
@@ -318,19 +318,19 @@ INSERT OR REPLACE INTO debt_payments (id, debt_id, transaction_id, amount_cents,
 
 -- Counterparties (open tabs with people). Toronto fictional folks + Bowgull.
 INSERT OR REPLACE INTO counterparties (id, name, default_settlement_method, archived_at, created_at) VALUES
-  ('cp_bowgull',  'Bowgull',       'etransfer', NULL, '2026-01-15T12:00:00Z'),
+  ('cp_bowgull',  'Luther',        'etransfer', NULL, '2026-01-15T12:00:00Z'),
   ('cp_marcus',   'Marcus Chen',   'etransfer', NULL, '2026-05-09T12:00:00Z'),
   ('cp_priya',    'Priya Shah',    'etransfer', NULL, '2026-05-05T12:00:00Z'),
   ('cp_diego',    'Diego Alvarez', 'etransfer', NULL, '2026-05-11T12:00:00Z');
 
--- Bowgull (Mexico) split: original $1500, $400 settled, $1100 remaining
+-- Luther (Mexico) split: original $1500, $400 settled, $1100 remaining
 UPDATE splits SET original_cents = 150000, remaining_cents = 110000, counterparty_id = 'cp_bowgull'
 WHERE id = 'split_bowgull_mexico';
 DELETE FROM split_events WHERE split_id = 'split_bowgull_mexico';
 INSERT OR REPLACE INTO split_events (id, split_id, delta_cents, transaction_id, note, created_at) VALUES
-  ('se_bg_01','split_bowgull_mexico',-20000,NULL,'etransfer to Bowgull Feb','2026-02-20T12:00:00Z'),
-  ('se_bg_02','split_bowgull_mexico',-10000,NULL,'etransfer to Bowgull Mar','2026-03-19T12:00:00Z'),
-  ('se_bg_03','split_bowgull_mexico',-10000,NULL,'etransfer to Bowgull Apr','2026-04-21T12:00:00Z');
+  ('se_bg_01','split_bowgull_mexico',-20000,NULL,'etransfer to Luther Feb','2026-02-20T12:00:00Z'),
+  ('se_bg_02','split_bowgull_mexico',-10000,NULL,'etransfer to Luther Mar','2026-03-19T12:00:00Z'),
+  ('se_bg_03','split_bowgull_mexico',-10000,NULL,'etransfer to Luther Apr','2026-04-21T12:00:00Z');
 
 -- Open tabs (mid-May): Marcus owes you brunch, you owe Priya tapas, Diego owes you pho.
 DELETE FROM splits WHERE id IN ('split_marcus_brunch','split_priya_tapas','split_diego_pho');
