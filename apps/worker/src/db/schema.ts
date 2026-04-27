@@ -83,6 +83,12 @@ export const debts = sqliteTable('debts', {
   account_id_linked: text('account_id_linked').references(() => accounts.id),
   archived: integer('archived').notNull().default(0),
   account_id: text('account_id').references(() => gl_accounts.id),
+  severity: text('severity', {
+    enum: ['current', 'past_due', 'in_collections', 'charged_off', 'settled_partial'],
+  })
+    .notNull()
+    .default('current'),
+  severity_changed_at: text('severity_changed_at'),
 });
 
 export const debt_payments = sqliteTable('debt_payments', {
