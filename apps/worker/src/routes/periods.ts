@@ -31,7 +31,7 @@ periodsRoutes.get('/', async (c) => {
 periodsRoutes.get('/current', async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT id, start_date, end_date, paycheque_cents, source_account_id
-     FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+     FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first();
   return c.json({ period: row ?? null });
 });

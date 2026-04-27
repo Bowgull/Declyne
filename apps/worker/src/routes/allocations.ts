@@ -82,7 +82,7 @@ allocationsRoutes.get('/', async (c) => {
       .first();
   } else {
     period = await c.env.DB.prepare(
-      `SELECT id, start_date, end_date, paycheque_cents FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+      `SELECT id, start_date, end_date, paycheque_cents FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
     ).first();
   }
   if (!period) return c.json({ period: null, rows: [], totals: null });
@@ -114,7 +114,7 @@ allocationsRoutes.post('/', async (c) => {
   const periodId = c.req.query('pay_period_id');
   const period = periodId
     ? await c.env.DB.prepare(`SELECT id FROM pay_periods WHERE id = ?`).bind(periodId).first<{ id: string }>()
-    : await c.env.DB.prepare(`SELECT id FROM pay_periods ORDER BY start_date DESC LIMIT 1`).first<{ id: string }>();
+    : await c.env.DB.prepare(`SELECT id FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`).first<{ id: string }>();
   if (!period) return c.json({ error: 'no pay period' }, 400);
 
   const parsed = parseAllocInput(await c.req.json().catch(() => null));
@@ -265,7 +265,7 @@ allocationsRoutes.post('/:id/unstamp', async (c) => {
 // inputs produce zero new rows on second call.
 allocationsRoutes.post('/draft', async (c) => {
   const period = await c.env.DB.prepare(
-    `SELECT id, start_date, end_date FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+    `SELECT id, start_date, end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first<{ id: string; start_date: string; end_date: string }>();
   if (!period) return c.json({ error: 'no pay period' }, 400);
 
@@ -279,7 +279,7 @@ allocationsRoutes.post('/draft', async (c) => {
 // Reconciliation later). Idempotent.
 allocationsRoutes.post('/auto-match', async (c) => {
   const period = await c.env.DB.prepare(
-    `SELECT id, start_date, end_date FROM pay_periods ORDER BY start_date DESC LIMIT 1`,
+    `SELECT id, start_date, end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first<{ id: string; start_date: string; end_date: string }>();
   if (!period) return c.json({ matched: 0 });
   const matched = await autoMatchAllocations(c.env, period.id);

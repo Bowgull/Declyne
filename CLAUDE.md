@@ -13,11 +13,11 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - D1 database: `declyne` (`0893ada8-cbdb-4b3c-896c-c93c792023f1`)
 - Cloudflare account: `bocas.joshua@gmail.com` (`59b6cf53e5d4cef04586e1deb177093c`)
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
-- Latest worker version: `4f93cdac-6c5e-4bef-b1dc-34f0d37e8869` (session 43 worker code on branch awaits deploy from local machine — `pnpm --filter @declyne/worker run deploy`)
+- Latest worker version: `324b75e3-a61a-4b28-b7f3-d8b5b6e3f322` (session 54 worker — current-period WHERE clause fix deployed)
 
-## Repo state (2026-04-27 handoff, end of session 53)
+## Repo state (2026-04-27 handoff, end of session 54)
 
-Sessions through 53 pushed to `origin/main`. Sessions 1-8 squashed in `67b52f2`; sessions 9-42 each their own commit; sessions 43-48 shipped as the **security/compliance uplift series**; session 49 cleared three security/compliance follow-ups; session 50 shipped automated D1 -> R2 backup; session 51 kicked off a **6-phase showcase/multi-user groundwork program** with Phase 1 (depersonalize the schema — split direction enum renamed `josh_owes`/`owes_josh` → `i_owe`/`they_owe`, drop "Josh" from OpenAI prompt, change capacitor `appId` to `com.bowgull.declyne`); session 52 redesigned the Today header as a 3-column edition plate (mascot · Declyne · cog with thick rule + hairline + mono caption) and bundled the uncommitted session 51 worker code into a single commit so CI could deploy it; session 53 restructured the Today body to "one hero + one queue", dropped the PNG-mask `D` in the wordmark for a plain Fraunces purple `D`, bumped the mascot to 64px so it has real character, and extended `HORIZON_DAYS` in the today route from 14 to 30 so upcoming bills surface. Worker auto-deploys via CI on every push to `main` ([`.github/workflows/deploy-worker.yml`](.github/workflows/deploy-worker.yml)) — no manual `wrangler deploy` step. Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Bowgull (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Bowgull Mexico $1,100, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
+Sessions through 54 pushed to `origin/main`. Sessions 1-8 squashed in `67b52f2`; sessions 9-42 each their own commit; sessions 43-48 shipped as the **security/compliance uplift series**; session 49 cleared three security/compliance follow-ups; session 50 shipped automated D1 -> R2 backup; session 51 kicked off a **6-phase showcase/multi-user groundwork program** with Phase 1 (depersonalize the schema — split direction enum renamed `josh_owes`/`owes_josh` → `i_owe`/`they_owe`, drop "Josh" from OpenAI prompt, change capacitor `appId` to `com.bowgull.declyne`); session 52 redesigned the Today header as a 3-column edition plate; session 53 restructured the Today body to "one hero + one queue", dropped the PNG-mask `D` in the wordmark, bumped the mascot to 64px, and extended `HORIZON_DAYS` to 30; session 54 fixed Today hero color thresholds (streak gold ≥2, payday ink>14d/gold≤14d/purple≤7d), wired payday color to the header caption span, fixed a critical pay-period bug (all "current period" queries used `ORDER BY start_date DESC LIMIT 1` which returned future periods when a future paycheque transaction existed — now guarded by `WHERE start_date <= date('now')` in 8 query sites across `today.ts`/`budget.ts`/`periods.ts`/`allocations.ts`), and renamed `Bowgull (Mexico)` debt + `Bowgull` counterparty to `Luther` (live D1 UPDATE + seed file). Worker auto-deploys via CI on every push to `main` ([`.github/workflows/deploy-worker.yml`](.github/workflows/deploy-worker.yml)). Per-session details in memory file `project_declyne.md`. Test data seeded into remote D1 via `apps/worker/drizzle/seed_test.sql` (4 accounts, ~90d transactions, 3 debts including Luther (Mexico), 3 credit snapshots, 2 holdings + prices, market snapshot, goal, review item, **4 counterparties + 4 splits** -- Luther Mexico $1,100, Marcus Chen $47.50 owes-you Lady Marmalade brunch, Priya Shah $82 you-owe Bar Raval tapas, Diego Alvarez $36 owes-you Golden Turtle dinner).
 
 ## Key commands
 
@@ -30,7 +30,9 @@ pnpm test             # 172 tests, all passing
 pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 ```
 
-## What's built (through session 53, 2026-04-27)
+## What's built (through session 54, 2026-04-27)
+
+- **Today color tightening + critical pay-period query fix + Luther rename, session 54** (2026-04-27): Today screen hero color thresholds tightened — `streakColor()` now goes gold at `n >= 2` (was 4) and `paydayColor()` re-graded to ink >14d / gold ≤14d / mascot-purple ≤7d (was ≤7d gold / ≤2d purple — too conservative; the hero was flat-ink for 75% of every pay period). Header caption "NND TO PAYDAY" now wrapped in a `<span style={{ color: paydayColor(daysLeft) }}>` so it color-shifts the same way against the muted caption text. Hero number stays at `.hero-num` 44px (user explicitly rejected size bump). **Critical pay-period bug fixed**: discovered while user was questioning why a tank showed "24D TO PAYDAY" (impossible for Ontario bi-weekly/15th-30th schedules). Root cause: seed data has paycheque transactions through `2026-05-08` (future relative to today=Apr 27), so `detectPeriods` correctly built a future period May 8 → May 21. **All 8 "current period" queries used `ORDER BY start_date DESC LIMIT 1`** which returned that future period instead of the actual Apr 24 → May 7 period. Fixed by adding `WHERE start_date <= date('now')` to: [`apps/worker/src/routes/today.ts:71`](apps/worker/src/routes/today.ts), [`apps/worker/src/routes/budget.ts:9`](apps/worker/src/routes/budget.ts) + line 75, [`apps/worker/src/routes/periods.ts:34`](apps/worker/src/routes/periods.ts) (`/current` route), [`apps/worker/src/routes/allocations.ts`](apps/worker/src/routes/allocations.ts) lines 85, 117, 268, 282 (POST/draft/auto-match + the no-FROM variant). Real production bug, not just a seed issue — any user importing a pending payroll deposit (some banks show pending) would have seen it. Verified post-deploy: header shows "10D TO PAYDAY", queue shows Payday at 11d, tank/budget all reading the correct current period. **Luther rename**: `Bowgull (Mexico)` debt + `Bowgull` counterparty renamed to `Luther` per user request. Updated `seed_test.sql` (3 references) + ran live D1 UPDATE on `counterparties.name` and `debts.name` (changes:2). Kept the `cp_bowgull` and `debt_bowgull` IDs and split_event note copy "etransfer to Luther {Feb,Mar,Apr}" — only display names changed. **Pattern lesson for future code reviews**: any `ORDER BY date DESC LIMIT 1` for "current X" needs a `WHERE date <= today` guard. Future periods, future statements, future paycheques can leak in. **Debug pass green**: 172 tests pass, typecheck clean, build clean (409.88 kB JS / 32.04 kB CSS, +0.06 kB JS for the color span wiring). Worker deployed manually mid-session: `324b75e3-a61a-4b28-b7f3-d8b5b6e3f322`. CI will redeploy the same code on push (idempotent). **Files changed**: [`apps/client/src/pages/Today.tsx`](apps/client/src/pages/Today.tsx), [`apps/worker/src/routes/today.ts`](apps/worker/src/routes/today.ts), [`apps/worker/src/routes/budget.ts`](apps/worker/src/routes/budget.ts), [`apps/worker/src/routes/periods.ts`](apps/worker/src/routes/periods.ts), [`apps/worker/src/routes/allocations.ts`](apps/worker/src/routes/allocations.ts), [`apps/worker/drizzle/seed_test.sql`](apps/worker/drizzle/seed_test.sql).
 
 - **Today screen — header redesign + body restructure to "one hero, one queue", session 53** (2026-04-27): conceptual reframe locked: Today = the open till, not a dashboard. Receipts record the past; Today is the live ledger before it gets printed. **Header rebuilt as edition plate (variant C)**: thick 3px ink rule on top, three-column row (mascot 64px left · Fraunces 28px "Declyne" wordmark center with purple `D` · settings cog right), 1px hairline below, mono caption `MON, APR 27 · RCPT 0081 · 24D TO PAYDAY` centered. The previous oversized 116px mascot + 44px wordmark was reading "amateur"; the new edition plate is disciplined and rule-anchored. **Wordmark cleanup**: [`apps/client/src/components/DeclyneWordmark.tsx`](apps/client/src/components/DeclyneWordmark.tsx) dropped the `letter-d.png` mask/sprite (felt gimmicky, slightly off-baseline) and now uses a plain Fraunces capital `D` styled with `color: #9e78b9` followed by `eclyne` in current-color. **Body restructure**: dropped the duplicate "24d to payday" sub-label from hero state 0 (header already shows it), collapsed the three separate sections (NEXT block + NEXT RECONCILIATION row + PRINTING AHEAD list) into a single chronological QUEUE that combines reconciliation prompt (only on Sunday when not yet completed), review-queue prompt (only when count > 0), upcoming bills, and payday — all sorted by `days_until` ascending, each row leads with a 44px-wide mono day-count gutter (`now` for actions, `Nd` for upcoming) then label then meta. Removed standalone PHASE / INDULGENCE / REVIEW / STREAK link rows from the bottom of the receipt — they were status-not-action and broke the "open till" framing. Footer copy `** between receipts **` → `* still printing *`. **Worker fix bundled**: [`apps/worker/src/routes/today.ts`](apps/worker/src/routes/today.ts) `HORIZON_DAYS` extended from 14 to 30 because Rogers/Enbridge/Bell/Payday were all 23-31 days out from Apr 27 with the seed data. **Session 51 leftovers committed**: 19 files of session 51 worker + client changes had been sitting uncommitted since the session 50 docs commit; the deployed worker was running old `s.direction = 'owes_josh'` SQL against renamed `i_owe`/`they_owe` data, so every counterparty aggregate was returning 0 (tabs all showed `SETTLED · 1 CHIT $0.00` despite splits having real `remaining_cents`). Bundled everything into commit `196e5b0` "session 51 + session 52: depersonalize schema + Today header redesign", pushed to main, CI auto-deployed. Verified post-deploy: tabs now render Bowgull -$1,100, Priya Shah -$82, Marcus Chen +$47.50, Diego Alvarez +$36; queue renders Rogers $95 24d, Enbridge Gas $108 24d, Payday +$2,400 25d. **Files changed**: [`apps/client/src/pages/Today.tsx`](apps/client/src/pages/Today.tsx) (-103 +72), [`apps/client/src/components/DeclyneWordmark.tsx`](apps/client/src/components/DeclyneWordmark.tsx), [`apps/worker/src/routes/today.ts`](apps/worker/src/routes/today.ts). 172 tests pass unchanged, typecheck clean, build clean (409.82 kB JS / 32.04 kB CSS). **Future Today work should preserve "one hero + one queue"** — adding more sections fights the "open till" frame.
 
@@ -107,9 +109,210 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 
 ## What's NOT built yet (next session priorities)
 
+### Standing items (not part of the upgrade program)
+
 1. **iOS `cap add ios`** (blocked on physical device). iOS project folder doesn't exist yet, `cap:run` will fail. When a physical iPhone + Mac with Xcode are available, run `npx cap add ios` from `apps/client` after ensuring `capacitor.config.ts` `webDir` points to `dist`. Splash screen + iOS app icon deferred until then.
 
 2. **OpenAI zero-data-retention application** (session 48 deferred). Manual application form, not code. Until granted, the "GPT never does arithmetic" rule keeps PII out of prompts.
+
+3. **Showcase/multi-user groundwork — Phases 2–6** (session 51 designed, not shipped). Phase 1 (depersonalize the schema) shipped in session 51. Remaining: P2 add `users` table + nullable `user_id` FK on 22 personal-data tables, P3 `DEMO_TOKEN` env + `demoGuard` middleware (read-only demo mode), P4 legal docs polish for demo mode, P5 Cloudflare Pages deploy, P6 `WHERE user_id = ?` enforcement everywhere. These can run in parallel with the accounting upgrade below or after — they don't block each other.
+
+---
+
+### The Accounting Upgrade Program (sessions 52–60, the big one)
+
+**Why this exists.** Declyne today is a stack of clever rules — phase engine, indulgence ratios, splits, debts, allocations, holdings, routing, credit snapshots, behaviour snapshots — each its own island with its own logic, none of them reconciling against each other. There's no underlying model that says "everything must balance." This program turns Declyne from "ad-hoc rules over a transaction store" into **personal-grade double-entry accounting software** — Wealthsimple/QuickBooks/Bench-class rigor sized for one person's life — with the existing behavioral overlay (phases, indulgence, signals) sitting cleanly on top of provably-correct books rather than running parallel to them.
+
+**Why nobody else does this.** Mint/Wealthsimple/Copilot/Monarch are aggregators — read-only views of bank data, no double-entry, no AR/AP, no period close. YNAB does envelopes, not books. QuickBooks/Xero do real double-entry but are built for businesses with vendors/customers/invoices, hostile to personal use, expensive, ugly. Nobody ships *real bookkeeping rigor sized for one person's life* — counterparties as AR/AP subledger entries, debts as proper liability accounts with amortization, holdings at cost basis, net worth as a derived equity number that reconciles because it has to. Declyne's brand was already built for this without naming it: receipts are accounting documents, the Ledger Desk CSS system is literally accounting iconography, "I kept the receipts" is bookkeeping language.
+
+**Scope rule for the entire program.** **No new UI or UX is being added by this program.** Same Today/Budget/Yield tabs, same Settings, same screens. What changes is the substrate underneath. New screens that *do* appear (Net Worth, Trial Balance, /budget/plan) are minimal additions to existing tabs. The brand voice and design system are locked.
+
+**Decisions locked across the program** (do not re-litigate without explicit instruction):
+- **Account naming:** hierarchical paths stored (`Assets:Cash:TDChequing`), rendered flat in dropdowns
+- **Equity accounts:** `Equity:Opening Balance`, `Equity:Retained Earnings`, `Equity:Unrealized Gains/Losses`
+- **Backfill strategy:** post unknowns to `Equity:Opening Balance`, reclassify later (option A — friendlier than refusing)
+- **Period granularity:** weekly close (matches Sunday reconciliation ritual), monthly view layered on top
+- **Multi-currency:** USD positions held in USD, only converted at sale (option B — investment side is personal-only, won't ship publicly)
+- **Counterparties:** NET model — one signed account that flips, not separate AR/AP sub-accounts per person
+- **Investment cost basis:** ACB (adjusted/weighted average — Canadian T5008 requirement)
+- **Trial balance enforcement:** strict — any unbalanced JE rejected at write time, transaction fails, very loud error messages
+- **Cash basis vs accrual:** implicit accrual — CC charge = expense + liability immediately (already true, formalized)
+- **Payment plan optimizer:** hybrid (severity-first then avalanche), manual severity (no auto-inference), splits never count, charge velocity assumed to continue, AI writes rationale only — no external text input
+- **Payment link page design:** locked — cream receipt, mascot top-right 64px (transparent `mascot-head.png`), Fraunces "from" + Bowgull, hero amount in Fraunces with CAD subscript, three ink-only copy stamps (email/amount/security answer), one line of plain text instructions ("Open your bank app, send via Interac e-Transfer, paste these in"), footer "** sent via Declyne **" with only the D in mascot purple, 90-day expiry disclaimer below. **No bank-specific deep-link buttons** — research (session 51 follow-up) confirmed 0 of the Big 6 Canadian banks (TD, RBC, CIBC, BMO, Scotiabank, Simplii) expose a usable Universal Link or URL scheme for "compose new Interac e-Transfer." Only EQ Bank has Interac-related Universal Link paths (`/pay-and-transfer/interac/*`) and they're recipient-side, undocumented, and EQ covers ~1% of Canadian banking. Interac itself has no consumer URL standard. Bundling speculative schemes in `LSApplicationQueriesSchemes` carries App Store review risk. Optional future addition: a single row of App Store links framed as "don't have your bank app installed?" — those always work, no scheme risk.
+- **Interac email:** set once in Settings with the ability to edit. Pulled automatically when a payment link is generated. No per-link override prompt — if Josh wants to send from a different address, he edits the Settings value first.
+
+---
+
+#### Session 52 — E-transfer payment links
+
+Standalone, no GL dependency. Ships value early. Replaces the mockup at `apps/client/src/pages/PaymentLinkMockup.tsx` (delete after) and the mockup route in `App.tsx`.
+
+- **Schema:** new table `payment_links` (id, split_id FK, token TEXT 12-char random unguessable, email TEXT, security_answer TEXT nullable, created_at, viewed_at nullable, expires_at default `now + 90d`, disabled_at nullable). Migration `0011_payment_links.sql`.
+- **Settings:** new `interac_email` settings key (set once, pulled automatically); `interac_security_answer_default` optional. Settings page gains "01 Interac" or similar section to set these.
+- **Worker routes:**
+  - `POST /api/payment-links` — body `{ split_id, security_answer? }` — creates a link, returns `{ token, url }`
+  - `GET /pay/:token` — **unauthed**, returns the public landing page (HTML or JSON consumed by a public route). Increments `viewed_at` on first hit.
+  - `POST /api/payment-links/:id/disable` — manual disable
+  - Auto-disable: when `autoMatchSplits` settles a split, mark all that split's links `disabled_at = now`
+- **Public landing page:** new client route `/pay/:token` (already wired during mockup). Reads design from the locked spec above. Renders settled state (`** this tab is settled **`) when `disabled_at` is set or `expires_at` is past. **No bank-app deep links** — the recipient opens their bank app manually and pastes the three copied values. See locked design rationale above for why.
+- **Counterparty drill-in (`Counterparty.tsx`)** gains "Send payment link" stamp on each unsettled split that I-owe (not the they-owe ones — those don't need a link, they pay me). Tap triggers `@capacitor/share` plugin (add to deps) with a pre-filled message ("Hey — here's the tab. $X my way: [link]") on native, or copy-to-clipboard fallback on web.
+- **Domain:** recommend buying `declyne.app` (~$15/yr Cloudflare Registrar) and pointing `pay.declyne.app` at the Worker. Branded URL is necessary — recipients won't trust `declyne-api.bocas-joshua.workers.dev/pay/...`. If domain not yet purchased, ship behind the workers.dev URL and switch over later.
+- **Edit log:** writes on link create + disable. New entity_type `payment_link` added to allowlist.
+- **Tests:** token generation (uniqueness, length, unguessability), expiry math, auto-disable on auto-match, viewed_at increment, settled-state rendering. ~6 new tests.
+- **Out of scope:** any actual bank API integration, automated transfer initiation, recipient-side action tracking beyond viewed_at, multi-recipient links, link analytics.
+
+#### Session 53 — GL foundation
+
+Substrate only. **No user-visible behavior change.**
+
+- **Schema** (migration `0012_gl_foundation.sql`):
+  - `accounts` (id, path TEXT unique, name TEXT, type CHECK in `asset|liability|equity|income|expense`, parent_id FK self nullable, archived_at, metadata_json, created_at)
+  - `journal_entries` (id, posted_at, source_type TEXT, source_id TEXT, memo, created_at, locked_at nullable)
+  - `journal_lines` (id, journal_entry_id FK, account_id FK, debit_cents INT default 0, credit_cents INT default 0, created_at — CHECK that exactly one of debit/credit is non-zero per line)
+- **Chart of accounts seed:** standard root accounts (`Assets:Cash`, `Assets:Investments`, `Assets:Receivable`, `Liabilities:CreditCards`, `Liabilities:Loans`, `Liabilities:Payable`, `Equity:Opening Balance`, `Equity:Retained Earnings`, `Equity:Unrealized Gains/Losses`, `Income:Salary`, `Income:Reimbursement`, `Income:Investment`, `Expenses:Essentials`, `Expenses:Lifestyle`, `Expenses:Indulgence`, `Expenses:Debt Service`, `Expenses:Savings`, `Expenses:Uncategorized`)
+- **Backfill kernel** (`apps/worker/src/lib/glBackfill.ts`):
+  - Walk all existing transactions newest→oldest
+  - Map category group → expense account; map account → asset/liability account
+  - Emit balanced JE per transaction; unknown side posts to `Equity:Opening Balance`
+  - Idempotent (safe to re-run; uses `source_type = 'transaction'`, `source_id = transaction.id` to dedupe)
+  - Run as one-shot route `POST /api/admin/gl-backfill` (auth-gated)
+- **Strict balance enforcement:** transaction wrapper helper `postJournalEntry(env, lines, meta)` that rejects unbalanced lines. All future GL writes go through this.
+- **New routes:**
+  - `GET /api/trial-balance?as_of=` — returns sum(debits), sum(credits), per-account balances. Must equal.
+  - `GET /api/accounts` — chart of accounts list
+  - `GET /api/journal?account_id=&limit=` — journal entries for an account (audit/debug)
+- **Tests:** balanced-JE enforcement (reject unbalanced), backfill idempotency, trial balance always = 0 across 100 random JE sequences, account hierarchy queries, account type CHECK enforcement. ~12 new tests.
+- **No UI changes.** Settings → Audit could gain a "Trial balance" debug link but it's not required this session.
+
+#### Session 54 — AR/AP migration (counterparties)
+
+- **Schema** (migration `0013_counterparty_accounts.sql`):
+  - Add `account_id` FK to `counterparties` table (nullable initially)
+  - Backfill: for each counterparty, create a NET account under `Assets:Receivable:<Name>` (or `Liabilities:Payable:<Name>` if currently net-owed). Set `counterparties.account_id`.
+- **Splits/split_events rewrite:**
+  - When a new split is created (I'm owed): post `DR Assets:Receivable:<Name>, CR Income:Reimbursement` (or appropriate income account)
+  - When a split is created (I owe): post `DR Expenses:Lifestyle (or other), CR Liabilities:Payable:<Name>`
+  - When a split_event records a payment: post `DR/CR Cash` and inverse `CR/DR` to the counterparty account
+  - Auto-match on CSV import writes settlement JE
+- **Counterparty drill-in (`Counterparty.tsx`)** reads balance from the GL account, not from `splits.remaining_cents` aggregation. UI unchanged.
+- **Old `splits` table:** kept as source-document table, the FK columns and `remaining_cents` become memo fields synced from GL. Aggregations in `counterparties.ts` route move to GL queries.
+- **Tests:** counterparty balance equals account balance after every operation, NET behavior (one person can flip from owes-you to you-owe), auto-match settlement JE correctness, edge case: brand-new counterparty creates its account inline. ~10 new tests.
+
+#### Session 55 — Liabilities migration (debts + CC)
+
+- **Schema** (migration `0014_debt_accounts.sql`):
+  - Add `account_id` FK to `debts` table
+  - Backfill: each debt becomes a `Liabilities:CreditCards:<Name>` or `Liabilities:Loans:<Name>` account with current `principal_cents` as opening balance (offset to `Equity:Opening Balance`)
+- **Transaction → JE mapping for debt-linked accounts:**
+  - CC charge: `DR Expenses:<group>, CR Liabilities:CreditCards:<Name>`
+  - CC payment from chequing: `DR Liabilities:CreditCards:<Name>, CR Assets:Cash:<chequing>`
+  - Loan payment: split between `DR Liabilities:Loans:<Name>` (principal) + `DR Expenses:Debt Service:Interest` (interest portion) / `CR Assets:Cash:<chequing>`. Interest split derived from APR + days since last payment.
+- **Debt cards** (`Debts.tsx`) read balance from GL account. Header total reads from sum of liability accounts.
+- **CC statement reconciliation enhancement:** at every statement_date, GL balance for the liability account must equal `cc_statement_snapshots.statement_balance_cents`. Mismatch surfaces in Reconciliation page as "TD Visa: GL says $432.24, statement says $445.10. $12.86 unaccounted-for."
+- **Tests:** debt balance = GL balance after every transaction, principal/interest split math, CC statement match check, edge case: backdated charge after statement close requires reversing entry. ~8 new tests.
+
+#### Session 56 — Assets migration (holdings)
+
+Personal-only feature; won't ship publicly. Don't over-engineer.
+
+- **Schema** (migration `0015_holding_accounts.sql`):
+  - Add `account_id` FK to `holdings`. Backfill creates `Assets:Investments:<Wrapper>:<Symbol>` per lot.
+- **Buy/sell journal entries:**
+  - Buy: `DR Assets:Investments:<Wrapper>:<Symbol>, CR Assets:Cash:<chequing>`
+  - Sell: realized gain/loss split: `DR Cash, CR Asset` for cost portion, `DR/CR Equity:Realized Gains/Losses` for delta
+- **Mark-to-market:** on `POST /api/market/fetch`, after price refresh, for each lot: `DR/CR Assets:Investments:<wrapper>:<symbol>, CR/DR Equity:Unrealized Gains/Losses` for the delta vs last marked value. Stored as a single batched JE per refresh with memo "MTM <date>".
+- **ACB tracking:** weighted average per symbol per wrapper, recomputed on each buy. Stored on the `Assets:Investments` account's metadata_json as `{acb_cents, units}`.
+- **Multi-currency:** USD lots stay in USD on their account; metadata_json carries `currency: 'USD'`. Only converted at sale, FX delta posts to `Equity:Realized Gains/Losses` with memo "FX on sale".
+- **Yield page** (`Grow.tsx`) reads from GL.
+- **Tests:** ACB weighted average correctness across multiple buys, MTM JE correctness across price moves, sell with realized gain, USD lot stays USD, FX-on-sale math. ~8 new tests.
+
+#### Session 57 — Bank reconciliation rebuild
+
+- **Schema** (migration `0016_cleared_flag.sql`):
+  - Add `cleared_at` nullable timestamp to `journal_lines` (each side of a transfer can clear independently)
+- **Reconciliation page (`Reconciliation.tsx`)** rebuilt as proper bank rec:
+  - Per asset/liability account: GL balance, cleared balance (only cleared lines), uncleared list
+  - Mark-cleared per row (toggles `cleared_at`)
+  - "I kept the receipts" stamp only seals when **all** accounts reconcile (uncleared list empty OR explicitly acknowledged as outstanding)
+  - When sealed, writes a `reconciliation_seal` edit_log entry per account
+- **Streak:** survives unchanged (still increments on Sunday seal, still uses `settings.reconciliation_streak`).
+- **UX:** receipt shape, weekly receipt header, perforated sections — all locked.
+- **Tests:** mark-cleared toggles, sealed-when-all-cleared, reseal idempotency, edge case: account with zero transactions in the week trivially reconciles. ~6 new tests.
+
+#### Session 58 — Period close + Net Worth
+
+- **Schema** (migration `0017_period_close.sql`):
+  - `period_close` (id, period_start, period_end, closed_at, closed_by TEXT, trial_balance_debits_cents, trial_balance_credits_cents)
+  - `journal_entries.locked_at` already in 0012 — now used: any JE with `posted_at <= period_close.period_end` is locked when that period closes
+- **Close behavior:**
+  - Auto-close fires Sunday after Reconciliation seals (or manually via Settings → System → Close week)
+  - Snapshots trial balance (must equal) into the period_close row
+  - Locks all JEs in range; future `postJournalEntry` calls with `posted_at` in a locked period return error `period_locked` with the locked period's end_date
+  - Backdated edits route through reversing entries: a UI helper "Reverse this entry" (in Settings → Edit log) emits an inverse JE in the current period, leaving the original locked JE intact
+- **Net Worth view:** new `GET /api/net-worth?as_of=` returns `{assets_cents, liabilities_cents, equity_cents}` derived from GL. Surfaced as a small line on Today below the tank ("NET WORTH $X · ↑ $Y vs last week") — minimal, optional, can be hidden via setting.
+- **Trial Balance:** new `/settings/trial-balance` page (linked from Settings → Audit) showing per-account balances, totals, debits = credits proof. Read-only debug surface.
+- **Tests:** close locks JEs, locked period rejects backdated writes, reversing entry math (current-period inverse), net worth = sum of equity, period_close idempotency. ~10 new tests.
+
+#### Session 59 — Severity column + payment plan kernel
+
+Pure logic + schema. **No UI surfaces beyond severity dropdown.** Tests carry the load.
+
+- **Schema** (migration `0018_debt_severity.sql`):
+  - Add `severity` to `debts`: `current` | `past_due` | `in_collections` | `charged_off` | `settled_partial` (default `current`)
+  - Add `severity_changed_at` timestamp
+- **Pure kernel** (`apps/worker/src/lib/paymentPlan.ts`) exports:
+  - `computePlan(inputs) → output`
+  - Inputs: `{debts[], paycheques[], essentials_baseline_cents, indulgence_allowance_cents, charge_velocity_per_debt, today}`
+  - Output: `{next_paycheque_allocations[], monthly_schedule[], payoff_dates[], total_interest_cents, baseline_total_interest_cents, savings_cents}`
+  - Hybrid ordering:
+    - Tier 0: pay all mins (non-negotiable, protects credit on `current`)
+    - Tier 1 severity: `in_collections` → `charged_off` → `past_due`. Within tier, smallest balance first
+    - Tier 2 avalanche: `current` debts, highest APR first
+    - `settled_partial` treated as `current` with negotiated balance
+  - Charge velocity assumed to continue (no card-freeze toggle)
+  - Splits never enter the plan
+- **Routes:**
+  - `POST /api/debts/:id/severity` — manual severity change, writes edit_log, recomputes plan cache
+  - `GET /api/plan` — returns kernel output (cached, regenerated on debt or paycheque change)
+- **Severity dropdown** added to debt edit sheet in `Debts.tsx`. No new screens.
+- **Tests:** severity ordering correctness across all permutations, capacity allocation with mins-first, charge-velocity payoff projection, edge cases (zero capacity, all-collections debts, single debt, no debts), `settled_partial` math, `current` debts only fall through to avalanche, splits excluded. ~15 new tests, kernel is the workhorse.
+- **AI:** not yet — that's session 60.
+
+#### Session 60 — Payment plan UI + AI rationale
+
+- **New page `/budget/plan`** — full payoff schedule receipt:
+  - Header: LedgerHeader with kicker "§ PLAN" + Fraunces "Payoff schedule" + subtitle "Severity-first then avalanche · refresh"
+  - Section 1: "Total interest under this plan" hero + "vs minimums-only baseline · saves $X"
+  - Section 2: per-debt rows — `.ledger-row` with debt name + role tag (`priority · collections` / `avalanche · 22.99%`), monthly allocation right, expandable to show projected balance per month + payoff date
+  - Section 3: AI rationale (1–3 sentences) + 0–3 habit observations (each grounded in our deterministic numbers)
+  - Footer: `** Recomputed Apr 27 · refresh **`
+- **Severity badges on debt cards** (`Debts.tsx`): sage=`current`, gold=`past_due`, sienna=`in_collections`, red-ink=`charged_off`, purple=`settled_partial`. Role tag below each card.
+- **Plan-aware allocations:** `allocations.ts` `draftAllocations` now reads from `/api/plan` for debt-group allocations instead of pure avalanche.
+- **Today integration:** when a paycheque just landed (within 24h of detection), Today's PRINTING AHEAD section gains a single row "Plan recommends $X to CapitalOne · today" linking to `/budget/plan`.
+- **AI route:** `POST /api/plan/refresh` — rate-limited (10/hour, same pattern as `/recommend`).
+  - Input to GPT: deterministic plan output + 90d category spending breakdown + velocity numbers we computed
+  - Output: rationale text + observations array, both grounded in inputs we provided
+  - GPT does NOT do arithmetic (every dollar figure already came from us)
+  - No external text input (no collections-letter parsing — confirmed)
+  - Cached on the plan row; only regenerated on explicit refresh
+  - Errors sanitized via existing `redactSensitive()` from log redact lib
+- **Tests:** plan refresh rate limit, draft allocation reads plan, severity badge rendering, role-tag rendering, AI rationale stays text-only (no number generation). ~6 new tests + manual UI verification in preview.
+
+---
+
+### What this program explicitly does NOT add
+- **No new tabs.** Today/Budget/Yield + Settings stays.
+- **No new top-level navigation.** Net Worth and Trial Balance are sub-pages of Settings/Today.
+- **No collections letter parsing or any external text input to AI.**
+- **No automatic severity inference** (manual only).
+- **No card-freeze toggle.**
+- **No splits in payment plan math.**
+- **No multi-debt consolidation suggestions, balance-transfer recommendations, or financial advice generated by AI** (those are advice we shouldn't give).
+- **No invoice/quote/billing concepts** (this is personal, not business).
+- **No multi-user changes** (those are the Phases 2–6 program, separate).
+
+### Total scope
+9 sessions (52 → 60). Each ends green per the ritual: tests + typecheck + build + memory + CLAUDE.md update + commit. Worker redeploys via CI on every push to main. At no point does the user sit on a half-migrated GL with broken screens — each session lands in a working state with the previous behavior intact + new substrate underneath.
 
 ## iOS redeploy ritual (free provisioning, no Apple Dev account)
 
