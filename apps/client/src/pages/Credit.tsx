@@ -58,7 +58,7 @@ export default function Credit() {
         </header>
 
         <div className="pt-3" style={perforation}>
-          <button className="btn-primary w-full" onClick={() => setAdding(true)}>
+          <button className="stamp stamp-square w-full" onClick={() => setAdding(true)}>
             Add snapshot
           </button>
         </div>
@@ -199,7 +199,7 @@ function AddSheet({
         <div className="flex gap-2">
           <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
           <button
-            className="btn-primary flex-1"
+            className="stamp stamp-square flex-1"
             onClick={() => save.mutate()}
             disabled={save.isPending || !valid}
           >

@@ -18,7 +18,7 @@ import Onboarding from './pages/Onboarding';
 import PhaseJourney from './pages/PhaseJourney';
 import Reconciliation from './pages/Reconciliation';
 import CounterpartyPage from './pages/Counterparty';
-import PaymentLinkMockup from './pages/PaymentLinkMockup';
+import ButtonsMockup from './pages/ButtonsMockup';
 import { api } from './lib/api';
 
 export default function App() {
@@ -64,7 +64,7 @@ export default function App() {
           <Route path="/phase" element={<PhaseJourney />} />
           <Route path="/reconcile" element={<Reconciliation />} />
           <Route path="/budget/tabs/:id" element={<CounterpartyPage />} />
-          <Route path="/pay/:token" element={<PaymentLinkMockup />} />
+          <Route path="/mockup/buttons" element={<ButtonsMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>

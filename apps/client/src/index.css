@@ -987,4 +987,330 @@
 
   .tab-direction-pos { color: var(--cat-savings); }
   .tab-direction-neg { color: var(--cat-indulgence); }
+
+  /* ============================================================
+     Action vocabulary (session 55 redesign)
+     Buttons disappear into the document. Each shape IS the action.
+     ============================================================ */
+
+  /* Tear-tab: primary "produce a new chit/draft" action.
+     Hangs off the bottom of a section like a pull-tab. Dashed perforation
+     on top, sawtooth bottom edge. Scissors glyph centered on the perforation. */
+  .tear-tab {
+    appearance: none;
+    border: 0;
+    display: block;
+    width: 100%;
+    background: var(--color-paper-shade, #ebe4d4);
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 18px 0 16px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    margin-top: 12px;
+    border-top: 1px dashed var(--color-hairline-ink);
+    -webkit-mask-image:
+      radial-gradient(circle 4px at 0 100%, transparent 98%, #000 100%),
+      radial-gradient(circle 4px at 8px 100%, transparent 98%, #000 100%),
+      radial-gradient(circle 4px at 16px 100%, transparent 98%, #000 100%),
+      linear-gradient(#000, #000);
+    transition: background-color 140ms ease, transform 100ms ease;
+  }
+  .tear-tab::before {
+    content: '✂';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-paper);
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--color-ink-muted);
+  }
+  .tear-tab:active {
+    background: color-mix(in oklab, var(--color-paper-shade) 80%, var(--color-ink) 8%);
+    transform: translateY(1px);
+  }
+  .tear-tab .glyph {
+    margin-right: 6px;
+    opacity: 0.6;
+  }
+
+  /* Tear-tab variant on the dark Ledger Desk shell (no receipt around it).
+     Renders as a paper strip pulled down from the page edge. */
+  .tear-tab-dark {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border-top: 1px dashed rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.32);
+  }
+  .tear-tab-dark::before {
+    background: var(--color-bg-primary, #1a141d);
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  /* Margin glyph: row-scoped action lives in a left-margin column.
+     Whole column is tappable. Glyph tints on press. */
+  .row-with-margin {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px dashed var(--color-hairline-ink);
+  }
+  .row-with-margin:last-child {
+    border-bottom: 1px dashed var(--color-hairline-ink);
+  }
+  .margin-glyph {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--color-ink-muted);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 120ms ease, background-color 120ms ease;
+    font-family: var(--font-mono);
+  }
+  .margin-glyph:hover { color: var(--color-ink); }
+  .margin-glyph:active {
+    background: color-mix(in oklab, var(--color-ink) 6%, transparent);
+    color: var(--color-ink);
+  }
+  .margin-glyph.danger:active { color: var(--cat-indulgence); }
+  .margin-glyph.commit:active { color: var(--color-accent-gold); }
+
+  /* Footer ribbon: page-level action on dark shell, styled as paper-tape
+     receipt footer. Sawtooth top edge, mono caption with em-dash framing. */
+  .ribbon-action {
+    appearance: none;
+    border: 0;
+    display: block;
+    width: 100%;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    padding: 14px 0 16px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    margin: 16px 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
+    -webkit-mask-image:
+      radial-gradient(circle 3px at 0 0, transparent 98%, #000 100%),
+      radial-gradient(circle 3px at 6px 0, transparent 98%, #000 100%),
+      radial-gradient(circle 3px at 0 100%, transparent 98%, #000 100%),
+      radial-gradient(circle 3px at 6px 100%, transparent 98%, #000 100%),
+      linear-gradient(#000, #000);
+    transition: background-color 140ms ease, transform 100ms ease;
+  }
+  .ribbon-action:active {
+    background: color-mix(in oklab, var(--color-paper) 86%, var(--color-ink) 10%);
+    transform: translateY(1px);
+  }
+  .ribbon-action .ribbon-rule {
+    color: var(--color-ink-muted);
+    margin: 0 12px;
+    letter-spacing: 0;
+  }
+
+  /* ============================================================
+     Action vocabulary v2 — icons + text combos with personality
+     ============================================================ */
+
+  /* Tear-tab v2: bigger motion affordance. Down-arrow leads, label follows.
+     Lifts on hover so the "this comes off when you pull" reads instantly. */
+  .tear-tab-motion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .tear-tab-motion .tear-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 1.5px solid var(--color-ink);
+    color: var(--color-ink);
+    font-size: 14px;
+    line-height: 1;
+    transition: transform 200ms ease, background-color 200ms ease;
+  }
+  .tear-tab:hover .tear-arrow,
+  .tear-tab:focus-visible .tear-arrow {
+    transform: translateY(2px);
+    background: color-mix(in oklab, var(--color-ink) 8%, transparent);
+  }
+  .tear-tab .cut-line {
+    display: inline-block;
+    flex: 0 0 60px;
+    height: 1px;
+    border-top: 1.5px dashed var(--color-ink-muted);
+    margin: 0 6px;
+    opacity: 0.6;
+  }
+
+  /* Postage stamp: ceremonial action button.
+     Perforation suggested via outline-offset dashed inset. Slight tilt.
+     Drop shadow. Holds an icon + a label. */
+  .postage {
+    appearance: none;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border: 0;
+    padding: 14px 16px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 130px;
+    outline: 1.5px dashed var(--color-hairline-ink);
+    outline-offset: -8px;
+    transform: rotate(-1.6deg);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .postage:hover {
+    transform: rotate(-1.6deg) translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.32);
+  }
+  .postage:active {
+    transform: rotate(-1.6deg) translateY(1px) scale(0.985);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+  .postage .postage-art {
+    width: 36px;
+    height: 36px;
+    color: var(--color-accent-purple);
+  }
+  .postage .postage-art svg { width: 100%; height: 100%; display: block; }
+  .postage .postage-label { line-height: 1.2; text-align: center; }
+  .postage .postage-denom {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--color-ink-muted);
+  }
+  .postage.sent::after {
+    content: attr(data-cancel);
+    position: absolute;
+    inset: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--color-accent-gold);
+    border: 2px solid var(--color-accent-gold);
+    border-radius: 4px;
+    transform: rotate(-12deg);
+    pointer-events: none;
+    background: color-mix(in oklab, var(--color-accent-gold) 6%, transparent);
+  }
+
+  /* Ink margin glyphs: hand-applied feel.
+     Larger, mascot-tinted, randomly rotated per row via nth-child. */
+  .ink-glyph {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    line-height: 1;
+    color: var(--color-accent-purple);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 120ms ease, transform 120ms ease;
+    font-family: 'Fraunces', var(--font-display, serif);
+  }
+  .ink-glyph:hover { transform: scale(1.08); }
+  .ink-glyph:active { transform: scale(0.92); }
+  .ink-glyph.danger { color: var(--cat-indulgence); }
+  .ink-glyph.commit { color: var(--color-accent-gold); }
+  .row-with-margin .ink-glyph:nth-child(1) { transform: rotate(-4deg); }
+  .row-with-margin:nth-child(even) .ink-glyph { transform: rotate(3deg); }
+  .row-with-margin:nth-child(3n) .ink-glyph { transform: rotate(-2deg); }
+
+  /* Sticker / appliqué: post-it that sits ON the page.
+     Tape strip across top. Tilted. Drop shadow. Reserved for ad-hoc actions
+     and destructive things you should hesitate over. */
+  .sticker {
+    appearance: none;
+    border: 0;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #f5e2a3;
+    color: #2b2418;
+    padding: 14px 18px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transform: rotate(1.6deg);
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.05),
+      0 6px 14px rgba(0, 0, 0, 0.3);
+    margin-top: 14px;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .sticker::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 70px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.55);
+    border-left: 1px dashed rgba(0, 0, 0, 0.12);
+    border-right: 1px dashed rgba(0, 0, 0, 0.12);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  .sticker:hover {
+    transform: rotate(1.6deg) translateY(-1px);
+  }
+  .sticker:active {
+    transform: rotate(1.6deg) translateY(1px) scale(0.99);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  }
+  .sticker.sticker-warn { background: #f0a6a6; color: #3a1f1f; }
+  .sticker.sticker-cool { background: #b9d4d0; color: #1f2f2c; }
+  .sticker .sticker-glyph { font-size: 16px; }
 }

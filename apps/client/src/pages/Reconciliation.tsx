@@ -8,6 +8,16 @@ const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
 };
 
+function SealArt() {
+  return (
+    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="18" r="11" />
+      <circle cx="18" cy="18" r="7.5" />
+      <path d="M14 18l3 3 5-5" />
+    </svg>
+  );
+}
+
 type Txn = {
   id: string;
   posted_at: string;
@@ -251,13 +261,20 @@ export default function Reconciliation() {
               Sealed {w.last_reconciliation_at ? new Date(w.last_reconciliation_at).toLocaleDateString('en-CA') : ''}
             </div>
           ) : (
-            <button
-              className="btn-primary"
-              onClick={() => complete.mutate()}
-              disabled={complete.isPending}
-            >
-              {complete.isPending ? 'Sealing…' : 'I kept the receipts'}
-            </button>
+            <div className="flex justify-center pt-2 pb-1">
+              <button
+                className="postage"
+                onClick={() => complete.mutate()}
+                disabled={complete.isPending}
+                style={{ opacity: complete.isPending ? 0.5 : 1 }}
+              >
+                <span className="postage-denom">SEAL</span>
+                <span className="postage-art"><SealArt /></span>
+                <span className="postage-label">
+                  {complete.isPending ? 'Sealing.' : <>I kept<br />the receipts</>}
+                </span>
+              </button>
+            </div>
           )}
         </div>
 

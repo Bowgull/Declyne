@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
+import { disableLinksForSplit } from './paymentLinks.js';
 
 export const splitsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -139,5 +140,8 @@ splitsRoutes.post('/:id/event', async (c) => {
       reason: 'split_event',
     },
   ]);
+  if (newRemaining <= 0) {
+    await disableLinksForSplit(c.env, id, 'split_settled').catch(() => 0);
+  }
   return c.json({ remaining_cents: Math.max(newRemaining, 0), closed: newRemaining <= 0 });
 });

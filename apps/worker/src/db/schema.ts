@@ -265,6 +265,18 @@ export const cc_statement_snapshots = sqliteTable('cc_statement_snapshots', {
   created_at: text('created_at').notNull(),
 });
 
+export const payment_links = sqliteTable('payment_links', {
+  id: text('id').primaryKey(),
+  split_id: text('split_id').notNull().references(() => splits.id),
+  token: text('token').notNull().unique(),
+  email: text('email').notNull(),
+  security_answer: text('security_answer'),
+  created_at: text('created_at').notNull(),
+  viewed_at: text('viewed_at'),
+  expires_at: text('expires_at').notNull(),
+  disabled_at: text('disabled_at'),
+});
+
 export const review_queue = sqliteTable('review_queue', {
   id: text('id').primaryKey(),
   transaction_id: text('transaction_id').notNull().references(() => transactions.id),

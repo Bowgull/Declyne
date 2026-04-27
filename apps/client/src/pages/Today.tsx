@@ -409,13 +409,15 @@ export default function Today() {
           <button
             type="button"
             onClick={() => setChitOpen({ prefilledFor: null })}
-            className="label-tag mt-3 inline-block"
-            style={{ color: 'var(--color-ink-muted)', background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
+            className="tear-tab tear-tab-motion"
           >
-            + tear from scratch
+            <span className="cut-line" aria-hidden />
+            <span className="tear-arrow" aria-hidden>↓</span>
+            <span>Tear new chit</span>
+            <span className="cut-line" aria-hidden />
           </button>
-          <div className="label-tag mt-1" style={{ color: 'var(--color-ink-muted)', opacity: 0.6 }}>
-            long-press a name to tear a new chit
+          <div className="label-tag mt-2 text-center" style={{ color: 'var(--color-ink-muted)', opacity: 0.6 }}>
+            long-press a name above to prefill
           </div>
         </div>
 
@@ -547,8 +549,16 @@ function ChitForm({
         maxLength={120}
       />
 
-      <button type="submit" disabled={submitting} className="btn-primary mt-1" style={{ alignSelf: 'flex-start' }}>
-        {submitting ? 'tearing…' : 'tear it'}
+      <button
+        type="submit"
+        disabled={submitting}
+        className="tear-tab tear-tab-motion"
+        style={{ opacity: submitting ? 0.5 : 1 }}
+      >
+        <span className="cut-line" aria-hidden />
+        <span className="tear-arrow" aria-hidden>↓</span>
+        <span>{submitting ? 'tearing.' : 'Tear it'}</span>
+        <span className="cut-line" aria-hidden />
       </button>
     </form>
   );

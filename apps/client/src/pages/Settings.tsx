@@ -57,10 +57,20 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
+  const [interacEmail, setInteracEmail] = useState('');
+  const [interacAnswer, setInteracAnswer] = useState('');
+  const [interacSaving, setInteracSaving] = useState(false);
+  const [interacSavedAt, setInteracSavedAt] = useState<string | null>(null);
+
   const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
   const [newToken, setNewToken] = useState('');
   const [tokenSaving, setTokenSaving] = useState(false);
   const [tokenMsg, setTokenMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setInteracEmail(s.interac_email ?? '');
+    setInteracAnswer(s.interac_security_answer_default ?? '');
+  }, [s.interac_email, s.interac_security_answer_default]);
 
   useEffect(() => {
     setSourceId(s.paycheque_source_account_id ?? '');
@@ -87,6 +97,20 @@ export default function Settings() {
       setSavedAt(new Date().toLocaleTimeString());
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveInterac() {
+    setInteracSaving(true);
+    try {
+      await Promise.all([
+        api.post('/api/settings/interac_email', { value: interacEmail.trim() }),
+        api.post('/api/settings/interac_security_answer_default', { value: interacAnswer.trim() }),
+      ]);
+      await qc.invalidateQueries({ queryKey: ['settings'] });
+      setInteracSavedAt(new Date().toLocaleTimeString());
+    } finally {
+      setInteracSaving(false);
     }
   }
 
@@ -118,7 +142,40 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">02</span>Paycheque detection</span>
+        <span className="ledger-section-kicker"><span className="num">02</span>Interac e-transfer</span>
+        <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
+          Used on payment links sent from open tabs. Recipients copy these into their bank app.
+        </p>
+        <div className="flex flex-col gap-3 pb-4">
+          <label className="field-label">Interac email</label>
+          <input
+            className="field"
+            type="email"
+            value={interacEmail}
+            onChange={(e) => setInteracEmail(e.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
+          <label className="field-label">Default security answer (optional)</label>
+          <input
+            className="field"
+            value={interacAnswer}
+            onChange={(e) => setInteracAnswer(e.target.value)}
+            placeholder="leave blank if your account is autodeposit"
+          />
+          <div className="flex gap-2 pt-2">
+            <button className="stamp stamp-square flex-1" onClick={saveInterac} disabled={interacSaving}>
+              {interacSaving ? 'Saving.' : 'Save'}
+            </button>
+          </div>
+          {interacSavedAt && (
+            <p className="text-xs text-[color:var(--color-text-muted)]">Saved at {interacSavedAt}</p>
+          )}
+        </div>
+      </section>
+
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">03</span>Paycheque detection</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Anchors pay periods to real deposits. Runs after every CSV import.
         </p>
@@ -167,7 +224,7 @@ export default function Settings() {
           />
 
           <div className="flex gap-2 pt-2">
-            <button className="btn-primary flex-1" onClick={savePaycheque} disabled={saving}>
+            <button className="stamp stamp-square flex-1" onClick={savePaycheque} disabled={saving}>
               {saving ? 'Saving.' : 'Save'}
             </button>
             <button className="stamp flex-1" onClick={detectNow}>
@@ -181,7 +238,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">03</span>System</span>
+        <span className="ledger-section-kicker"><span className="num">04</span>System</span>
         <Link to="/phase" className="ledger-row tap">
           <div className="ledger-row-main">
             <span className="ledger-row-label">Phase journey</span>
@@ -202,7 +259,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">04</span>Notifications</span>
+        <span className="ledger-section-kicker"><span className="num">05</span>Notifications</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Sunday 9am reconciliation. Tuesday 9am follow-up if Sunday was skipped.
         </p>
@@ -214,7 +271,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">05</span>Cron runs</span>
+        <span className="ledger-section-kicker"><span className="num">06</span>Cron runs</span>
         <span className="ledger-section-meta">last 5</span>
         <div className="pt-3 pb-1">
           {cronRuns.data?.runs.length ? (
@@ -250,7 +307,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">06</span>Audit</span>
+        <span className="ledger-section-kicker"><span className="num">07</span>Audit</span>
         <Link to="/settings/edit-log" className="ledger-row tap">
           <div className="ledger-row-main">
             <span className="ledger-row-label">View edit log</span>
@@ -261,7 +318,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">07</span>Export</span>
+        <span className="ledger-section-kicker"><span className="num">08</span>Export</span>
         <div className="pt-3 pb-2">
           <a className="stamp" href={`${api.baseUrl}/api/export`}>
             Download sectioned CSV
@@ -270,7 +327,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">08</span>API token</span>
+        <span className="ledger-section-kicker"><span className="num">09</span>API token</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Stored in iOS Keychain (or browser secure storage). Paste a fresh token after rotating in Cloudflare.
         </p>
@@ -320,7 +377,7 @@ export default function Settings() {
             </p>
             <div className="flex gap-2 pt-2">
               <button
-                className="btn-primary flex-1"
+                className="stamp stamp-square flex-1"
                 disabled={tokenSaving || !newToken.trim()}
                 onClick={async () => {
                   setTokenSaving(true);

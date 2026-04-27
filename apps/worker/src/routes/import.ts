@@ -5,6 +5,7 @@ import { writeEditLog } from '../lib/editlog.js';
 import { detectPeriods, type PaycheckCandidate } from '../lib/payperiods.js';
 import { runCcStatementDerivation } from './ccStatements.js';
 import { draftForPeriod, autoMatchAllocations } from './allocations.js';
+import { disableLinksForSplit } from './paymentLinks.js';
 
 interface ImportRow {
   posted_at: string;
@@ -195,6 +196,8 @@ async function autoMatchSplits(env: import('../env.js').Env): Promise<number> {
         reason: 'split_auto_matched',
       },
     ]);
+
+    await disableLinksForSplit(env, split.id, 'split_auto_matched').catch(() => 0);
 
     settled++;
   }

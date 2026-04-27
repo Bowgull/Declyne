@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
@@ -52,6 +55,31 @@ export default function CounterpartyPage() {
       qc.invalidateQueries({ queryKey: ['counterparties'] });
     },
   });
+
+  const [linkBusy, setLinkBusy] = useState<string | null>(null);
+  const [linkErr, setLinkErr] = useState<string | null>(null);
+
+  async function sendPaymentLink(splitId: string, amount: number, recipientName: string) {
+    setLinkBusy(splitId);
+    setLinkErr(null);
+    try {
+      const res = await api.post<{ url: string }>('/api/payment-links', { split_id: splitId });
+      const message = `Hey ${recipientName} — here's the tab. ${formatCents(amount)} my way: ${res.url}`;
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({ title: 'Payment request', text: message, url: res.url });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(res.url);
+        setLinkErr('Link copied to clipboard.');
+      } else {
+        setLinkErr(res.url);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Send failed.';
+      setLinkErr(/interac_email/i.test(msg) ? 'Set your Interac email in Settings first.' : 'Send failed.');
+    } finally {
+      setLinkBusy(null);
+    }
+  }
 
   if (detail.isLoading) {
     return <div className="px-4 pt-6 text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading…</div>;
@@ -151,14 +179,26 @@ export default function CounterpartyPage() {
                           </div>
                         )}
                         {!s.closed_at && (
-                          <button
-                            className="stamp stamp-gold"
-                            style={{ padding: '3px 8px', fontSize: 10 }}
-                            disabled={settle.isPending}
-                            onClick={() => settle.mutate({ splitId: s.id, amount: s.remaining_cents })}
-                          >
-                            Paid
-                          </button>
+                          <div className="flex gap-1.5">
+                            {s.direction === 'they_owe' && (
+                              <button
+                                className="stamp stamp-purple"
+                                style={{ padding: '3px 8px', fontSize: 10 }}
+                                disabled={linkBusy === s.id}
+                                onClick={() => sendPaymentLink(s.id, s.remaining_cents, cp.name)}
+                              >
+                                {linkBusy === s.id ? 'Sending.' : 'Send link'}
+                              </button>
+                            )}
+                            <button
+                              className="stamp stamp-gold"
+                              style={{ padding: '3px 8px', fontSize: 10 }}
+                              disabled={settle.isPending}
+                              onClick={() => settle.mutate({ splitId: s.id, amount: s.remaining_cents })}
+                            >
+                              Paid
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -183,6 +223,12 @@ export default function CounterpartyPage() {
             </ul>
           )}
         </div>
+
+        {linkErr && (
+          <div className="text-xs ink-muted text-center" style={{ wordBreak: 'break-all' }}>
+            {linkErr}
+          </div>
+        )}
 
         <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
           * * end of tab * *

@@ -59,7 +59,7 @@ export default function Merchants() {
           {(['unverified', 'all', 'verified'] as const).map((s) => (
             <button
               key={s}
-              className={status === s ? 'btn-primary flex-1' : 'stamp stamp-square flex-1'}
+              className={status === s ? 'stamp stamp-filled flex-1' : 'stamp stamp-square flex-1'}
               onClick={() => setStatus(s)}
             >
               {s}
@@ -206,7 +206,7 @@ function EditSheet({
         <div className="flex gap-2">
           <button className="stamp stamp-square flex-1" onClick={onClose}>Cancel</button>
           <button
-            className="btn-primary flex-1"
+            className="stamp stamp-square flex-1"
             onClick={() => save.mutate()}
             disabled={save.isPending || !name.trim()}
           >

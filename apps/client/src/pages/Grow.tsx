@@ -35,6 +35,19 @@ type Recommendation = {
   cited_signals: string[];
 };
 
+function SeedArt() {
+  return (
+    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 30V14" />
+      <path d="M18 18c-3-1-5-1-6.5-3.5C12.5 13 15 13 18 15" />
+      <path d="M18 18c3-1 5-1 6.5-3.5C23.5 13 21 13 18 15" />
+      <path d="M18 24c-3-1-5-1-6.5-3.5C12.5 19 15 19 18 21" />
+      <path d="M18 24c3-1 5-1 6.5-3.5C23.5 19 21 19 18 21" />
+      <circle cx="18" cy="11" r="2.5" />
+    </svg>
+  );
+}
+
 function marketValue(h: Holding): number | null {
   if (h.latest_price_cents == null) return null;
   return Math.round((h.units * h.latest_price_cents) / 10_000);
@@ -256,13 +269,21 @@ export default function Grow({ unlocked }: { unlocked: boolean }) {
           <p className="text-xs text-[color:var(--color-text-muted)] uppercase tracking-[0.14em]">
             Refresh prices first. GPT reads computed signals — no math.
           </p>
-          <button
-            className="stamp stamp-gold"
-            onClick={() => recommend.mutate()}
-            disabled={recommend.isPending}
-          >
-            {recommend.isPending ? 'Thinking.' : 'Get recommendation'}
-          </button>
+          <div className="flex justify-center pt-2 pb-1">
+            <button
+              className={`postage ${rec ? 'sent' : ''}`}
+              data-cancel={rec ? 'replied · cached' : ''}
+              onClick={() => recommend.mutate()}
+              disabled={recommend.isPending}
+              style={{ opacity: recommend.isPending ? 0.5 : 1 }}
+            >
+              <span className="postage-denom">AI</span>
+              <span className="postage-art"><SeedArt /></span>
+              <span className="postage-label">
+                {recommend.isPending ? 'Thinking.' : 'Get\nrecommendation'.split('\n').map((s, i) => <span key={i}>{s}{i === 0 && <br />}</span>)}
+              </span>
+            </button>
+          </div>
           {recErr && (
             <p className="text-xs text-[color:var(--color-danger,#b00)]">{recErr}</p>
           )}

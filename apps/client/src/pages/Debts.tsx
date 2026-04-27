@@ -243,7 +243,7 @@ function SplitSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
             <button type="button" className="btn-outline flex-1" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex-1" disabled={save.isPending}>
+            <button type="submit" className="stamp stamp-square flex-1" disabled={save.isPending}>
               {save.isPending ? 'Saving…' : 'Add'}
             </button>
           </div>
@@ -353,7 +353,7 @@ function SettleSheet({
             >
               Settle full
             </button>
-            <button type="submit" className="btn-primary flex-1" disabled={settle.isPending}>
+            <button type="submit" className="stamp stamp-square flex-1" disabled={settle.isPending}>
               {settle.isPending ? 'Saving…' : 'Log payment'}
             </button>
           </div>
@@ -598,7 +598,7 @@ function DebtSheet({
             <button type="button" className="btn-outline flex-1" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex-1" disabled={save.isPending}>
+            <button type="submit" className="stamp stamp-square flex-1" disabled={save.isPending}>
               {save.isPending ? 'Saving…' : initial ? 'Save' : 'Add'}
             </button>
           </div>

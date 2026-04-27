@@ -50,7 +50,7 @@ export default function Holdings() {
         </header>
 
         <div className="pt-3" style={perforation}>
-          <button className="btn-primary w-full" onClick={() => setAdding(true)}>Add holding</button>
+          <button className="stamp stamp-square w-full" onClick={() => setAdding(true)}>Add holding</button>
         </div>
 
         {rows.length === 0 && holdings.data ? (
@@ -231,7 +231,7 @@ function HoldingSheet({
         <div className="flex gap-2">
           <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
           <button
-            className="btn-primary flex-1"
+            className="stamp stamp-square flex-1"
             onClick={() => save.mutate()}
             disabled={save.isPending || !valid}
           >

@@ -135,7 +135,7 @@ function ReviewLine({
           ))}
         </select>
         <button
-          className="btn-primary px-4 text-sm"
+          className="stamp stamp-square px-4 text-sm"
           onClick={() => selected && onResolve(selected)}
           disabled={!selected || pending}
         >
