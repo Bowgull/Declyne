@@ -73,21 +73,6 @@ export default function Today() {
     queryKey: ['counterparties'],
     queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
   });
-  const planQ = useQuery({
-    queryKey: ['plan'],
-    queryFn: () =>
-      api.get<{
-        plan: {
-          capacity_cents: number;
-          next_paycheque_allocations: Array<{
-            debt_id: string;
-            debt_name: string;
-            role: 'min' | 'priority' | 'avalanche';
-            amount_cents: number;
-          }>;
-        };
-      }>('/api/plan'),
-  });
   const todayExtras = useQuery({
     queryKey: ['today-extras'],
     queryFn: () =>
@@ -106,7 +91,7 @@ export default function Today() {
           days_until: number;
         } | null;
         printing_ahead: Array<{
-          kind: 'bill' | 'payday';
+          kind: 'bill' | 'payday' | 'plan';
           label: string;
           amount_cents: number;
           due_date: string;
@@ -288,7 +273,7 @@ export default function Today() {
             meta: string;
             days_until: number;
             href?: string;
-            hue?: 'income' | null;
+            hue?: 'income' | 'debt' | null;
           };
           const queue: QueueItem[] = [];
           if (sundayDays === 0 && !reconciliation.data?.completed_this_week) {
@@ -306,29 +291,11 @@ export default function Today() {
           for (const row of printingAhead) {
             queue.push({
               key: `${row.kind}-${row.due_date}-${row.label}`,
-              label: row.label,
+              label: row.kind === 'plan' ? `Plan: ${row.label}` : row.label,
               meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
               days_until: row.days_until,
-              hue: row.kind === 'payday' ? 'income' : null,
-            });
-          }
-          // Plan-recommends row: only when a paycheque has landed in the last
-          // 24h. Pulls the largest non-min allocation from the plan kernel.
-          const periodStart = tank.data?.period?.start_date;
-          const justPaid = periodStart
-            ? (Date.now() - Date.parse(periodStart)) <= 86_400_000
-            : false;
-          const planAllocs = planQ.data?.plan.next_paycheque_allocations ?? [];
-          const topExtra = planAllocs
-            .filter((a) => a.role !== 'min')
-            .sort((a, b) => b.amount_cents - a.amount_cents)[0];
-          if (justPaid && topExtra) {
-            queue.push({
-              key: `plan-${topExtra.debt_id}`,
-              label: `Plan: ${formatCents(topExtra.amount_cents)} to ${topExtra.debt_name}`,
-              meta: 'today',
-              days_until: 0,
-              href: '/budget/plan',
+              hue: row.kind === 'payday' ? 'income' : row.kind === 'plan' ? 'debt' : null,
+              ...(row.kind === 'plan' ? { href: '/budget/plan' } : {}),
             });
           }
           queue.sort((a, b) => a.days_until - b.days_until);
@@ -347,10 +314,11 @@ export default function Today() {
                           <div className="num label-tag" style={{ width: 44, color: 'var(--color-ink-muted)' }}>{dayLabel}</div>
                           <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
                             {item.hue === 'income' && <span className="cat-dot income" />}
+                            {item.hue === 'debt' && <span className="cat-dot debt" />}
                             {item.label}
                           </div>
                         </div>
-                        <div className="num text-sm" style={{ color: item.hue === 'income' ? 'var(--cat-income)' : 'var(--color-ink)' }}>
+                        <div className="num text-sm" style={{ color: item.hue === 'income' ? 'var(--cat-income)' : item.hue === 'debt' ? 'var(--cat-debt)' : 'var(--color-ink)' }}>
                           {item.meta}
                           {item.href && <span style={{ color: 'var(--color-ink-muted)' }}> &rsaquo;</span>}
                         </div>

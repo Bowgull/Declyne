@@ -10,6 +10,12 @@ export const todayRoutes = new Hono<{ Bindings: Env }>();
 
 const HORIZON_DAYS = 30;
 
+// Allocation labels from draftForPeriod end with " priority"|" avalanche"|" min".
+// Strip so Today aggregates per-debt instead of showing each role separately.
+export function stripRoleSuffix(label: string): string {
+  return label.replace(/\s+(priority|avalanche|min)$/i, '');
+}
+
 // Consolidated extras for the Today screen that aren't covered by existing
 // routes: receipt counter (days since earliest activity), most recent
 // indulgence transaction, predicted upcoming bills + next payday.
@@ -68,13 +74,51 @@ todayRoutes.get('/', async (c) => {
   const bills = detectRecurring(txnRows, today, HORIZON_DAYS);
 
   const period = await c.env.DB.prepare(
-    `SELECT end_date, paycheque_cents FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
-  ).first<{ end_date: string; paycheque_cents: number }>();
+    `SELECT id, end_date, paycheque_cents FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
+  ).first<{ id: string; end_date: string; paycheque_cents: number }>();
   const payday = predictNextPayday(period ?? null, today, HORIZON_DAYS);
 
-  // Stitch bills + payday into a single "printing ahead" feed sorted by date.
+  // Committed plan installments for the current period — surfaced as queue
+  // rows so Today reflects what was promised, not just what was spent.
+  const installments: Array<{
+    label: string;
+    amount_cents: number;
+    due_date: string;
+    days_until: number;
+  }> = [];
+  if (period) {
+    const { results } = await c.env.DB.prepare(
+      `SELECT label, planned_cents
+       FROM period_allocations
+       WHERE pay_period_id = ?
+         AND category_group = 'debt'
+         AND committed_at IS NOT NULL
+         AND stamped_at IS NULL
+         AND planned_cents > 0`,
+    ).bind(period.id).all<{ label: string; planned_cents: number }>();
+    const byDebt = new Map<string, number>();
+    for (const r of results ?? []) {
+      const name = stripRoleSuffix(r.label);
+      byDebt.set(name, (byDebt.get(name) ?? 0) + r.planned_cents);
+    }
+    const ms = Math.max(0, Date.parse(period.end_date) - Date.parse(today));
+    const days_until = Math.floor(ms / 86_400_000);
+    if (days_until <= HORIZON_DAYS) {
+      for (const [name, total] of byDebt.entries()) {
+        installments.push({
+          label: name,
+          amount_cents: total,
+          due_date: period.end_date,
+          days_until,
+        });
+      }
+    }
+  }
+
+  // Stitch bills + payday + plan installments into a single "printing
+  // ahead" feed sorted by date.
   type Item = {
-    kind: 'bill' | 'payday';
+    kind: 'bill' | 'payday' | 'plan';
     label: string;
     amount_cents: number;
     due_date: string;
@@ -88,6 +132,7 @@ todayRoutes.get('/', async (c) => {
       due_date: b.next_due,
       days_until: b.days_until,
     })),
+    ...installments.map<Item>((i) => ({ kind: 'plan', ...i })),
     ...(payday
       ? [
           {
