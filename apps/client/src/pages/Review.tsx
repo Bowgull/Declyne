@@ -50,6 +50,10 @@ export default function Review() {
       api.post<{ ok: true }>(`/api/review/${id}/resolve`, { category_id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['review'] }),
   });
+  const dismiss = useMutation({
+    mutationFn: (id: string) => api.post<{ ok: true }>(`/api/review/${id}/dismiss`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['review'] }),
+  });
 
   return (
     <div className="pb-6">
@@ -81,7 +85,8 @@ export default function Review() {
                 item={it}
                 categories={cats}
                 onResolve={(category_id) => resolve.mutate({ id: it.id, category_id })}
-                pending={resolve.isPending}
+                onDismiss={() => dismiss.mutate(it.id)}
+                pending={resolve.isPending || dismiss.isPending}
               />
             ))}
           </div>
@@ -99,15 +104,20 @@ function ReviewLine({
   item,
   categories,
   onResolve,
+  onDismiss,
   pending,
 }: {
   item: ReviewItem;
   categories: Category[];
   onResolve: (category_id: string) => void;
+  onDismiss: () => void;
   pending: boolean;
 }) {
   const [selected, setSelected] = useState('');
   const isOut = item.amount_cents < 0;
+  // ▸ = open / awaiting (default state, no category picked).
+  // ✦ = commit (category selected, ready to seal).
+  const ready = selected !== '';
   return (
     <div className="pt-3 mt-3 flex flex-col gap-2" style={perforation}>
       <div className="flex items-baseline justify-between gap-3">
@@ -135,12 +145,21 @@ function ReviewLine({
           ))}
         </select>
         <button
-          className="ink-glyph commit"
-          onClick={() => selected && onResolve(selected)}
-          disabled={!selected || pending}
-          aria-label="Commit category"
+          className={ready ? 'ink-glyph commit' : 'ink-glyph'}
+          onClick={() => ready && onResolve(selected)}
+          disabled={!ready || pending}
+          aria-label={ready ? 'Commit category' : 'Awaiting category'}
         >
-          ▸
+          {ready ? '✦' : '▸'}
+        </button>
+        <button
+          className="ink-glyph danger"
+          onClick={onDismiss}
+          disabled={pending}
+          aria-label="Dismiss as duplicate"
+          title="Dismiss"
+        >
+          ⊘
         </button>
       </div>
     </div>

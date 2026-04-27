@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MailArt, SeedArt, BagArt } from '../components/PostageArt';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
 const kicker: React.CSSProperties = {
@@ -27,39 +28,6 @@ function SectionLabel({ n, title, note }: { n: string; title: string; note: stri
         {note}
       </div>
     </div>
-  );
-}
-
-/* Inline SVG illustrations for postage stamps. Hand-drawn-ish line work. */
-function MailArt() {
-  return (
-    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="9" width="28" height="20" rx="1.5" />
-      <path d="M5 11l13 10 13-10" />
-      <path d="M5 28l9-9" />
-      <path d="M31 28l-9-9" />
-    </svg>
-  );
-}
-function SeedArt() {
-  return (
-    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 30V14" />
-      <path d="M18 18c-3-1-5-1-6.5-3.5C12.5 13 15 13 18 15" />
-      <path d="M18 18c3-1 5-1 6.5-3.5C23.5 13 21 13 18 15" />
-      <path d="M18 24c-3-1-5-1-6.5-3.5C12.5 19 15 19 18 21" />
-      <path d="M18 24c3-1 5-1 6.5-3.5C23.5 19 21 19 18 21" />
-      <circle cx="18" cy="11" r="2.5" />
-    </svg>
-  );
-}
-function BagArt() {
-  return (
-    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 13l2-5h14l2 5" />
-      <path d="M7 13h22l-2 16H9z" />
-      <path d="M14 13v-3a4 4 0 018 0v3" />
-    </svg>
   );
 }
 

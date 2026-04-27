@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import LedgerHeader from '../components/LedgerHeader';
+import { SeedArt } from '../components/PostageArt';
 
 type Holding = {
   id: string;
@@ -34,19 +35,6 @@ type Recommendation = {
   reason: string;
   cited_signals: string[];
 };
-
-function SeedArt() {
-  return (
-    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 30V14" />
-      <path d="M18 18c-3-1-5-1-6.5-3.5C12.5 13 15 13 18 15" />
-      <path d="M18 18c3-1 5-1 6.5-3.5C23.5 13 21 13 18 15" />
-      <path d="M18 24c-3-1-5-1-6.5-3.5C12.5 19 15 19 18 21" />
-      <path d="M18 24c3-1 5-1 6.5-3.5C23.5 19 21 19 18 21" />
-      <circle cx="18" cy="11" r="2.5" />
-    </svg>
-  );
-}
 
 function marketValue(h: Holding): number | null {
   if (h.latest_price_cents == null) return null;

@@ -14,6 +14,21 @@ reviewRoutes.get('/', async (c) => {
   return c.json({ items: results });
 });
 
+// Dismiss a review item without categorizing — used for duplicate or
+// otherwise junk rows (⊘ in the Review vocabulary). The transaction is
+// untouched; only the queue row is sealed.
+reviewRoutes.post('/:id/dismiss', async (c) => {
+  const id = c.req.param('id');
+  const item = await c.env.DB.prepare(`SELECT transaction_id, resolved_at FROM review_queue WHERE id = ?`).bind(id).first<{ transaction_id: string; resolved_at: string | null }>();
+  if (!item) return c.json({ error: 'not found' }, 404);
+  if (item.resolved_at) return c.json({ ok: true, already: true });
+  await c.env.DB.prepare(`UPDATE review_queue SET resolved_at = ? WHERE id = ?`).bind(nowIso(), id).run();
+  await writeEditLog(c.env, [
+    { entity_type: 'transaction', entity_id: item.transaction_id, field: 'review_dismiss', old_value: null, new_value: null, actor: 'user', reason: 'manual_dismiss' },
+  ]);
+  return c.json({ ok: true });
+});
+
 reviewRoutes.post('/:id/resolve', async (c) => {
   const id = c.req.param('id');
   const b = (await c.req.json()) as { category_id?: string; merchant_id?: string };

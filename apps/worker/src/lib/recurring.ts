@@ -22,6 +22,7 @@ export type RecurringPrediction = {
   days_until: number;
   cadence_days: number;
   occurrences: number;
+  category_group: string;
 };
 
 const MS_PER_DAY = 86_400_000;
@@ -94,6 +95,7 @@ export function detectRecurring(
       days_until: daysUntil,
       cadence_days: cadence,
       occurrences: rows.length,
+      category_group: rows[rows.length - 1]!.group ?? 'essentials',
     });
   }
 
