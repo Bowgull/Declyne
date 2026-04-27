@@ -322,4 +322,5 @@ export const journal_lines = sqliteTable('journal_lines', {
   debit_cents: integer('debit_cents').notNull().default(0),
   credit_cents: integer('credit_cents').notNull().default(0),
   created_at: text('created_at').notNull(),
+  cleared_at: text('cleared_at'),
 });

@@ -69,6 +69,34 @@ type TabsResponse = {
   tabs: Array<{ split: TabSplit; candidates: TabCandidate[] }>;
 };
 
+type AccountReconciliation = {
+  account_id: string;
+  path: string;
+  name: string;
+  type: 'asset' | 'liability';
+  summary: {
+    gl_balance_cents: number;
+    cleared_balance_cents: number;
+    uncleared_count: number;
+    uncleared_cents: number;
+  };
+  uncleared_lines: Array<{
+    id: string;
+    journal_entry_id: string;
+    posted_at: string;
+    debit_cents: number;
+    credit_cents: number;
+    source_type: string | null;
+    memo: string | null;
+  }>;
+};
+
+type AccountsResponse = {
+  week_starts_on: string;
+  today: string;
+  accounts: AccountReconciliation[];
+};
+
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function dayLabel(iso: string): string {
@@ -99,6 +127,27 @@ export default function Reconciliation() {
     queryFn: () => api.get<TabsResponse>('/api/reconciliation/tabs-to-match'),
   });
 
+  const accounts = useQuery({
+    queryKey: ['reconciliation-accounts'],
+    queryFn: () => api.get<AccountsResponse>('/api/reconciliation/accounts'),
+  });
+
+  const clearLine = useMutation({
+    mutationFn: (line_id: string) =>
+      api.post<{ ok: true }>(`/api/reconciliation/lines/${line_id}/clear`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation-accounts'] });
+    },
+  });
+
+  const unclearLine = useMutation({
+    mutationFn: (line_id: string) =>
+      api.post<{ ok: true }>(`/api/reconciliation/lines/${line_id}/unclear`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reconciliation-accounts'] });
+    },
+  });
+
   const matchTab = useMutation({
     mutationFn: ({ split_id, transaction_id }: { split_id: string; transaction_id: string }) =>
       api.post<{ ok: true }>(`/api/reconciliation/tabs-to-match/${split_id}/match`, { transaction_id }),
@@ -110,11 +159,16 @@ export default function Reconciliation() {
   });
 
   const complete = useMutation({
-    mutationFn: () => api.post<{ ok: true; reconciliation_streak: number }>('/api/reconciliation/complete', {}),
+    mutationFn: (acknowledge_outstanding: boolean) =>
+      api.post<{ ok: true; reconciliation_streak: number; acknowledged_outstanding?: boolean }>(
+        '/api/reconciliation/complete',
+        { acknowledge_outstanding },
+      ),
     onSuccess: async () => {
       await dismissFollowUpThisWeek().catch(() => {});
       qc.invalidateQueries({ queryKey: ['reconciliation-week'] });
       qc.invalidateQueries({ queryKey: ['reconciliation-status'] });
+      qc.invalidateQueries({ queryKey: ['reconciliation-accounts'] });
     },
   });
 
@@ -141,6 +195,11 @@ export default function Reconciliation() {
     groups.set(day, arr);
   }
   const orderedDays = Array.from(groups.keys()).sort();
+
+  const totalUncleared = (accounts.data?.accounts ?? []).reduce(
+    (sum, a) => sum + a.summary.uncleared_count,
+    0,
+  );
 
   return (
     <div className="pb-6">
@@ -207,6 +266,27 @@ export default function Reconciliation() {
           </div>
         </div>
 
+        {accounts.data && accounts.data.accounts.length > 0 && (
+          <div className="pt-3" style={perforation}>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] mb-2">
+              Accounts ({accounts.data.accounts.length})
+            </div>
+            <div className="text-[11px] text-[color:var(--color-text-muted)] mb-3">
+              Mark each posted line as cleared once you see it on the statement.
+            </div>
+            <div className="flex flex-col gap-4">
+              {accounts.data.accounts.map((a) => (
+                <AccountRec
+                  key={a.account_id}
+                  acct={a}
+                  pendingClearId={clearLine.isPending ? (clearLine.variables as string | undefined) : undefined}
+                  onClear={(id) => clearLine.mutate(id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {tabs.data && tabs.data.tabs.length > 0 && (
           <div className="pt-3" style={perforation}>
             <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] mb-2">
@@ -261,10 +341,15 @@ export default function Reconciliation() {
               Sealed {w.last_reconciliation_at ? new Date(w.last_reconciliation_at).toLocaleDateString('en-CA') : ''}
             </div>
           ) : (
-            <div className="flex justify-center pt-2 pb-1">
+            <div className="flex flex-col items-center gap-2 pt-2 pb-1">
+              {totalUncleared > 0 && (
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                  {totalUncleared} uncleared {totalUncleared === 1 ? 'line' : 'lines'} · seal acknowledges them outstanding
+                </div>
+              )}
               <button
                 className="postage"
-                onClick={() => complete.mutate()}
+                onClick={() => complete.mutate(totalUncleared > 0)}
                 disabled={complete.isPending}
                 style={{ opacity: complete.isPending ? 0.5 : 1 }}
               >
@@ -380,6 +465,72 @@ function TabToMatch({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function AccountRec({
+  acct,
+  pendingClearId,
+  onClear,
+}: {
+  acct: AccountReconciliation;
+  pendingClearId: string | undefined;
+  onClear: (id: string) => void;
+}) {
+  const hue = acct.type === 'asset' ? 'income' : 'debt';
+  const reconciled = acct.summary.uncleared_count === 0;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="min-w-0 flex-1 flex items-baseline gap-2">
+          <span className={`cat-dot ${hue}`} />
+          <div className="min-w-0">
+            <div className="truncate text-sm">{acct.path}</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+              GL {formatCents(acct.summary.gl_balance_cents)} · cleared {formatCents(acct.summary.cleared_balance_cents)}
+            </div>
+          </div>
+        </div>
+        <div
+          className="text-[10px] uppercase tracking-[0.18em] shrink-0"
+          style={{ color: reconciled ? 'var(--cat-savings)' : 'var(--cat-indulgence)' }}
+        >
+          {reconciled ? 'reconciled' : `${acct.summary.uncleared_count} uncleared`}
+        </div>
+      </div>
+      {acct.uncleared_lines.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {acct.uncleared_lines.map((l) => {
+            const debit = l.debit_cents > 0;
+            const amount = debit ? l.debit_cents : l.credit_cents;
+            const pending = pendingClearId === l.id;
+            return (
+              <button
+                key={l.id}
+                disabled={pending}
+                onClick={() => onClear(l.id)}
+                className="row-tap flex items-baseline justify-between gap-3 text-left"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs">{l.memo || l.source_type || 'journal entry'}</div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
+                    {l.posted_at.slice(0, 10)} · tap to clear
+                  </div>
+                </div>
+                <div className="num text-xs shrink-0">
+                  {debit ? 'DR' : 'CR'} {formatCents(amount)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {acct.uncleared_lines.length === 0 && acct.summary.gl_balance_cents !== 0 && (
+        <div className="mt-2 text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
+          No uncleared lines this week. Clear history at <Link to="/settings/edit-log?entity_type=journal_line" className="underline">audit log</Link>.
+        </div>
+      )}
     </div>
   );
 }

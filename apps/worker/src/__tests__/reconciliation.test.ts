@@ -156,3 +156,114 @@ describe('isCandidateValid', () => {
     expect(isCandidateValid(split, { id: 't1', posted_at: '2026-04-25', amount_cents: 4750 })).toBe(false);
   });
 });
+
+import {
+  naturalBalanceCents,
+  summarizeAccountReconciliation,
+  isWeekFullyReconciled,
+  type ReconciliationLine,
+} from '../routes/reconciliation.js';
+
+describe('naturalBalanceCents', () => {
+  it('asset is debit minus credit', () => {
+    expect(naturalBalanceCents('asset', 1000, 300)).toBe(700);
+  });
+  it('liability is credit minus debit', () => {
+    expect(naturalBalanceCents('liability', 200, 1500)).toBe(1300);
+  });
+  it('equity is credit minus debit', () => {
+    expect(naturalBalanceCents('equity', 0, 5000)).toBe(5000);
+  });
+  it('expense is debit minus credit', () => {
+    expect(naturalBalanceCents('expense', 800, 0)).toBe(800);
+  });
+});
+
+const mkLine = (
+  id: string,
+  debit: number,
+  credit: number,
+  cleared_at: string | null = null,
+  posted_at = '2026-04-26T12:00:00Z',
+): ReconciliationLine => ({
+  id,
+  journal_entry_id: `je_${id}`,
+  posted_at,
+  debit_cents: debit,
+  credit_cents: credit,
+  cleared_at,
+  source_type: 'transaction',
+  memo: null,
+});
+
+describe('summarizeAccountReconciliation', () => {
+  it('asset: gl_balance counts all, cleared only counts cleared', () => {
+    const lines: ReconciliationLine[] = [
+      mkLine('a', 5000, 0, '2026-04-27T10:00:00Z'), // cleared deposit
+      mkLine('b', 0, 1500, '2026-04-27T10:00:00Z'), // cleared withdrawal
+      mkLine('c', 0, 800, null), // uncleared withdrawal
+    ];
+    const s = summarizeAccountReconciliation('asset', lines);
+    expect(s.gl_balance_cents).toBe(5000 - 1500 - 800); // 2700
+    expect(s.cleared_balance_cents).toBe(5000 - 1500); // 3500
+    expect(s.uncleared_count).toBe(1);
+    expect(s.uncleared_cents).toBe(-800);
+  });
+
+  it('liability: signed flip preserved across cleared/uncleared', () => {
+    const lines: ReconciliationLine[] = [
+      mkLine('a', 0, 10000, '2026-04-27T10:00:00Z'), // CC charge cleared
+      mkLine('b', 2000, 0, null), // payment uncleared
+    ];
+    const s = summarizeAccountReconciliation('liability', lines);
+    expect(s.gl_balance_cents).toBe(10000 - 2000); // 8000 owed
+    expect(s.cleared_balance_cents).toBe(10000); // payment hasn't cleared
+    expect(s.uncleared_count).toBe(1);
+    expect(s.uncleared_cents).toBe(-2000); // payment reduces liability
+  });
+
+  it('empty lines: zeros across the board', () => {
+    const s = summarizeAccountReconciliation('asset', []);
+    expect(s).toEqual({
+      gl_balance_cents: 0,
+      cleared_balance_cents: 0,
+      uncleared_count: 0,
+      uncleared_cents: 0,
+    });
+  });
+
+  it('all cleared: uncleared_count is 0 and cleared equals gl', () => {
+    const lines: ReconciliationLine[] = [
+      mkLine('a', 5000, 0, '2026-04-27T10:00:00Z'),
+      mkLine('b', 0, 1500, '2026-04-27T10:00:00Z'),
+    ];
+    const s = summarizeAccountReconciliation('asset', lines);
+    expect(s.uncleared_count).toBe(0);
+    expect(s.uncleared_cents).toBe(0);
+    expect(s.cleared_balance_cents).toBe(s.gl_balance_cents);
+  });
+});
+
+describe('isWeekFullyReconciled', () => {
+  it('true when every account has zero uncleared', () => {
+    expect(
+      isWeekFullyReconciled([
+        { uncleared_count: 0 },
+        { uncleared_count: 0 },
+      ]),
+    ).toBe(true);
+  });
+
+  it('false when any account has uncleared', () => {
+    expect(
+      isWeekFullyReconciled([
+        { uncleared_count: 0 },
+        { uncleared_count: 1 },
+      ]),
+    ).toBe(false);
+  });
+
+  it('vacuous-true when there are no accounts', () => {
+    expect(isWeekFullyReconciled([])).toBe(true);
+  });
+});
