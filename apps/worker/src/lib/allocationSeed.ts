@@ -16,6 +16,17 @@ export type DraftDebt = {
   min_payment_cents: number;
 };
 
+// Plan-aware allocation per debt: combines kernel min + extra (priority or
+// avalanche) into a single row per debt labeled with the role.
+export type DraftPlanDebt = {
+  id: string;
+  name: string;
+  // sum across all roles for this debt from the kernel
+  total_cents: number;
+  // role of the highest-amount non-min role, or 'min' if only the minimum was paid
+  role: 'min' | 'priority' | 'avalanche';
+};
+
 export type DraftGoal = {
   id: string;
   name: string;
@@ -40,6 +51,8 @@ export type SeedInputs = {
   goals: DraftGoal[];
   recurring: DraftRecurring[];
   last_period_indulgence_cents: number;
+  // When present, debt rows come from the kernel plan and `debts` is ignored.
+  plan_debts?: DraftPlanDebt[];
 };
 
 // Map recurring group → allocation group (transfer is treated as savings).
@@ -60,13 +73,25 @@ export function draftAllocations(inputs: SeedInputs): DraftAllocation[] {
     });
   }
 
-  for (const d of inputs.debts) {
-    if (d.min_payment_cents <= 0) continue;
-    out.push({
-      category_group: 'debt',
-      label: `${d.name} min`,
-      planned_cents: Math.round(d.min_payment_cents),
-    });
+  if (inputs.plan_debts && inputs.plan_debts.length > 0) {
+    for (const d of inputs.plan_debts) {
+      if (d.total_cents <= 0) continue;
+      const suffix = d.role === 'priority' ? 'priority' : d.role === 'avalanche' ? 'avalanche' : 'min';
+      out.push({
+        category_group: 'debt',
+        label: `${d.name} ${suffix}`,
+        planned_cents: Math.round(d.total_cents),
+      });
+    }
+  } else {
+    for (const d of inputs.debts) {
+      if (d.min_payment_cents <= 0) continue;
+      out.push({
+        category_group: 'debt',
+        label: `${d.name} min`,
+        planned_cents: Math.round(d.min_payment_cents),
+      });
+    }
   }
 
   for (const g of inputs.goals) {

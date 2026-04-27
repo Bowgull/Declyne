@@ -38,6 +38,14 @@ const SEVERITY_LABEL: Record<DebtSeverity, string> = {
   settled_partial: 'settled · partial',
 };
 
+const SEVERITY_COLOR: Record<DebtSeverity, string> = {
+  current: 'var(--cat-savings)',
+  past_due: 'var(--color-accent-gold)',
+  in_collections: 'var(--cat-indulgence)',
+  charged_off: 'var(--color-danger)',
+  settled_partial: 'var(--color-accent-purple)',
+};
+
 interface Split {
   id: string;
   counterparty_name: string;
@@ -62,6 +70,17 @@ export default function Debts() {
     queryKey: ['accounts', false],
     queryFn: () => api.get<{ accounts: Account[] }>('/api/accounts'),
   });
+  const planQ = useQuery({
+    queryKey: ['plan'],
+    queryFn: () =>
+      api.get<{ plan: { next_paycheque_allocations: Array<{ debt_id: string; role: 'min' | 'priority' | 'avalanche' }> } }>('/api/plan'),
+  });
+  const roleByDebt = new Map<string, 'min' | 'priority' | 'avalanche'>();
+  for (const a of planQ.data?.plan.next_paycheque_allocations ?? []) {
+    const cur = roleByDebt.get(a.debt_id);
+    const rank = (r: 'min' | 'priority' | 'avalanche') => (r === 'priority' ? 2 : r === 'avalanche' ? 1 : 0);
+    if (!cur || rank(a.role) > rank(cur)) roleByDebt.set(a.debt_id, a.role);
+  }
 
   const qc = useQueryClient();
   const list = debts.data?.debts ?? [];
@@ -87,7 +106,7 @@ export default function Debts() {
         <ul className="flex flex-col gap-3 pt-4 pb-2">
           {list.map((d) => (
             <li key={d.id}>
-              <DebtCard debt={d} onClick={() => setEditing(d)} />
+              <DebtCard debt={d} role={roleByDebt.get(d.id) ?? null} onClick={() => setEditing(d)} />
             </li>
           ))}
         </ul>
@@ -385,12 +404,13 @@ function SettleSheet({
   );
 }
 
-function DebtCard({ debt, onClick }: { debt: Debt; onClick: () => void }) {
+function DebtCard({ debt, role, onClick }: { debt: Debt; role: 'min' | 'priority' | 'avalanche' | null; onClick: () => void }) {
   const rate = (debt.interest_rate_bps / 100).toFixed(2);
   const min =
     debt.min_payment_type === 'fixed'
       ? formatCents(debt.min_payment_value)
       : `${(debt.min_payment_value / 100).toFixed(2)}%`;
+  const sev = debt.severity ?? 'current';
   return (
     <button
       onClick={onClick}
@@ -404,14 +424,14 @@ function DebtCard({ debt, onClick }: { debt: Debt; onClick: () => void }) {
             {rate}% APR · min {min} · stmt {debt.statement_date} · due {debt.payment_due_date}
           </div>
           <div className="mt-1 truncate text-base font-semibold">{debt.name}</div>
-          {debt.severity && debt.severity !== 'current' && (
-            <div
-              className="mt-1 text-[10px] uppercase tracking-[0.12em]"
-              style={{ color: 'var(--color-danger)' }}
-            >
-              {SEVERITY_LABEL[debt.severity]}
-            </div>
-          )}
+          <div className="mt-1 flex gap-2 items-center text-[10px] uppercase tracking-[0.12em]">
+            <span style={{ color: SEVERITY_COLOR[sev] }}>{SEVERITY_LABEL[sev]}</span>
+            {role && (
+              <span className="text-[color:var(--color-text-muted)]">
+                · {role === 'priority' ? 'priority' : role === 'avalanche' ? 'avalanche' : 'min only'}
+              </span>
+            )}
+          </div>
         </div>
         <div className="num text-lg shrink-0">
           {formatCents(typeof debt.gl_balance_cents === 'number' ? debt.gl_balance_cents : debt.principal_cents)}

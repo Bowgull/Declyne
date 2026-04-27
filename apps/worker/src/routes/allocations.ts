@@ -10,11 +10,25 @@ import {
   type DraftDebt,
   type DraftGoal,
   type DraftRecurring,
+  type DraftPlanDebt,
 } from '../lib/allocationSeed.js';
+import {
+  computePlan,
+  type PlanDebtInput,
+  type DebtSeverity,
+  type PlanRole,
+} from '../lib/paymentPlan.js';
 
 export const allocationsRoutes = new Hono<{ Bindings: Env }>();
 
 const GROUPS = new Set(['essentials', 'lifestyle', 'debt', 'savings', 'indulgence']);
+
+async function readNumberSettingFromAlloc(env: Env, key: string, fallback: number): Promise<number> {
+  const r = await env.DB.prepare(`SELECT value FROM settings WHERE key = ?`).bind(key).first<{ value: string | null }>();
+  if (!r?.value) return fallback;
+  const n = Number(r.value);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 type AllocRow = {
   id: string;
@@ -319,24 +333,84 @@ export async function draftForPeriod(env: Env, periodId: string): Promise<number
       };
     });
 
-  // Debt minimums.
+  // Debt allocations come from the plan kernel: mins + priority/avalanche extras.
   const { results: debts } = await env.DB.prepare(
-    `SELECT id, name, principal_cents, min_payment_type, min_payment_value FROM debts WHERE archived = 0`,
+    `SELECT id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value, severity, account_id_linked
+     FROM debts WHERE archived = 0`,
   ).all<{
     id: string;
     name: string;
     principal_cents: number;
+    interest_rate_bps: number;
     min_payment_type: 'fixed' | 'percent';
     min_payment_value: number;
+    severity: DebtSeverity;
+    account_id_linked: string | null;
   }>();
-  const debtInputs: DraftDebt[] = debts.map((d) => ({
+  const planDebtInputs: PlanDebtInput[] = debts.map((d) => ({
     id: d.id,
     name: d.name,
-    min_payment_cents:
-      d.min_payment_type === 'fixed'
-        ? d.min_payment_value
-        : Math.max(1000, Math.round((d.principal_cents * d.min_payment_value) / 10_000)),
+    principal_cents: d.principal_cents,
+    interest_rate_bps: d.interest_rate_bps,
+    min_payment_type: d.min_payment_type,
+    min_payment_value: d.min_payment_value,
+    severity: d.severity,
   }));
+  // Fall-through: if no debts, leave debt rows empty.
+  let planDebts: DraftPlanDebt[] = [];
+  if (planDebtInputs.length > 0) {
+    const periodRow = await env.DB.prepare(
+      `SELECT paycheque_cents FROM pay_periods WHERE id = ?`,
+    ).bind(periodId).first<{ paycheque_cents: number }>();
+    const paycheque_cents = periodRow?.paycheque_cents ?? 0;
+    let essMonthly = await readNumberSettingFromAlloc(env, 'essentials_monthly_cents', 0);
+    if (essMonthly <= 0) essMonthly = await readNumberSettingFromAlloc(env, 'essentials_monthly_cents_derived', 0);
+    const essentials_per_paycheque = Math.round((essMonthly * 12) / 26);
+    const indMonthly = await readNumberSettingFromAlloc(env, 'indulgence_allowance_cents', 0);
+    const indulgence_per_paycheque = Math.round((indMonthly * 12) / 26);
+
+    // Charge velocity per debt (monthly) from last 90d.
+    const velocity: Record<string, number> = {};
+    for (const d of debts) {
+      if (!d.account_id_linked) { velocity[d.id] = 0; continue; }
+      const r = await env.DB.prepare(
+        `SELECT COALESCE(SUM(amount_cents), 0) AS s FROM transactions
+         WHERE account_id = ? AND amount_cents < 0 AND posted_at >= date('now','-90 days')`,
+      ).bind(d.account_id_linked).first<{ s: number }>();
+      velocity[d.id] = Math.round(Math.abs(r?.s ?? 0) / 3);
+    }
+
+    const out = computePlan({
+      debts: planDebtInputs,
+      paycheque_cents,
+      essentials_baseline_cents: essentials_per_paycheque,
+      indulgence_allowance_cents: indulgence_per_paycheque,
+      charge_velocity_per_debt_cents: velocity,
+    });
+
+    // Aggregate per-debt: sum amount across roles, pick the dominant non-min
+    // role to label the row. ('priority' beats 'avalanche' if both somehow appear.)
+    const sumPerDebt = new Map<string, { name: string; total: number; role: PlanRole }>();
+    for (const a of out.next_paycheque_allocations) {
+      const cur = sumPerDebt.get(a.debt_id);
+      if (!cur) {
+        sumPerDebt.set(a.debt_id, { name: a.debt_name, total: a.amount_cents, role: a.role });
+      } else {
+        cur.total += a.amount_cents;
+        // Promote role: priority > avalanche > min
+        const rank = (r: PlanRole) => (r === 'priority' ? 2 : r === 'avalanche' ? 1 : 0);
+        if (rank(a.role) > rank(cur.role)) cur.role = a.role;
+      }
+    }
+    planDebts = Array.from(sumPerDebt.entries()).map(([id, v]) => ({
+      id,
+      name: v.name,
+      total_cents: v.total,
+      role: v.role,
+    }));
+  }
+  // Legacy DraftDebt list kept for the fall-back branch (empty here since plan_debts is set).
+  const debtInputs: DraftDebt[] = [];
 
   // Goals: contribution_per_period = (target - progress) spread across remaining
   // pay periods until target_date. Approximate periods as days_remaining / 14.
@@ -373,6 +447,7 @@ export async function draftForPeriod(env: Env, periodId: string): Promise<number
     goals: goalInputs,
     recurring: recurringInputs,
     last_period_indulgence_cents: lastIndulgence,
+    plan_debts: planDebts,
   });
   const fresh = diffDraft(existing, draft);
   if (fresh.length === 0) return 0;

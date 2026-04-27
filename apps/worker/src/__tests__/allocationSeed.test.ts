@@ -60,6 +60,50 @@ describe('draftAllocations', () => {
     ]);
   });
 
+  it('uses plan_debts instead of debts when present', () => {
+    const out = draftAllocations({
+      debts: [{ id: 'd1', name: 'IGNORED min', min_payment_cents: 9999 }],
+      goals: [],
+      recurring: [],
+      last_period_indulgence_cents: 0,
+      plan_debts: [
+        { id: 'd1', name: 'Capital One', total_cents: 50000, role: 'priority' },
+        { id: 'd2', name: 'TD Visa', total_cents: 12000, role: 'avalanche' },
+        { id: 'd3', name: 'BMO', total_cents: 2500, role: 'min' },
+      ],
+    });
+    expect(out).toEqual([
+      { category_group: 'debt', label: 'Capital One priority', planned_cents: 50000 },
+      { category_group: 'debt', label: 'TD Visa avalanche', planned_cents: 12000 },
+      { category_group: 'debt', label: 'BMO min', planned_cents: 2500 },
+    ]);
+  });
+
+  it('skips plan_debts rows with zero total', () => {
+    const out = draftAllocations({
+      debts: [],
+      goals: [],
+      recurring: [],
+      last_period_indulgence_cents: 0,
+      plan_debts: [
+        { id: 'd1', name: 'A', total_cents: 0, role: 'min' },
+        { id: 'd2', name: 'B', total_cents: 100, role: 'avalanche' },
+      ],
+    });
+    expect(out).toEqual([{ category_group: 'debt', label: 'B avalanche', planned_cents: 100 }]);
+  });
+
+  it('falls back to debts when plan_debts is empty', () => {
+    const out = draftAllocations({
+      debts: [{ id: 'd1', name: 'Visa', min_payment_cents: 2500 }],
+      goals: [],
+      recurring: [],
+      last_period_indulgence_cents: 0,
+      plan_debts: [],
+    });
+    expect(out).toEqual([{ category_group: 'debt', label: 'Visa min', planned_cents: 2500 }]);
+  });
+
   it('skips zero/negative amounts', () => {
     const out = draftAllocations({
       debts: [{ id: 'd1', name: 'PaidOff', min_payment_cents: 0 }],
