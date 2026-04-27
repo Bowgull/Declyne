@@ -44,10 +44,6 @@ export default function Today() {
   const [chitOpen, setChitOpen] = useState<{ prefilledFor: string | null } | null>(null);
   const [chitCrumpling, setChitCrumpling] = useState(false);
 
-  const phase = useQuery({
-    queryKey: ['phase'],
-    queryFn: () => api.get<{ phase: number; name: string; entered_at: string | null }>('/api/phase'),
-  });
   const review = useQuery({
     queryKey: ['review'],
     queryFn: () => api.get<{ items: Array<unknown> }>('/api/review'),
@@ -132,7 +128,7 @@ export default function Today() {
     return 'var(--cat-indulgence)';
   }
   const heroStates = [
-    { label: 'Left in tank', value: formatCents(remaining), sub: `${daysLeft}d to payday` },
+    { label: 'Left in tank', value: formatCents(remaining), sub: '' },
     { label: 'Days to payday', value: `${daysLeft}d`, sub: tank.data?.period?.end_date ?? '' },
     { label: 'Reconciliation streak', value: `${streak}`, sub: streak === 1 ? 'week kept' : 'weeks kept' },
   ];
@@ -145,8 +141,6 @@ export default function Today() {
     if (n >= 1) return 'var(--cat-savings)';
     return 'var(--color-ink)';
   }
-  const streakPillClass = streak >= 4 ? 'pill-gold' : streak >= 1 ? 'pill-sage' : '';
-
   // Days-till-payday color: ink at >7d (no signal yet), gold at 3-7d (warming),
   // mascot purple at ≤2d (inflow imminent — uses the brand income color).
   function paydayColor(d: number): string {
@@ -167,8 +161,6 @@ export default function Today() {
     .filter((c) => c.open_tab_count > 0)
     .sort((a, b) => Math.abs(b.net_cents) - Math.abs(a.net_cents));
 
-  const lastInd = todayExtras.data?.last_indulgence ?? null;
-  const nextBill = todayExtras.data?.next_bill ?? null;
   const printingAhead = todayExtras.data?.printing_ahead ?? [];
 
   // Long-press detection.
@@ -226,7 +218,7 @@ export default function Today() {
             <span
               className="mascot-sigil"
               aria-hidden="true"
-              style={{ width: 32, height: 32, flexShrink: 0 }}
+              style={{ width: 64, height: 64, flexShrink: 0 }}
             />
             <DeclyneWordmark fontSize={28} />
             <Link
@@ -267,54 +259,74 @@ export default function Today() {
           {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
         </button>
 
-        <div className="perf pt-4">
-          <div className="section-label mb-2">Next</div>
-          {nextBill ? (
-            <div className="flex items-baseline justify-between gap-3">
-              <div className="text-sm" style={{ color: 'var(--color-ink)' }}>{nextBill.merchant_name}</div>
-              <div className="num text-sm" style={{ color: 'var(--color-ink)' }}>
-                {formatCents(nextBill.amount_cents)} &middot; {nextBill.days_until === 0 ? 'today' : `${nextBill.days_until}d`}
-              </div>
+        {/* TODAY queue — actionable items + upcoming bills, sorted chronologically. */}
+        {(() => {
+          type QueueItem = {
+            key: string;
+            label: string;
+            meta: string;
+            days_until: number;
+            href?: string;
+            hue?: 'income' | null;
+          };
+          const queue: QueueItem[] = [];
+          if (sundayDays === 0 && !reconciliation.data?.completed_this_week) {
+            queue.push({ key: 'reconcile', label: 'Reconcile this week', meta: 'now', days_until: 0, href: '/reconcile' });
+          }
+          if (reviewCount > 0) {
+            queue.push({
+              key: 'review',
+              label: `${reviewCount} to categorize`,
+              meta: 'now',
+              days_until: 0,
+              href: '/review',
+            });
+          }
+          for (const row of printingAhead) {
+            queue.push({
+              key: `${row.kind}-${row.due_date}-${row.label}`,
+              label: row.label,
+              meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
+              days_until: row.days_until,
+              hue: row.kind === 'payday' ? 'income' : null,
+            });
+          }
+          queue.sort((a, b) => a.days_until - b.days_until);
+          return (
+            <div className="perf pt-4">
+              <div className="section-label mb-2">Queue</div>
+              {queue.length === 0 ? (
+                <div className="text-sm ink-muted">Nothing pending.</div>
+              ) : (
+                <ul className="flex flex-col">
+                  {queue.map((item) => {
+                    const dayLabel = item.days_until === 0 ? 'today' : `${item.days_until}d`;
+                    const inner = (
+                      <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
+                        <div className="flex items-baseline gap-3">
+                          <div className="num label-tag" style={{ width: 44, color: 'var(--color-ink-muted)' }}>{dayLabel}</div>
+                          <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
+                            {item.hue === 'income' && <span className="cat-dot income" />}
+                            {item.label}
+                          </div>
+                        </div>
+                        <div className="num text-sm" style={{ color: item.hue === 'income' ? 'var(--cat-income)' : 'var(--color-ink)' }}>
+                          {item.meta}
+                          {item.href && <span style={{ color: 'var(--color-ink-muted)' }}> &rsaquo;</span>}
+                        </div>
+                      </div>
+                    );
+                    return (
+                      <li key={item.key} style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
+                        {item.href ? <Link to={item.href} className="row-tap block">{inner}</Link> : inner}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-          ) : (
-            <div className="text-sm ink-muted">No bills inside the 14d horizon.</div>
-          )}
-        </div>
-
-        <div className="perf pt-3 pb-1 flex items-baseline justify-between">
-          <div className="section-label">Next reconciliation</div>
-          <div className="num text-xs" style={{ color: 'var(--color-ink)' }}>
-            sunday &middot; {sundayDays === 0 ? 'today' : `${sundayDays}d`}
-          </div>
-        </div>
-
-        <div className="perf pt-4">
-          <div className="section-label mb-2">Printing ahead</div>
-          {printingAhead.length === 0 ? (
-            <div className="text-sm ink-muted">Nothing inside the 14d horizon.</div>
-          ) : (
-            <ul className="flex flex-col">
-              {printingAhead.map((row) => (
-                <li
-                  key={`${row.kind}-${row.due_date}-${row.label}`}
-                  className="flex items-baseline justify-between py-2"
-                  style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}
-                >
-                  <div className="flex items-baseline gap-3">
-                    <div className="num label-tag" style={{ width: 36, color: 'var(--color-ink-muted)' }}>+{row.days_until}d</div>
-                    <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
-                      {row.kind === 'payday' && <span className="cat-dot income" />}
-                      {row.label}
-                    </div>
-                  </div>
-                  <div className="num text-sm" style={{ color: row.kind === 'payday' ? 'var(--cat-income)' : 'var(--color-ink)' }}>
-                    {row.kind === 'payday' ? '+' : ''}{formatCents(row.amount_cents)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+          );
+        })()}
 
         {/* OPEN TABS — per-counterparty. Long-press to tear a new chit. */}
         <div className="perf pt-4">
@@ -388,53 +400,8 @@ export default function Today() {
           </div>
         </div>
 
-        <Link to="/phase" className="row-tap perf">
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="section-label">Phase</div>
-            <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
-              {phase.data ? `${phase.data.phase}. ${phase.data.name}` : '--'} &rsaquo;
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/budget" className="row-tap perf">
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="label-tag flex items-center gap-1.5">
-              <span className="cat-dot indulgence" /> Indulgence
-            </div>
-            <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
-              {lastInd
-                ? `last ${lastInd.days_ago === 0 ? 'today' : `${lastInd.days_ago}d ago`} · ${formatCents(lastInd.amount_cents)}`
-                : 'none recorded'}{' '}
-              &rsaquo;
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/review" className="row-tap perf">
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="label-tag">Review</div>
-            <div className="num text-base" style={{ color: 'var(--color-ink)' }}>
-              {reviewCount} {reviewCount === 1 ? 'item' : 'items'} &rsaquo;
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/reconcile" className="row-tap perf">
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="label-tag">Streak</div>
-            <div className="flex items-center gap-2">
-              {streak > 0 && <span className={streakPillClass}>{streak} wk</span>}
-              {streak === 0 && (
-                <div className="num text-base" style={{ color: 'var(--color-ink)' }}>reset</div>
-              )}
-              <div className="num text-base" style={{ color: 'var(--color-ink)' }}>&rsaquo;</div>
-            </div>
-          </div>
-        </Link>
-
         <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
-          * * between receipts * *
+          * still printing *
         </div>
       </section>
     </div>
