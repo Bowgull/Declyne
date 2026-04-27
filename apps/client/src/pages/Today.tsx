@@ -33,6 +33,14 @@ function daysUntilNextSunday(today: Date) {
   return 7 - d;
 }
 
+function isoWeek(d: Date) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+}
+
 const LONG_PRESS_MS = 450;
 
 export default function Today() {
@@ -242,8 +250,7 @@ export default function Today() {
               color: 'var(--color-ink-muted)',
             }}
           >
-            {dateLabel} &nbsp;&middot;&nbsp; RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp;{' '}
-            <span style={{ color: paydayColor(daysLeft) }}>{daysLeft}D TO PAYDAY</span>
+            {dateLabel} &nbsp;&middot;&nbsp; RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp; WK {pad(isoWeek(now), 2)}
           </div>
         </header>
 
@@ -334,16 +341,6 @@ export default function Today() {
             <div className="label-tag">{openCps.length}</div>
           </div>
 
-          {chitOpen && (
-            <ChitForm
-              prefilledCounterparty={prefilledCp}
-              crumpling={chitCrumpling}
-              onDiscard={discardChit}
-              onSubmit={(payload) => createSplit.mutate(payload)}
-              submitting={createSplit.isPending}
-            />
-          )}
-
           {openCps.length === 0 ? (
             <div className="text-sm ink-muted">No open tabs. Long-press the row below to tear from scratch.</div>
           ) : (
@@ -380,10 +377,33 @@ export default function Today() {
                         {formatCents(Math.abs(cp.net_cents))}
                       </div>
                     </div>
+                    {chitOpen?.prefilledFor === cp.id && (
+                      <div className="pt-2 pb-1">
+                        <ChitForm
+                          prefilledCounterparty={prefilledCp}
+                          crumpling={chitCrumpling}
+                          onDiscard={discardChit}
+                          onSubmit={(payload) => createSplit.mutate(payload)}
+                          submitting={createSplit.isPending}
+                        />
+                      </div>
+                    )}
                   </li>
                 );
               })}
             </ul>
+          )}
+
+          {chitOpen && chitOpen.prefilledFor === null && (
+            <div className="pt-3">
+              <ChitForm
+                prefilledCounterparty={null}
+                crumpling={chitCrumpling}
+                onDiscard={discardChit}
+                onSubmit={(payload) => createSplit.mutate(payload)}
+                submitting={createSplit.isPending}
+              />
+            </div>
           )}
 
           <button
@@ -488,7 +508,7 @@ function ChitForm({
         <button
           type="button"
           onClick={() => setDirection('they_owe')}
-          className={`stamp ${direction === 'they_owe' ? 'stamp-purple' : ''}`}
+          className={`stamp ${direction === 'they_owe' ? 'stamp-filled' : ''}`}
           style={{ flex: 1 }}
         >
           owes you
@@ -496,7 +516,7 @@ function ChitForm({
         <button
           type="button"
           onClick={() => setDirection('i_owe')}
-          className={`stamp ${direction === 'i_owe' ? 'stamp-purple' : ''}`}
+          className={`stamp ${direction === 'i_owe' ? 'stamp-filled' : ''}`}
           style={{ flex: 1 }}
         >
           you owe
