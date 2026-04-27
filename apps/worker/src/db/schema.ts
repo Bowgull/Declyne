@@ -285,3 +285,38 @@ export const review_queue = sqliteTable('review_queue', {
   }).notNull(),
   resolved_at: text('resolved_at'),
 });
+
+// ============================================================================
+// GL — General Ledger (session 53)
+// Separate from bank `accounts` table. Chart of accounts + double-entry journal.
+// ============================================================================
+
+export const gl_accounts = sqliteTable('gl_accounts', {
+  id: text('id').primaryKey(),
+  path: text('path').notNull().unique(),
+  name: text('name').notNull(),
+  type: text('type', { enum: ['asset', 'liability', 'equity', 'income', 'expense'] }).notNull(),
+  parent_id: text('parent_id'),
+  archived_at: text('archived_at'),
+  metadata_json: text('metadata_json'),
+  created_at: text('created_at').notNull(),
+});
+
+export const journal_entries = sqliteTable('journal_entries', {
+  id: text('id').primaryKey(),
+  posted_at: text('posted_at').notNull(),
+  source_type: text('source_type').notNull(),
+  source_id: text('source_id'),
+  memo: text('memo'),
+  created_at: text('created_at').notNull(),
+  locked_at: text('locked_at'),
+});
+
+export const journal_lines = sqliteTable('journal_lines', {
+  id: text('id').primaryKey(),
+  journal_entry_id: text('journal_entry_id').notNull().references(() => journal_entries.id),
+  account_id: text('account_id').notNull().references(() => gl_accounts.id),
+  debit_cents: integer('debit_cents').notNull().default(0),
+  credit_cents: integer('credit_cents').notNull().default(0),
+  created_at: text('created_at').notNull(),
+});
