@@ -82,6 +82,7 @@ export const debts = sqliteTable('debts', {
   payment_due_date: integer('payment_due_date').notNull(),
   account_id_linked: text('account_id_linked').references(() => accounts.id),
   archived: integer('archived').notNull().default(0),
+  account_id: text('account_id').references(() => gl_accounts.id),
 });
 
 export const debt_payments = sqliteTable('debt_payments', {

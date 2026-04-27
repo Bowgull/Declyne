@@ -16,6 +16,7 @@ interface Debt {
   payment_due_date: number;
   account_id_linked: string | null;
   archived: number;
+  gl_balance_cents?: number | null;
 }
 
 interface Split {
@@ -46,7 +47,9 @@ export default function Debts() {
   const qc = useQueryClient();
   const list = debts.data?.debts ?? [];
 
-  const totalOwed = list.filter((d) => !d.archived).reduce((s, d) => s + d.principal_cents, 0);
+  const debtBalance = (d: Debt) =>
+    typeof d.gl_balance_cents === 'number' ? d.gl_balance_cents : d.principal_cents;
+  const totalOwed = list.filter((d) => !d.archived).reduce((s, d) => s + debtBalance(d), 0);
 
   return (
     <div className="ledger-page">
@@ -383,7 +386,9 @@ function DebtCard({ debt, onClick }: { debt: Debt; onClick: () => void }) {
           </div>
           <div className="mt-1 truncate text-base font-semibold">{debt.name}</div>
         </div>
-        <div className="num text-lg shrink-0">{formatCents(debt.principal_cents)}</div>
+        <div className="num text-lg shrink-0">
+          {formatCents(typeof debt.gl_balance_cents === 'number' ? debt.gl_balance_cents : debt.principal_cents)}
+        </div>
       </div>
       <span className="stub stub-bottom" aria-hidden />
     </button>
