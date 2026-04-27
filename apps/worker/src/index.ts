@@ -37,6 +37,7 @@ import {
   linkStatus,
   renderPublicLinkHtml,
 } from './routes/paymentLinks.js';
+import { glRoutes, glAdminRoutes } from './routes/gl.js';
 import { auth } from './middleware/auth.js';
 import { redactSensitive } from './lib/logRedact.js';
 
@@ -103,6 +104,8 @@ api.route('/reconciliation', reconciliationRoutes);
 api.route('/today', todayRoutes);
 api.route('/data/purge', dataPurgeRoutes);
 api.route('/payment-links', paymentLinksRoutes);
+api.route('/gl', glRoutes);
+api.route('/admin', glAdminRoutes);
 
 app.route('/api', api);
 
