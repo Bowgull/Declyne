@@ -305,6 +305,8 @@ export default function Budget() {
 
       <NetWorthRow />
 
+      <PlanRow />
+
       {historyRows.length > 0 && (
         <section className="ledger-section pt-4">
           <span className="ledger-section-kicker">
@@ -457,6 +459,41 @@ function NetWorthRow() {
           </span>
         </div>
         <span className="ledger-row-value">{data ? formatCents(data.net_worth_cents) : '—'}</span>
+        <span className="ledger-row-chevron">&rsaquo;</span>
+      </Link>
+    </section>
+  );
+}
+
+type PlanRowResp = {
+  plan: {
+    capacity_cents: number;
+    savings_cents: number;
+    next_paycheque_allocations: Array<{ amount_cents: number }>;
+  };
+};
+
+function PlanRow() {
+  const p = useQuery({
+    queryKey: ['plan'],
+    queryFn: () => api.get<PlanRowResp>('/api/plan'),
+  });
+  const data = p.data?.plan;
+  const total = data?.next_paycheque_allocations.reduce((s, a) => s + a.amount_cents, 0) ?? 0;
+  return (
+    <section className="ledger-section pt-4">
+      <span className="ledger-section-kicker">
+        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03b</span> Payoff plan
+      </span>
+      <Link to="/budget/plan" className="ledger-section-meta hover:underline">open &rsaquo;</Link>
+      <Link to="/budget/plan" className="ledger-row tap">
+        <div className="ledger-row-main">
+          <span className="ledger-row-label">Next paycheque toward debt</span>
+          <span className="ledger-row-hint">
+            {data ? `capacity ${formatCents(data.capacity_cents)} · saves ${formatCents(data.savings_cents)}` : '—'}
+          </span>
+        </div>
+        <span className="ledger-row-value">{data ? formatCents(total) : '—'}</span>
         <span className="ledger-row-chevron">&rsaquo;</span>
       </Link>
     </section>

@@ -19,6 +19,7 @@ import PhaseJourney from './pages/PhaseJourney';
 import Reconciliation from './pages/Reconciliation';
 import CounterpartyPage from './pages/Counterparty';
 import TrialBalance from './pages/TrialBalance';
+import Plan from './pages/Plan';
 import ButtonsMockup from './pages/ButtonsMockup';
 import { api } from './lib/api';
 
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/phase" element={<PhaseJourney />} />
           <Route path="/reconcile" element={<Reconciliation />} />
           <Route path="/settings/trial-balance" element={<TrialBalance />} />
+          <Route path="/budget/plan" element={<Plan />} />
           <Route path="/budget/tabs/:id" element={<CounterpartyPage />} />
           <Route path="/mockup/buttons" element={<ButtonsMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />

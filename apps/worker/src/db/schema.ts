@@ -340,3 +340,13 @@ export const journal_lines = sqliteTable('journal_lines', {
   created_at: text('created_at').notNull(),
   cleared_at: text('cleared_at'),
 });
+
+export const plan_cache = sqliteTable('plan_cache', {
+  id: text('id').primaryKey(),
+  generated_at: text('generated_at').notNull(),
+  inputs_hash: text('inputs_hash').notNull(),
+  plan_json: text('plan_json').notNull(),
+  rationale_text: text('rationale_text'),
+  observations_json: text('observations_json'),
+  source: text('source', { enum: ['ai', 'manual', 'pending'] }).notNull(),
+});

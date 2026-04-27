@@ -73,6 +73,21 @@ export default function Today() {
     queryKey: ['counterparties'],
     queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
   });
+  const planQ = useQuery({
+    queryKey: ['plan'],
+    queryFn: () =>
+      api.get<{
+        plan: {
+          capacity_cents: number;
+          next_paycheque_allocations: Array<{
+            debt_id: string;
+            debt_name: string;
+            role: 'min' | 'priority' | 'avalanche';
+            amount_cents: number;
+          }>;
+        };
+      }>('/api/plan'),
+  });
   const todayExtras = useQuery({
     queryKey: ['today-extras'],
     queryFn: () =>
@@ -295,6 +310,25 @@ export default function Today() {
               meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
               days_until: row.days_until,
               hue: row.kind === 'payday' ? 'income' : null,
+            });
+          }
+          // Plan-recommends row: only when a paycheque has landed in the last
+          // 24h. Pulls the largest non-min allocation from the plan kernel.
+          const periodStart = tank.data?.period?.start_date;
+          const justPaid = periodStart
+            ? (Date.now() - Date.parse(periodStart)) <= 86_400_000
+            : false;
+          const planAllocs = planQ.data?.plan.next_paycheque_allocations ?? [];
+          const topExtra = planAllocs
+            .filter((a) => a.role !== 'min')
+            .sort((a, b) => b.amount_cents - a.amount_cents)[0];
+          if (justPaid && topExtra) {
+            queue.push({
+              key: `plan-${topExtra.debt_id}`,
+              label: `Plan: ${formatCents(topExtra.amount_cents)} to ${topExtra.debt_name}`,
+              meta: 'today',
+              days_until: 0,
+              href: '/budget/plan',
             });
           }
           queue.sort((a, b) => a.days_until - b.days_until);
