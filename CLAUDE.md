@@ -3,6 +3,21 @@
 Personal financial reset system for Josh. Single user. Not a product.
 Read `skills/declyne-session.md` first, then the skill for whatever slice you're building.
 
+## Mission
+
+Declyne exists for ordinary people who never had a financially literate family to learn from. Not investors. Not people with accountants. People whose money is getting away from them and who don't fully understand why.
+
+The goal is to give those people back control of their money and, over time, teach them the skills to keep it. Real bookkeeping concepts. Real financial vocabulary. Introduced gradually, earned through use, never condescending.
+
+**The three-way standard every design decision must clear:**
+- A person who has never balanced a chequebook can use it without feeling lost or dumb
+- A full-stack engineer looking at the code sees clean, deliberate architecture
+- A UI/UX designer and a marketer both look at it and think: this is sharp, this is different, this doesn't look like every other fintech app
+
+Friction is the enemy. Jargon without context is the enemy. Generic is the enemy.
+
+The receipt motif, the ledger desk, the chits and stamps and perforations — these are not decoration. They are the teaching tool. The app looks like bookkeeping so the user starts to think like a bookkeeper, without ever being told that's what's happening.
+
 ## Stack
 
 React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle · Capacitor 8 iOS sideload
@@ -128,6 +143,48 @@ pnpm cap:run          # build + sync + open Xcode (iOS sideload)
 - Today screen receipt-motif rebuild (session 27): `apps/client/src/pages/Today.tsx` rebuilt as one continuous thermal receipt. Single `<section className="receipt stub-top stub-bottom">` wraps the full page. Header: mascot sigil + DECLYNE wordmark (`.display`) left, date in tracked uppercase mono below, settings cog SVG right. Four line-item rows separated by `borderTop: 1px dashed var(--color-hairline)` perforations -- Phase (links to /phase), Vice 30d, Review queue (links to /review), Reconciliation (with Mark-done button). Footer: `** End of day **` centered tracked mono. All `.card`/`.card-hero` wrappers removed. No CSS changes needed -- `.receipt`, `.stub-top`, `.stub-bottom`, `.display`, `.mascot-mark`, mono inheritance already present. 99 tests pass, typecheck clean, build clean. No worker changes, no redeploy. Commit `d538d86`.
 
 ## What's NOT built yet (next session priorities)
+
+### Immediate next sessions (post-Accounting Upgrade Program)
+
+These were identified in the session 66 design audit (2026-04-27). Pick up by saying "lets continue" to get the full brainstorm context.
+
+**A. Action vocabulary rollout** (1 session, no schema changes)
+The button vocabulary was designed in session 57 and demoed in [`/mockup/buttons`](apps/client/src/pages/ButtonsMockup.tsx). CSS for all 4 types exists. These pages still use the wrong type:
+- `Counterparty.tsx:185` — "Send link" is `.stamp stamp-purple` → `.postage`
+- `Plan.tsx:187` — "Refresh" is `.stamp stamp-square` → `.postage`
+- `Review.tsx:138` — categorize button is `.stamp stamp-square` → `.ink-glyph ▸`
+- `Settings.tsx:330` — Export CSV is `.stamp` → `.sticker sticker-cool`
+- `Settings.tsx:346` — Purge/Clear token danger actions are `.stamp stamp-danger` → `.sticker sticker-warn`
+
+**B. Payment plan commitment layer** (1-2 sessions, schema change)
+The current `/budget/plan` page is a read-only calculator — it recomputes live, gives recommendations, but there is no "accept this plan" moment, no installment schedule, no missed-payment tracking, and no adherence history. The reconciliation (Sunday ritual) does not check whether debt minimums were paid. The plan row on Budget is buried three scrolls below the tank.
+- New table `plan_installments` (plan_id, debt_id, due_date, amount_cents, status CHECK pending|paid|missed, settled_at, settled_txn_id)
+- Plan page gains "Accept this plan" postage stamp action
+- Accepted plan creates installment rows per debt per paycheque
+- Today queue surfaces `Capital One — $1,365 due May 7` at the right days_until
+- Reconciliation checks: did you make your planned payments this week?
+- CSV auto-match settles installments (same pattern as splits)
+- Budget hierarchy fix: payoff plan section moves above the tank or immediately below the paycheque header — the target user's most important question is "how do I get out of debt?" not "how much did I spend this period?"
+
+**C. Progressive vocabulary / RPG unlock system** (1 session)
+Core product philosophy: teach ordinary people to control their money and gradually build financial literacy. Plain English first. Accounting terms earned through use, introduced via receipt-style toast messages. No toggle (design escape hatch, doubles maintenance). No vocabulary stripping (the receipt IS the teaching tool).
+- `user_vocabulary_level` setting (0-4), gates to Phase milestones
+- Phase 1 = plain English only. Today footer: `** still counting **`
+- Edit_log trigger checks: first import → level 1, first reconciliation → level 2, first debt payment → level 3, first plan accepted → level 4
+- Toast component on first milestone: "You just reconciled for the first time. That's what bookkeepers call it — checking your records against your bank."
+- After toast, term enters the UI permanently. Footer evolves to `** still printing **` at level 2+
+- ~5 milestone checks, ~4 toast messages, minimal build
+
+**D. Notification expansion** (0.5 sessions)
+Only 2 notifications exist: Sunday reconciliation + Tuesday follow-up. Both about the same thing. Missing for the target user:
+- Bill due tomorrow (from recurring detector, dynamic scheduling)
+- Paycheque landed
+- Debt minimum due in 3 days (from plan installments)
+- Tank running low — pacing warning mid-period
+- Voice stays: direct, a bit dark, not cheerleading. "Rogers doesn't care that you forgot."
+- Requires a lightweight `GET /api/notifications/schedule` endpoint the app calls on launch to get dynamic notification times, then schedules them via Capacitor LocalNotifications
+
+---
 
 ### Standing items (not part of the upgrade program)
 
