@@ -1,11 +1,20 @@
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
-import { newId } from '../lib/ids.js';
+import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 
 export const debtsRoutes = new Hono<{ Bindings: Env }>();
 
 type MinPaymentType = 'fixed' | 'percent';
+
+export const DEBT_SEVERITIES = [
+  'current',
+  'past_due',
+  'in_collections',
+  'charged_off',
+  'settled_partial',
+] as const;
+export type DebtSeverityValue = (typeof DEBT_SEVERITIES)[number];
 
 type DebtRow = {
   id: string;
@@ -18,6 +27,7 @@ type DebtRow = {
   payment_due_date: number;
   account_id_linked: string | null;
   archived: number;
+  severity: DebtSeverityValue;
 };
 
 export type DebtPatch = {
@@ -30,6 +40,7 @@ export type DebtPatch = {
   payment_due_date?: number;
   account_id_linked?: string | null;
   archived?: 0 | 1;
+  severity?: DebtSeverityValue;
 };
 
 const ALLOWED_PATCH_FIELDS: ReadonlyArray<keyof DebtPatch> = [
@@ -42,7 +53,12 @@ const ALLOWED_PATCH_FIELDS: ReadonlyArray<keyof DebtPatch> = [
   'payment_due_date',
   'account_id_linked',
   'archived',
+  'severity',
 ];
+
+export function isDebtSeverity(v: unknown): v is DebtSeverityValue {
+  return typeof v === 'string' && (DEBT_SEVERITIES as readonly string[]).includes(v);
+}
 
 function isDayOfMonth(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n) && n >= 1 && n <= 31 && Math.floor(n) === n;
@@ -100,6 +116,10 @@ export function parseDebtPatch(raw: unknown): DebtPatch | { error: string } {
   if ('archived' in b) {
     out.archived = b.archived === true || b.archived === 1 ? 1 : 0;
   }
+  if ('severity' in b) {
+    if (!isDebtSeverity(b.severity)) return { error: 'severity must be one of ' + DEBT_SEVERITIES.join('|') };
+    out.severity = b.severity;
+  }
   return out;
 }
 
@@ -131,12 +151,14 @@ debtsRoutes.post('/', async (c) => {
     statement_date: number;
     payment_due_date: number;
     account_id_linked: string | null;
+    severity?: DebtSeverityValue;
   };
+  const severity: DebtSeverityValue = isDebtSeverity(b.severity) ? b.severity : 'current';
   const id = newId('debt');
   await c.env.DB.prepare(
     `INSERT INTO debts (id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value,
-                        statement_date, payment_due_date, account_id_linked, archived)
-     VALUES (?,?,?,?,?,?,?,?,?,0)`,
+                        statement_date, payment_due_date, account_id_linked, archived, severity)
+     VALUES (?,?,?,?,?,?,?,?,?,0,?)`,
   )
     .bind(
       id,
@@ -148,6 +170,7 @@ debtsRoutes.post('/', async (c) => {
       b.statement_date,
       b.payment_due_date,
       b.account_id_linked,
+      severity,
     )
     .run();
   await writeEditLog(c.env, [
@@ -188,10 +211,46 @@ debtsRoutes.patch('/:id', async (c) => {
 
   if (!updates.length) return c.json({ ok: true, changed: 0 });
 
+  // Stamp severity_changed_at when severity actually changes.
+  if (patch.severity !== undefined && patch.severity !== existing.severity) {
+    updates.push('severity_changed_at = ?');
+    values.push(nowIso());
+  }
+
   await c.env.DB.prepare(`UPDATE debts SET ${updates.join(', ')} WHERE id = ?`)
     .bind(...values, id)
     .run();
   await writeEditLog(c.env, logs);
 
   return c.json({ ok: true, changed: updates.length });
+});
+
+// Dedicated severity endpoint. Accepts {severity} body, validates, writes
+// edit_log with reason 'debt_severity_change'. Same effect as PATCH but
+// surfaces the action distinctly in the audit tape.
+debtsRoutes.post('/:id/severity', async (c) => {
+  const id = c.req.param('id');
+  const body = (await c.req.json().catch(() => null)) as { severity?: unknown } | null;
+  if (!body || !isDebtSeverity(body.severity)) {
+    return c.json({ error: 'severity must be one of ' + DEBT_SEVERITIES.join('|') }, 400);
+  }
+  const existing = await c.env.DB.prepare(`SELECT * FROM debts WHERE id = ?`).bind(id).first<DebtRow>();
+  if (!existing) return c.json({ error: 'not found' }, 404);
+  if (existing.severity === body.severity) return c.json({ ok: true, changed: 0 });
+
+  await c.env.DB.prepare(`UPDATE debts SET severity = ?, severity_changed_at = ? WHERE id = ?`)
+    .bind(body.severity, nowIso(), id)
+    .run();
+  await writeEditLog(c.env, [
+    {
+      entity_type: 'debt',
+      entity_id: id,
+      field: 'severity',
+      old_value: existing.severity,
+      new_value: body.severity,
+      actor: 'user',
+      reason: 'debt_severity_change',
+    },
+  ]);
+  return c.json({ ok: true, changed: 1 });
 });

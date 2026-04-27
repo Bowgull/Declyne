@@ -72,6 +72,20 @@ describe('parseDebtPatch', () => {
     }
   });
 
+  it('accepts the five severity values', () => {
+    for (const v of ['current', 'past_due', 'in_collections', 'charged_off', 'settled_partial']) {
+      const out = parseDebtPatch({ severity: v });
+      if ('error' in out) throw new Error(out.error);
+      expect(out.severity).toBe(v);
+    }
+  });
+
+  it('rejects unknown severity values', () => {
+    expect('error' in parseDebtPatch({ severity: 'collections' })).toBe(true);
+    expect('error' in parseDebtPatch({ severity: '' })).toBe(true);
+    expect('error' in parseDebtPatch({ severity: 42 })).toBe(true);
+  });
+
   it('rejects non-object body', () => {
     expect('error' in parseDebtPatch(null)).toBe(true);
     expect('error' in parseDebtPatch(undefined)).toBe(true);

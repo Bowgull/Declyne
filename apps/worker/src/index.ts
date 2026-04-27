@@ -38,6 +38,7 @@ import {
   renderPublicLinkHtml,
 } from './routes/paymentLinks.js';
 import { glRoutes, glAdminRoutes } from './routes/gl.js';
+import { planRoutes } from './routes/plan.js';
 import { auth } from './middleware/auth.js';
 import { redactSensitive } from './lib/logRedact.js';
 
@@ -106,6 +107,7 @@ api.route('/data/purge', dataPurgeRoutes);
 api.route('/payment-links', paymentLinksRoutes);
 api.route('/gl', glRoutes);
 api.route('/admin', glAdminRoutes);
+api.route('/plan', planRoutes);
 
 app.route('/api', api);
 

@@ -16,8 +16,27 @@ interface Debt {
   payment_due_date: number;
   account_id_linked: string | null;
   archived: number;
+  severity: DebtSeverity;
   gl_balance_cents?: number | null;
 }
+
+type DebtSeverity = 'current' | 'past_due' | 'in_collections' | 'charged_off' | 'settled_partial';
+
+const SEVERITY_OPTIONS: { value: DebtSeverity; label: string }[] = [
+  { value: 'current', label: 'Current' },
+  { value: 'past_due', label: 'Past due' },
+  { value: 'in_collections', label: 'In collections' },
+  { value: 'charged_off', label: 'Charged off' },
+  { value: 'settled_partial', label: 'Settled (partial)' },
+];
+
+const SEVERITY_LABEL: Record<DebtSeverity, string> = {
+  current: 'current',
+  past_due: 'past due',
+  in_collections: 'in collections',
+  charged_off: 'charged off',
+  settled_partial: 'settled · partial',
+};
 
 interface Split {
   id: string;
@@ -385,6 +404,14 @@ function DebtCard({ debt, onClick }: { debt: Debt; onClick: () => void }) {
             {rate}% APR · min {min} · stmt {debt.statement_date} · due {debt.payment_due_date}
           </div>
           <div className="mt-1 truncate text-base font-semibold">{debt.name}</div>
+          {debt.severity && debt.severity !== 'current' && (
+            <div
+              className="mt-1 text-[10px] uppercase tracking-[0.12em]"
+              style={{ color: 'var(--color-danger)' }}
+            >
+              {SEVERITY_LABEL[debt.severity]}
+            </div>
+          )}
         </div>
         <div className="num text-lg shrink-0">
           {formatCents(typeof debt.gl_balance_cents === 'number' ? debt.gl_balance_cents : debt.principal_cents)}
@@ -422,6 +449,7 @@ function DebtSheet({
   const [statementDate, setStatementDate] = useState(String(initial?.statement_date ?? 1));
   const [dueDate, setDueDate] = useState(String(initial?.payment_due_date ?? 21));
   const [linkedAccount, setLinkedAccount] = useState(initial?.account_id_linked ?? '');
+  const [severity, setSeverity] = useState<DebtSeverity>(initial?.severity ?? 'current');
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
@@ -454,6 +482,7 @@ function DebtSheet({
         statement_date: stmt,
         payment_due_date: due,
         account_id_linked: linkedAccount || null,
+        severity,
       };
       if (initial) return api.patch<{ ok: true }>(`/api/debts/${initial.id}`, body);
       return api.post<{ id: string }>('/api/debts', body);
@@ -576,6 +605,21 @@ function DebtSheet({
               />
             </label>
           </div>
+
+          <label className="flex flex-col gap-1">
+            <span className="field-label">Severity</span>
+            <select
+              className="field"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as DebtSeverity)}
+            >
+              {SEVERITY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="flex flex-col gap-1">
             <span className="field-label">Linked account (optional)</span>
