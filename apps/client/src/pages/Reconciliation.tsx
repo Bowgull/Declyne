@@ -40,7 +40,7 @@ type WeekResponse = {
 
 type TabSplit = {
   id: string;
-  direction: 'owes_josh' | 'josh_owes';
+  direction: 'they_owe' | 'i_owe';
   remaining_cents: number;
   created_at: string;
   reason: string;
@@ -326,8 +326,8 @@ function TabToMatch({
   pending: boolean;
   onMatch: (transaction_id: string) => void;
 }) {
-  const directionLabel = split.direction === 'owes_josh' ? 'owes you' : 'you owe';
-  const hue = split.direction === 'owes_josh' ? 'savings' : 'indulgence';
+  const directionLabel = split.direction === 'they_owe' ? 'owes you' : 'you owe';
+  const hue = split.direction === 'they_owe' ? 'savings' : 'indulgence';
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">

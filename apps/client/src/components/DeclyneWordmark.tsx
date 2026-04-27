@@ -15,8 +15,6 @@ export function DeclyneWordmark({
   style,
   className,
 }: Props) {
-  const aspect = 771 / 617;
-  const dHeight = 0.92;
   return (
     <span
       className={`display ${className ?? ''}`}
@@ -30,25 +28,7 @@ export function DeclyneWordmark({
         ...style,
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          display: 'inline-block',
-          height: `${dHeight}em`,
-          width: `${dHeight * aspect}em`,
-          marginBottom: '0.04em',
-          flexShrink: 0,
-          backgroundColor: '#9e78b9',
-          WebkitMaskImage: 'url(/brand/letter-d.png)',
-          maskImage: 'url(/brand/letter-d.png)',
-          WebkitMaskSize: 'contain',
-          maskSize: 'contain',
-          WebkitMaskRepeat: 'no-repeat',
-          maskRepeat: 'no-repeat',
-          WebkitMaskPosition: 'center',
-          maskPosition: 'center',
-        }}
-      />
+      <span style={{ color: '#9e78b9' }}>D</span>
       <span style={{ letterSpacing }}>eclyne</span>
     </span>
   );

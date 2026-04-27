@@ -155,9 +155,9 @@ async function autoMatchSplits(env: import('../env.js').Env): Promise<number> {
   const now = nowIso();
 
   for (const split of openSplits) {
-    // owes_josh = incoming (positive amount); josh_owes = outgoing (negative amount).
+    // they_owe = incoming (positive amount); i_owe = outgoing (negative amount).
     const expectedAmount =
-      split.direction === 'owes_josh' ? split.remaining_cents : -split.remaining_cents;
+      split.direction === 'they_owe' ? split.remaining_cents : -split.remaining_cents;
 
     // Look for transactions within ±3 days of the split's created_at with matching amount.
     const { results: candidates } = await env.DB.prepare(

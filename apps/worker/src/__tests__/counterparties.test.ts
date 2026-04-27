@@ -41,7 +41,7 @@ describe('parseCounterpartyInput', () => {
 
 describe('parseSplitInput', () => {
   const base = {
-    direction: 'owes_josh' as const,
+    direction: 'they_owe' as const,
     amount_cents: 4750,
     reason: 'Lady Marmalade brunch',
   };
@@ -51,7 +51,7 @@ describe('parseSplitInput', () => {
     expect(out).toEqual({
       counterparty_id: 'cp_marcus',
       counterparty_name: undefined,
-      direction: 'owes_josh',
+      direction: 'they_owe',
       amount_cents: 4750,
       reason: 'Lady Marmalade brunch',
     });
@@ -62,7 +62,7 @@ describe('parseSplitInput', () => {
     expect(out).toEqual({
       counterparty_id: undefined,
       counterparty_name: 'New Person',
-      direction: 'owes_josh',
+      direction: 'they_owe',
       amount_cents: 4750,
       reason: 'Lady Marmalade brunch',
     });
@@ -74,7 +74,7 @@ describe('parseSplitInput', () => {
 
   it('rejects invalid direction', () => {
     expect(
-      parseSplitInput({ ...base, direction: 'they_owe' as unknown as 'owes_josh', counterparty_id: 'cp_x' }),
+      parseSplitInput({ ...base, direction: 'invalid' as unknown as 'they_owe', counterparty_id: 'cp_x' }),
     ).toEqual({ error: 'direction invalid' });
   });
 

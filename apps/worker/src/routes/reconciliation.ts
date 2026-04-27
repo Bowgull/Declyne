@@ -10,11 +10,11 @@ export const reconciliationRoutes = new Hono<{ Bindings: Env }>();
 // signed amount within ±3 days of created_at.
 //
 // Sign rule mirrors autoMatchSplits in import.ts:
-//   owes_josh   → expected = +remaining_cents (incoming)
-//   josh_owes   → expected = -remaining_cents (outgoing)
+//   they_owe    → expected = +remaining_cents (incoming)
+//   i_owe       → expected = -remaining_cents (outgoing)
 export type SplitForMatch = {
   id: string;
-  direction: 'owes_josh' | 'josh_owes';
+  direction: 'they_owe' | 'i_owe';
   remaining_cents: number;
   created_at: string;
 };
@@ -25,8 +25,8 @@ export type TxnForMatch = {
   amount_cents: number;
 };
 
-export function expectedSignedAmount(direction: 'owes_josh' | 'josh_owes', remaining_cents: number): number {
-  return direction === 'owes_josh' ? remaining_cents : -remaining_cents;
+export function expectedSignedAmount(direction: 'they_owe' | 'i_owe', remaining_cents: number): number {
+  return direction === 'they_owe' ? remaining_cents : -remaining_cents;
 }
 
 export function withinThreeDays(a: string, b: string): boolean {
@@ -247,7 +247,7 @@ reconciliationRoutes.get('/tabs-to-match', async (c) => {
      ORDER BY s.created_at DESC`,
   ).all<{
     id: string;
-    direction: 'owes_josh' | 'josh_owes';
+    direction: 'they_owe' | 'i_owe';
     remaining_cents: number;
     created_at: string;
     reason: string;
@@ -308,7 +308,7 @@ reconciliationRoutes.post('/tabs-to-match/:split_id/match', async (c) => {
     .bind(splitId)
     .first<{
       id: string;
-      direction: 'owes_josh' | 'josh_owes';
+      direction: 'they_owe' | 'i_owe';
       remaining_cents: number;
       created_at: string;
       closed_at: string | null;

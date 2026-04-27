@@ -8,7 +8,7 @@ import {
 
 export const todayRoutes = new Hono<{ Bindings: Env }>();
 
-const HORIZON_DAYS = 14;
+const HORIZON_DAYS = 30;
 
 // Consolidated extras for the Today screen that aren't covered by existing
 // routes: receipt counter (days since earliest activity), most recent

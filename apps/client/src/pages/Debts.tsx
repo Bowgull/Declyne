@@ -21,7 +21,7 @@ interface Debt {
 interface Split {
   id: string;
   counterparty_name: string;
-  direction: 'josh_owes' | 'owes_josh';
+  direction: 'i_owe' | 'they_owe';
   remaining_cents: number;
   reason: string;
 }
@@ -92,12 +92,12 @@ export default function Debts() {
               <div className="ledger-row-main">
                 <span className="ledger-row-label">{s.counterparty_name}</span>
                 <span className="ledger-row-hint">
-                  {s.direction === 'josh_owes' ? 'You owe' : 'Owes you'} · {s.reason}
+                  {s.direction === 'i_owe' ? 'You owe' : 'Owes you'} · {s.reason}
                 </span>
               </div>
               <div
                 className="num text-lg shrink-0"
-                style={{ color: s.direction === 'josh_owes' ? 'var(--color-danger)' : 'var(--color-ok)' }}
+                style={{ color: s.direction === 'i_owe' ? 'var(--color-danger)' : 'var(--color-ok)' }}
               >
                 {formatCents(s.remaining_cents)}
               </div>
@@ -144,7 +144,7 @@ export default function Debts() {
 
 function SplitSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [counterparty, setCounterparty] = useState('');
-  const [direction, setDirection] = useState<'josh_owes' | 'owes_josh'>('josh_owes');
+  const [direction, setDirection] = useState<'i_owe' | 'they_owe'>('i_owe');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -207,10 +207,10 @@ function SplitSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
             <select
               className="field"
               value={direction}
-              onChange={(e) => setDirection(e.target.value as 'josh_owes' | 'owes_josh')}
+              onChange={(e) => setDirection(e.target.value as 'i_owe' | 'they_owe')}
             >
-              <option value="josh_owes">You owe them</option>
-              <option value="owes_josh">They owe you</option>
+              <option value="i_owe">You owe them</option>
+              <option value="they_owe">They owe you</option>
             </select>
           </label>
           <label className="flex flex-col gap-1">
@@ -280,7 +280,7 @@ function SettleSheet({
     onError: (e: Error) => setError(e.message),
   });
 
-  const verb = split.direction === 'josh_owes' ? 'Paid' : 'Received';
+  const verb = split.direction === 'i_owe' ? 'Paid' : 'Received';
 
   return (
     <div

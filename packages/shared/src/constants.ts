@@ -16,7 +16,7 @@ export type TransactionSource = (typeof TRANSACTION_SOURCES)[number];
 export const EDIT_LOG_ACTORS = ['system', 'user', 'rules', 'ai'] as const;
 export type EditLogActor = (typeof EDIT_LOG_ACTORS)[number];
 
-export const SPLIT_DIRECTIONS = ['josh_owes', 'owes_josh'] as const;
+export const SPLIT_DIRECTIONS = ['i_owe', 'they_owe'] as const;
 export type SplitDirection = (typeof SPLIT_DIRECTIONS)[number];
 
 export const REVIEW_REASONS = ['uncategorized', 'new_merchant', 'unusual_amount', 'split_candidate'] as const;
