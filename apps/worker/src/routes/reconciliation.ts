@@ -526,6 +526,49 @@ reconciliationRoutes.post('/complete', async (c) => {
   });
 });
 
+// Surfaces committed-but-unstamped debt installments from past pay periods —
+// the user accepted a payoff plan, the period ended, and the installment was
+// never marked paid. These are real adherence misses, separate from
+// uncleared bank lines (which are the bookkeeping mismatch).
+//
+// Filter: category_group='debt', plan_id NOT NULL, stamped_at NULL,
+// pay_period.end_date < today. Newest period first.
+reconciliationRoutes.get('/missed-installments', async (c) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const { results } = await c.env.DB.prepare(
+    `SELECT pa.id, pa.label, pa.planned_cents, pa.committed_at, pa.plan_id,
+            pp.id AS period_id, pp.start_date, pp.end_date
+     FROM period_allocations pa
+     JOIN pay_periods pp ON pp.id = pa.pay_period_id
+     WHERE pa.category_group = 'debt'
+       AND pa.plan_id IS NOT NULL
+       AND pa.stamped_at IS NULL
+       AND date(pp.end_date) < date(?)
+     ORDER BY pp.end_date DESC, pa.label ASC
+     LIMIT 100`,
+  )
+    .bind(today)
+    .all<{
+      id: string;
+      label: string;
+      planned_cents: number;
+      committed_at: string | null;
+      plan_id: string;
+      period_id: string;
+      start_date: string;
+      end_date: string;
+    }>();
+
+  const installments = results ?? [];
+  const total_cents = installments.reduce((s, r) => s + r.planned_cents, 0);
+  return c.json({
+    today,
+    count: installments.length,
+    total_cents,
+    installments,
+  });
+});
+
 // Surfaces open splits that the import auto-matcher skipped because ≥2 transactions
 // matched their amount + ±3d window. Josh picks the right one in Reconciliation.
 reconciliationRoutes.get('/tabs-to-match', async (c) => {

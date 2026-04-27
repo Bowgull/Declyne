@@ -29,6 +29,7 @@ import { holdingsRoutes } from './routes/holdings.js';
 import { ccStatementsRoutes } from './routes/ccStatements.js';
 import { reconciliationRoutes } from './routes/reconciliation.js';
 import { todayRoutes } from './routes/today.js';
+import { notificationsRoutes } from './routes/notifications.js';
 import { dataPurgeRoutes } from './routes/dataPurge.js';
 import {
   paymentLinksRoutes,
@@ -103,6 +104,7 @@ api.route('/holdings', holdingsRoutes);
 api.route('/cc-statements', ccStatementsRoutes);
 api.route('/reconciliation', reconciliationRoutes);
 api.route('/today', todayRoutes);
+api.route('/notifications', notificationsRoutes);
 api.route('/data/purge', dataPurgeRoutes);
 api.route('/payment-links', paymentLinksRoutes);
 api.route('/gl', glRoutes);

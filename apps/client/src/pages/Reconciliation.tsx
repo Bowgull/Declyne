@@ -89,6 +89,24 @@ type AccountsResponse = {
   accounts: AccountReconciliation[];
 };
 
+type MissedInstallment = {
+  id: string;
+  label: string;
+  planned_cents: number;
+  committed_at: string | null;
+  plan_id: string;
+  period_id: string;
+  start_date: string;
+  end_date: string;
+};
+
+type MissedResponse = {
+  today: string;
+  count: number;
+  total_cents: number;
+  installments: MissedInstallment[];
+};
+
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function dayLabel(iso: string): string {
@@ -122,6 +140,11 @@ export default function Reconciliation() {
   const accounts = useQuery({
     queryKey: ['reconciliation-accounts'],
     queryFn: () => api.get<AccountsResponse>('/api/reconciliation/accounts'),
+  });
+
+  const missed = useQuery({
+    queryKey: ['reconciliation-missed-installments'],
+    queryFn: () => api.get<MissedResponse>('/api/reconciliation/missed-installments'),
   });
 
   const clearLine = useMutation({
@@ -257,6 +280,51 @@ export default function Reconciliation() {
             </span>
           </div>
         </div>
+
+        {missed.data && missed.data.count > 0 && (
+          <div className="pt-3" style={perforation}>
+            <div
+              className="text-[11px] uppercase tracking-[0.18em] mb-2"
+              style={{ color: 'var(--cat-indulgence)' }}
+            >
+              Missed installments ({missed.data.count})
+            </div>
+            <div className="text-[11px] text-[color:var(--color-text-muted)] mb-3">
+              Past pay periods committed a payoff plan but these installments were never marked paid.
+            </div>
+            <div className="flex flex-col gap-1">
+              {missed.data.installments.map((m) => (
+                <Link
+                  key={m.id}
+                  to="/budget/plan"
+                  className="row-tap flex items-baseline justify-between gap-3 text-left"
+                >
+                  <div className="min-w-0 flex-1 flex items-baseline gap-2">
+                    <span className="cat-dot debt" />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm">{m.label}</div>
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
+                        period ended {m.end_date}
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    className="num text-sm shrink-0"
+                    style={{ color: 'var(--cat-indulgence)' }}
+                  >
+                    {formatCents(m.planned_cents)}
+                  </span>
+                </Link>
+              ))}
+              <div className="mt-2 flex items-baseline justify-between text-xs uppercase tracking-[0.14em]">
+                <span className="text-[color:var(--color-text-muted)]">Outstanding</span>
+                <span className="num" style={{ color: 'var(--cat-indulgence)' }}>
+                  {formatCents(missed.data.total_cents)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {accounts.data && accounts.data.accounts.length > 0 && (
           <div className="pt-3" style={perforation}>

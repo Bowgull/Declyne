@@ -33,6 +33,7 @@ const REASON_LABEL: Record<ReviewItem['reason'], string> = {
 
 export default function Review() {
   const qc = useQueryClient();
+  const [lastResolvedId, setLastResolvedId] = useState<string | null>(null);
   const items = useQuery({
     queryKey: ['review'],
     queryFn: () => api.get<{ items: ReviewItem[] }>('/api/review'),
@@ -48,11 +49,24 @@ export default function Review() {
   const resolve = useMutation({
     mutationFn: ({ id, category_id }: { id: string; category_id: string }) =>
       api.post<{ ok: true }>(`/api/review/${id}/resolve`, { category_id }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['review'] }),
+    onSuccess: (_d, vars) => {
+      setLastResolvedId(vars.id);
+      qc.invalidateQueries({ queryKey: ['review'] });
+    },
   });
   const dismiss = useMutation({
     mutationFn: (id: string) => api.post<{ ok: true }>(`/api/review/${id}/dismiss`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['review'] }),
+    onSuccess: (_d, id) => {
+      setLastResolvedId(id);
+      qc.invalidateQueries({ queryKey: ['review'] });
+    },
+  });
+  const unresolve = useMutation({
+    mutationFn: (id: string) => api.post<{ ok: true }>(`/api/review/${id}/unresolve`, {}),
+    onSuccess: () => {
+      setLastResolvedId(null);
+      qc.invalidateQueries({ queryKey: ['review'] });
+    },
   });
 
   return (
@@ -72,6 +86,21 @@ export default function Review() {
             Close
           </Link>
         </header>
+
+        {lastResolvedId && (
+          <div className="pt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]" style={perforation}>
+            <span>Last item filed</span>
+            <button
+              className="ink-glyph"
+              onClick={() => unresolve.mutate(lastResolvedId)}
+              disabled={unresolve.isPending}
+              aria-label="Undo last"
+              title="Undo"
+            >
+              ↺
+            </button>
+          </div>
+        )}
 
         {!items.isLoading && list.length === 0 ? (
           <div className="pt-3 text-center text-xs text-[color:var(--color-text-muted)]" style={perforation}>

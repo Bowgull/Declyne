@@ -197,6 +197,8 @@ export default function Budget() {
         </section>
       )}
 
+      <PlanRow />
+
       {period && weeks.length > 0 && (
         <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] flex items-center gap-2 flex-wrap">
           <span className="cat-dot indulgence" />
@@ -304,8 +306,6 @@ export default function Budget() {
       )}
 
       <NetWorthRow />
-
-      <PlanRow />
 
       {historyRows.length > 0 && (
         <section className="ledger-section pt-4">
@@ -483,7 +483,7 @@ function PlanRow() {
   return (
     <section className="ledger-section pt-4">
       <span className="ledger-section-kicker">
-        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03b</span> Payoff plan
+        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Payoff plan
       </span>
       <Link to="/budget/plan" className="ledger-section-meta hover:underline">open &rsaquo;</Link>
       <Link to="/budget/plan" className="ledger-row tap">
