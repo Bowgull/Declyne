@@ -151,6 +151,7 @@ export const holdings = sqliteTable('holdings', {
   account_wrapper: text('account_wrapper', { enum: ['tfsa', 'fhsa', 'rrsp', 'nonreg'] }).notNull(),
   units: integer('units').notNull(), // stored * 10_000 for 4 decimal precision
   avg_cost_cents: integer('avg_cost_cents').notNull(),
+  account_id: text('account_id'),
   updated_at: text('updated_at').notNull(),
 });
 
