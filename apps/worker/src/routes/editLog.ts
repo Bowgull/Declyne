@@ -20,6 +20,7 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'reconciliation',
   'counterparty',
   'payment_link',
+  'journal_line',
 ]);
 
 export function clampLimit(raw: string | undefined, fallback = 50, max = 500): number {

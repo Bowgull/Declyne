@@ -5,6 +5,82 @@ import { writeEditLog } from '../lib/editlog.js';
 
 export const reconciliationRoutes = new Hono<{ Bindings: Env }>();
 
+// ---------------------------------------------------------------------------
+// Bank reconciliation pure helpers (session 62 / Accounting Upgrade #57).
+//
+// Each line on an asset/liability account can be cleared independently against
+// the statement. Per-account summary returns gl_balance_cents (all lines),
+// cleared_balance_cents (only cleared lines), uncleared list. Sealing the
+// week requires every account fully cleared OR an explicit acknowledgement.
+// ---------------------------------------------------------------------------
+
+export type GlAccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+
+export interface ReconciliationLine {
+  id: string;
+  journal_entry_id: string;
+  posted_at: string;
+  debit_cents: number;
+  credit_cents: number;
+  cleared_at: string | null;
+  source_type: string | null;
+  memo: string | null;
+}
+
+// Natural-sign balance for an account type:
+//   asset, expense   → debit − credit
+//   liability, equity, income → credit − debit
+export function naturalBalanceCents(
+  type: GlAccountType,
+  debit_cents: number,
+  credit_cents: number,
+): number {
+  if (type === 'asset' || type === 'expense') return debit_cents - credit_cents;
+  return credit_cents - debit_cents;
+}
+
+export interface AccountReconciliationSummary {
+  gl_balance_cents: number;
+  cleared_balance_cents: number;
+  uncleared_count: number;
+  uncleared_cents: number; // signed natural-sign delta from uncleared lines
+}
+
+export function summarizeAccountReconciliation(
+  type: GlAccountType,
+  lines: ReconciliationLine[],
+): AccountReconciliationSummary {
+  let dAll = 0;
+  let cAll = 0;
+  let dCleared = 0;
+  let cCleared = 0;
+  let unclearedCount = 0;
+  for (const l of lines) {
+    dAll += l.debit_cents;
+    cAll += l.credit_cents;
+    if (l.cleared_at) {
+      dCleared += l.debit_cents;
+      cCleared += l.credit_cents;
+    } else {
+      unclearedCount += 1;
+    }
+  }
+  const gl = naturalBalanceCents(type, dAll, cAll);
+  const cleared = naturalBalanceCents(type, dCleared, cCleared);
+  return {
+    gl_balance_cents: gl,
+    cleared_balance_cents: cleared,
+    uncleared_count: unclearedCount,
+    uncleared_cents: gl - cleared,
+  };
+}
+
+export function isWeekFullyReconciled(
+  summaries: Array<{ uncleared_count: number }>,
+): boolean {
+  return summaries.every((s) => s.uncleared_count === 0);
+}
+
 // Pure helper for split <-> transaction ambiguity detection.
 // A split is ambiguous when ≥2 candidate transactions match its expected
 // signed amount within ±3 days of created_at.
@@ -184,8 +260,160 @@ reconciliationRoutes.get('/status', async (c) => {
   });
 });
 
+async function loadAccountSummaries(env: Env, weekStart: string, today: string): Promise<
+  Array<{
+    account_id: string;
+    path: string;
+    name: string;
+    type: GlAccountType;
+    summary: AccountReconciliationSummary;
+    uncleared_lines: Array<{
+      id: string;
+      journal_entry_id: string;
+      posted_at: string;
+      debit_cents: number;
+      credit_cents: number;
+      source_type: string | null;
+      memo: string | null;
+    }>;
+  }>
+> {
+  const accountsRes = await env.DB.prepare(
+    `SELECT id, path, name, type FROM gl_accounts
+     WHERE archived_at IS NULL AND type IN ('asset','liability')
+     ORDER BY type, path`,
+  ).all<{ account_id?: string; id: string; path: string; name: string; type: GlAccountType }>();
+  const accounts = accountsRes.results ?? [];
+  if (accounts.length === 0) return [];
+
+  // Pull all journal_lines on these accounts up to today, joined with entry posted_at.
+  // We use today as the upper bound so future-dated entries don't pollute "this week"
+  // reconciliation. Cleared status is account-wide, not week-scoped.
+  const placeholders = accounts.map(() => '?').join(',');
+  const linesRes = await env.DB.prepare(
+    `SELECT l.id, l.journal_entry_id, l.account_id, l.debit_cents, l.credit_cents, l.cleared_at,
+            e.posted_at, e.source_type, e.memo
+     FROM journal_lines l
+     JOIN journal_entries e ON e.id = l.journal_entry_id
+     WHERE l.account_id IN (${placeholders})
+       AND date(e.posted_at) <= ?
+     ORDER BY e.posted_at ASC, l.id ASC`,
+  )
+    .bind(...accounts.map((a) => a.id), today)
+    .all<{
+      id: string;
+      journal_entry_id: string;
+      account_id: string;
+      debit_cents: number;
+      credit_cents: number;
+      cleared_at: string | null;
+      posted_at: string;
+      source_type: string | null;
+      memo: string | null;
+    }>();
+
+  const linesByAccount = new Map<string, ReconciliationLine[]>();
+  for (const r of linesRes.results ?? []) {
+    const arr = linesByAccount.get(r.account_id) ?? [];
+    arr.push({
+      id: r.id,
+      journal_entry_id: r.journal_entry_id,
+      posted_at: r.posted_at,
+      debit_cents: r.debit_cents,
+      credit_cents: r.credit_cents,
+      cleared_at: r.cleared_at,
+      source_type: r.source_type,
+      memo: r.memo,
+    });
+    linesByAccount.set(r.account_id, arr);
+  }
+
+  return accounts.map((a) => {
+    const lines = linesByAccount.get(a.id) ?? [];
+    const summary = summarizeAccountReconciliation(a.type, lines);
+    const uncleared_lines = lines
+      .filter((l) => !l.cleared_at)
+      .filter((l) => l.posted_at.slice(0, 10) >= weekStart) // surface this-week uncleared
+      .map((l) => ({
+        id: l.id,
+        journal_entry_id: l.journal_entry_id,
+        posted_at: l.posted_at,
+        debit_cents: l.debit_cents,
+        credit_cents: l.credit_cents,
+        source_type: l.source_type,
+        memo: l.memo,
+      }));
+    return { account_id: a.id, path: a.path, name: a.name, type: a.type, summary, uncleared_lines };
+  });
+}
+
+// GET /api/reconciliation/accounts — per asset/liability GL account: GL balance,
+// cleared balance, uncleared list (this week only). Used by the bank-rec page.
+reconciliationRoutes.get('/accounts', async (c) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = mostRecentSunday(today);
+  const accounts = await loadAccountSummaries(c.env, weekStart, today);
+  return c.json({ week_starts_on: weekStart, today, accounts });
+});
+
+reconciliationRoutes.post('/lines/:line_id/clear', async (c) => {
+  const lineId = c.req.param('line_id');
+  const now = nowIso();
+  const existing = await c.env.DB.prepare(
+    `SELECT id, cleared_at, account_id FROM journal_lines WHERE id = ?`,
+  )
+    .bind(lineId)
+    .first<{ id: string; cleared_at: string | null; account_id: string }>();
+  if (!existing) return c.json({ error: 'line not found' }, 404);
+  if (existing.cleared_at) return c.json({ ok: true, already: true, cleared_at: existing.cleared_at });
+
+  await c.env.DB.prepare(`UPDATE journal_lines SET cleared_at = ? WHERE id = ?`)
+    .bind(now, lineId)
+    .run();
+  await writeEditLog(c.env, [
+    {
+      entity_type: 'journal_line',
+      entity_id: lineId,
+      field: 'cleared_at',
+      old_value: null,
+      new_value: now,
+      actor: 'user',
+      reason: 'bank_rec_clear',
+    },
+  ]);
+  return c.json({ ok: true, cleared_at: now });
+});
+
+reconciliationRoutes.post('/lines/:line_id/unclear', async (c) => {
+  const lineId = c.req.param('line_id');
+  const existing = await c.env.DB.prepare(
+    `SELECT id, cleared_at FROM journal_lines WHERE id = ?`,
+  )
+    .bind(lineId)
+    .first<{ id: string; cleared_at: string | null }>();
+  if (!existing) return c.json({ error: 'line not found' }, 404);
+  if (!existing.cleared_at) return c.json({ ok: true, already: true });
+
+  await c.env.DB.prepare(`UPDATE journal_lines SET cleared_at = NULL WHERE id = ?`)
+    .bind(lineId)
+    .run();
+  await writeEditLog(c.env, [
+    {
+      entity_type: 'journal_line',
+      entity_id: lineId,
+      field: 'cleared_at',
+      old_value: existing.cleared_at,
+      new_value: null,
+      actor: 'user',
+      reason: 'bank_rec_unclear',
+    },
+  ]);
+  return c.json({ ok: true, cleared_at: null });
+});
+
 reconciliationRoutes.post('/complete', async (c) => {
   const today = new Date().toISOString().slice(0, 10);
+  const weekStart = mostRecentSunday(today);
   const last_at = await readSetting(c.env, 'last_reconciliation_at');
   if (isCompletedThisWeek(last_at, today)) {
     const streakRaw = await readSetting(c.env, 'reconciliation_streak');
@@ -197,6 +425,27 @@ reconciliationRoutes.post('/complete', async (c) => {
     });
   }
 
+  const body = (await c.req.json().catch(() => null)) as { acknowledge_outstanding?: unknown } | null;
+  const acknowledge = body?.acknowledge_outstanding === true;
+
+  const accounts = await loadAccountSummaries(c.env, weekStart, today);
+  const fullyCleared = isWeekFullyReconciled(accounts.map((a) => a.summary));
+  if (!fullyCleared && !acknowledge) {
+    return c.json(
+      {
+        error: 'uncleared_lines_remain',
+        accounts: accounts
+          .filter((a) => a.summary.uncleared_count > 0)
+          .map((a) => ({
+            account_id: a.account_id,
+            path: a.path,
+            uncleared_count: a.summary.uncleared_count,
+          })),
+      },
+      409,
+    );
+  }
+
   const now = nowIso();
   const prevStreakRaw = await readSetting(c.env, 'reconciliation_streak');
   const prevStreak = Number(prevStreakRaw ?? '0') || 0;
@@ -206,32 +455,53 @@ reconciliationRoutes.post('/complete', async (c) => {
   await writeSetting(c.env, 'reconciliation_streak', String(nextStreak));
 
   const eventId = newId('rec');
-  await writeEditLog(c.env, [
+  const logs = [
     {
-      entity_type: 'reconciliation',
+      entity_type: 'reconciliation' as const,
       entity_id: eventId,
       field: 'last_reconciliation_at',
       old_value: prevLast,
       new_value: now,
-      actor: 'user',
+      actor: 'user' as const,
       reason: 'reconciliation_complete',
     },
     {
-      entity_type: 'reconciliation',
+      entity_type: 'reconciliation' as const,
       entity_id: eventId,
       field: 'reconciliation_streak',
       old_value: String(prevStreak),
       new_value: String(nextStreak),
-      actor: 'user',
+      actor: 'user' as const,
       reason: 'reconciliation_complete',
     },
-  ]);
+  ];
+  // Per-account seal record (bank-rec style: each account gets its own row).
+  for (const a of accounts) {
+    logs.push({
+      entity_type: 'reconciliation' as const,
+      entity_id: a.account_id,
+      field: 'reconciliation_seal',
+      old_value: null,
+      new_value: JSON.stringify({
+        path: a.path,
+        gl_balance_cents: a.summary.gl_balance_cents,
+        cleared_balance_cents: a.summary.cleared_balance_cents,
+        uncleared_count: a.summary.uncleared_count,
+        acknowledged_outstanding: a.summary.uncleared_count > 0,
+      }),
+      actor: 'user' as const,
+      reason: acknowledge && a.summary.uncleared_count > 0 ? 'reconciliation_seal_outstanding' : 'reconciliation_seal',
+    });
+  }
+  await writeEditLog(c.env, logs);
 
   return c.json({
     ok: true,
     already: false,
     reconciliation_streak: nextStreak,
     last_reconciliation_at: now,
+    accounts_sealed: accounts.length,
+    acknowledged_outstanding: acknowledge && !fullyCleared,
   });
 });
 
