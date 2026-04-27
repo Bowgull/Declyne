@@ -98,6 +98,7 @@ export const counterparties = sqliteTable('counterparties', {
   default_settlement_method: text('default_settlement_method', { enum: ['etransfer', 'cash', 'other'] }).default('etransfer'),
   archived_at: text('archived_at'),
   created_at: text('created_at').notNull(),
+  account_id: text('account_id').references(() => gl_accounts.id),
 });
 
 export const splits = sqliteTable('splits', {

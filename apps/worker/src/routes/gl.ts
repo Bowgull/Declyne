@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { computeTrialBalance } from '../lib/gl.js';
 import { runGlBackfill } from '../lib/glBackfill.js';
+import { runArApBackfill } from '../lib/glCounterparty.js';
 
 export const glRoutes = new Hono<{ Bindings: Env }>();
 
@@ -114,5 +115,12 @@ glRoutes.get('/journal', async (c) => {
 export const glAdminRoutes = new Hono<{ Bindings: Env }>();
 glAdminRoutes.post('/gl-backfill', async (c) => {
   const out = await runGlBackfill(c.env);
+  return c.json(out);
+});
+
+// POST /api/admin/arap-backfill — idempotent. Posts JEs for splits + split_events.
+// Replaces transaction-source JEs for any split_event linked to a real txn.
+glAdminRoutes.post('/arap-backfill', async (c) => {
+  const out = await runArApBackfill(c.env);
   return c.json(out);
 });
