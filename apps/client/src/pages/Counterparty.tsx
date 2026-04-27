@@ -5,6 +5,7 @@ import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { MailArt } from '../components/PostageArt';
 
 type Detail = {
   counterparty: {
@@ -183,12 +184,12 @@ export default function CounterpartyPage() {
                             {s.direction === 'they_owe' && (
                               <button
                                 className="postage"
-                                style={{ minWidth: 76, padding: '6px 8px 4px', transform: 'rotate(-2deg)' }}
+                                style={{ minWidth: 64, padding: '8px 10px 6px', transform: 'rotate(-2deg)' }}
                                 disabled={linkBusy === s.id}
                                 onClick={() => sendPaymentLink(s.id, s.remaining_cents, cp.name)}
                               >
-                                <span className="postage-denom" style={{ fontSize: 8 }}>$0.47</span>
-                                <span className="postage-label" style={{ fontSize: 9 }}>
+                                <span className="postage-art" style={{ width: 24, height: 24 }}><MailArt /></span>
+                                <span className="postage-label" style={{ fontSize: 8 }}>
                                   {linkBusy === s.id ? 'Sending' : <>Send<br />link</>}
                                 </span>
                               </button>

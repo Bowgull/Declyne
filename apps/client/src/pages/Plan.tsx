@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { SeedArt } from '../components/PostageArt';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
@@ -251,7 +252,7 @@ export default function Plan() {
                 <button
                   type="button"
                   className="postage"
-                  style={{ minWidth: 80, padding: '8px 10px 6px', transform: 'rotate(-1.6deg)' }}
+                  style={{ minWidth: 100, padding: '10px 12px 8px', transform: 'rotate(-1.6deg)' }}
                   disabled={accept.isPending || !data?.current_period_id}
                   onClick={() => {
                     setCommitMsg(null);
@@ -259,7 +260,8 @@ export default function Plan() {
                   }}
                 >
                   <span className="postage-denom" style={{ fontSize: 8 }}>$1</span>
-                  <span className="postage-label" style={{ fontSize: 9 }}>
+                  <span className="postage-art" style={{ width: 24, height: 24 }}><SeedArt /></span>
+                  <span className="postage-label" style={{ fontSize: 8 }}>
                     {accept.isPending ? 'Stamping' : <>Accept<br />this plan</>}
                   </span>
                 </button>
@@ -293,7 +295,7 @@ export default function Plan() {
             <span>Rationale</span>
             <button
               className="postage"
-              style={{ minWidth: 80, padding: '8px 10px 6px', transform: 'rotate(1.4deg)' }}
+              style={{ minWidth: 100, padding: '10px 12px 8px', transform: 'rotate(1.4deg)' }}
               disabled={refresh.isPending}
               onClick={() => {
                 setRefreshMsg(null);
@@ -301,7 +303,8 @@ export default function Plan() {
               }}
             >
               <span className="postage-denom" style={{ fontSize: 8 }}>AI</span>
-              <span className="postage-label" style={{ fontSize: 9 }}>
+              <span className="postage-art" style={{ width: 24, height: 24 }}><SeedArt /></span>
+              <span className="postage-label" style={{ fontSize: 8 }}>
                 {refresh.isPending ? 'Asking' : <>Refresh<br />rationale</>}
               </span>
             </button>

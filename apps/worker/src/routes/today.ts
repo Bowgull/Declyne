@@ -123,6 +123,7 @@ todayRoutes.get('/', async (c) => {
     amount_cents: number;
     due_date: string;
     days_until: number;
+    category_group?: string;
   };
   const printing_ahead: Item[] = [
     ...bills.map<Item>((b) => ({
@@ -131,8 +132,9 @@ todayRoutes.get('/', async (c) => {
       amount_cents: b.amount_cents,
       due_date: b.next_due,
       days_until: b.days_until,
+      category_group: b.category_group,
     })),
-    ...installments.map<Item>((i) => ({ kind: 'plan', ...i })),
+    ...installments.map<Item>((i) => ({ kind: 'plan', ...i, category_group: 'debt' })),
     ...(payday
       ? [
           {

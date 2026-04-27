@@ -3,20 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { dismissFollowUpThisWeek } from '../native/notifications';
+import { SealArt } from '../components/PostageArt';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
 };
-
-function SealArt() {
-  return (
-    <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="18" r="11" />
-      <circle cx="18" cy="18" r="7.5" />
-      <path d="M14 18l3 3 5-5" />
-    </svg>
-  );
-}
 
 type Txn = {
   id: string;
