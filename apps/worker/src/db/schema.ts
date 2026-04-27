@@ -315,6 +315,16 @@ export const journal_entries = sqliteTable('journal_entries', {
   locked_at: text('locked_at'),
 });
 
+export const period_close = sqliteTable('period_close', {
+  id: text('id').primaryKey(),
+  period_start: text('period_start').notNull(),
+  period_end: text('period_end').notNull(),
+  closed_at: text('closed_at').notNull(),
+  closed_by: text('closed_by', { enum: ['user', 'auto', 'system'] }).notNull(),
+  trial_balance_debits_cents: integer('trial_balance_debits_cents').notNull(),
+  trial_balance_credits_cents: integer('trial_balance_credits_cents').notNull(),
+});
+
 export const journal_lines = sqliteTable('journal_lines', {
   id: text('id').primaryKey(),
   journal_entry_id: text('journal_entry_id').notNull().references(() => journal_entries.id),

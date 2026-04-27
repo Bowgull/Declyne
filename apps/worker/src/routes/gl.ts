@@ -5,6 +5,12 @@ import { runGlBackfill } from '../lib/glBackfill.js';
 import { runArApBackfill } from '../lib/glCounterparty.js';
 import { runDebtBackfill, reconcileStatements } from '../lib/debtGl.js';
 import { runHoldingsBackfill } from '../lib/glHoldings.js';
+import {
+  closeWeek,
+  mostRecentSaturday,
+  netWorthFromTrialBalance,
+  reverseJournalEntry,
+} from '../lib/periodClose.js';
 
 export const glRoutes = new Hono<{ Bindings: Env }>();
 
@@ -139,6 +145,82 @@ glAdminRoutes.post('/debt-backfill', async (c) => {
 glAdminRoutes.post('/holdings-backfill', async (c) => {
   const out = await runHoldingsBackfill(c.env);
   return c.json(out);
+});
+
+// GET /api/gl/net-worth?as_of=YYYY-MM-DD — derived from the trial balance.
+// assets − liabilities is the headline number. Equity / income / expense
+// surfaced for the trial-balance page.
+glRoutes.get('/net-worth', async (c) => {
+  const asOfRaw = c.req.query('as_of');
+  const asOf = typeof asOfRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(asOfRaw) ? asOfRaw : null;
+  const sql = asOf
+    ? `SELECT a.type,
+              COALESCE(SUM(l.debit_cents), 0) AS debit_cents,
+              COALESCE(SUM(l.credit_cents), 0) AS credit_cents
+       FROM gl_accounts a
+       LEFT JOIN journal_lines l ON l.account_id = a.id
+       LEFT JOIN journal_entries e ON e.id = l.journal_entry_id
+       WHERE (e.posted_at IS NULL OR date(e.posted_at) <= ?)
+       GROUP BY a.type`
+    : `SELECT a.type,
+              COALESCE(SUM(l.debit_cents), 0) AS debit_cents,
+              COALESCE(SUM(l.credit_cents), 0) AS credit_cents
+       FROM gl_accounts a
+       LEFT JOIN journal_lines l ON l.account_id = a.id
+       GROUP BY a.type`;
+  const stmt = asOf ? c.env.DB.prepare(sql).bind(asOf) : c.env.DB.prepare(sql);
+  const rows = await stmt.all<{
+    type: 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+    debit_cents: number;
+    credit_cents: number;
+  }>();
+  const nw = netWorthFromTrialBalance(rows.results ?? []);
+  return c.json({ as_of: asOf, ...nw, net_worth_cents: nw.assets_cents - nw.liabilities_cents });
+});
+
+// GET /api/gl/period-close — list closed periods, newest first.
+glRoutes.get('/period-close', async (c) => {
+  const rows = await c.env.DB.prepare(
+    `SELECT id, period_start, period_end, closed_at, closed_by,
+            trial_balance_debits_cents, trial_balance_credits_cents
+     FROM period_close ORDER BY period_end DESC LIMIT 60`,
+  ).all();
+  return c.json({ closes: rows.results ?? [] });
+});
+
+// POST /api/gl/period-close — manual close. Body { period_end? } defaults to
+// the most recent Saturday. Idempotent on (period_end). Refuses if trial
+// balance is unbalanced at period_end.
+glRoutes.post('/period-close', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { period_end?: unknown } | null;
+  const today = new Date().toISOString().slice(0, 10);
+  const period_end =
+    typeof body?.period_end === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.period_end)
+      ? body.period_end
+      : mostRecentSaturday(today);
+  try {
+    const out = await closeWeek(c.env, period_end, 'user');
+    return c.json(out);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'close failed';
+    if (msg.startsWith('unbalanced_books')) return c.json({ error: 'unbalanced_books', detail: msg }, 409);
+    return c.json({ error: 'close_failed', detail: msg }, 500);
+  }
+});
+
+// POST /api/gl/journal/:je_id/reverse — emit an inverse JE in the current
+// period. Original (locked) entry stays intact. Body: { reason }.
+glRoutes.post('/journal/:je_id/reverse', async (c) => {
+  const jeId = c.req.param('je_id');
+  const body = (await c.req.json().catch(() => null)) as { reason?: unknown } | null;
+  const reason = typeof body?.reason === 'string' && body.reason.trim() ? body.reason.trim() : 'manual_reversal';
+  try {
+    const out = await reverseJournalEntry(c.env, jeId, reason);
+    return c.json(out);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'reverse failed';
+    return c.json({ error: 'reverse_failed', detail: msg }, 400);
+  }
 });
 
 // GET /api/gl/statement-reconcile?window_days=N — per-statement GL vs snapshot

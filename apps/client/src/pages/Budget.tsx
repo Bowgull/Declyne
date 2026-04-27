@@ -303,6 +303,8 @@ export default function Budget() {
         </button>
       )}
 
+      <NetWorthRow />
+
       {historyRows.length > 0 && (
         <section className="ledger-section pt-4">
           <span className="ledger-section-kicker">
@@ -424,5 +426,39 @@ export default function Budget() {
         />
       )}
     </div>
+  );
+}
+
+interface NetWorthResp {
+  assets_cents: number;
+  liabilities_cents: number;
+  net_worth_cents: number;
+}
+
+function NetWorthRow() {
+  const nw = useQuery({
+    queryKey: ['net-worth'],
+    queryFn: () => api.get<NetWorthResp>('/api/gl/net-worth'),
+  });
+  const data = nw.data;
+  return (
+    <section className="ledger-section pt-4">
+      <span className="ledger-section-kicker">
+        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Net worth
+      </span>
+      <Link to="/settings/trial-balance" className="ledger-section-meta hover:underline">trial &rsaquo;</Link>
+      <Link to="/settings/trial-balance" className="ledger-row tap">
+        <div className="ledger-row-main">
+          <span className="ledger-row-label">Assets − Liabilities</span>
+          <span className="ledger-row-hint">
+            {data
+              ? `${formatCents(data.assets_cents)} − ${formatCents(data.liabilities_cents)}`
+              : '—'}
+          </span>
+        </div>
+        <span className="ledger-row-value">{data ? formatCents(data.net_worth_cents) : '—'}</span>
+        <span className="ledger-row-chevron">&rsaquo;</span>
+      </Link>
+    </section>
   );
 }

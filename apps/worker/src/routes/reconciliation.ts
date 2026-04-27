@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
+import { closeWeek, mostRecentSaturday } from '../lib/periodClose.js';
 
 export const reconciliationRoutes = new Hono<{ Bindings: Env }>();
 
@@ -495,6 +496,24 @@ reconciliationRoutes.post('/complete', async (c) => {
   }
   await writeEditLog(c.env, logs);
 
+  // Auto-close the corresponding Sun→Sat week if the trial balance is equal.
+  // Period_end is the Saturday containing weekStart (Sunday). closeWeek is
+  // idempotent on period_end and refuses if books are unbalanced.
+  let period_close: { period_close_id: string; period_end: string; already: boolean } | null = null;
+  let period_close_skipped: string | null = null;
+  try {
+    const period_end = mostRecentSaturday(today);
+    const out = await closeWeek(c.env, period_end, 'auto');
+    period_close = {
+      period_close_id: out.period_close_id,
+      period_end: out.period_end,
+      already: out.already,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'close failed';
+    period_close_skipped = msg;
+  }
+
   return c.json({
     ok: true,
     already: false,
@@ -502,6 +521,8 @@ reconciliationRoutes.post('/complete', async (c) => {
     last_reconciliation_at: now,
     accounts_sealed: accounts.length,
     acknowledged_outstanding: acknowledge && !fullyCleared,
+    period_close,
+    period_close_skipped,
   });
 });
 

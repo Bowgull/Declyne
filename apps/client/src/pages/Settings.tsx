@@ -253,6 +253,13 @@ export default function Settings() {
           </div>
           <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
+        <Link to="/settings/trial-balance" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Trial balance</span>
+            <span className="ledger-row-hint">debits = credits, close the week</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </Link>
         <Row k="Current phase" v={s.current_phase ?? '—'} />
         <Row k="Merchant norm version" v={s.merchant_norm_version ?? '—'} />
         <Row k="Reconciliation streak" v={s.reconciliation_streak ?? '0'} />
