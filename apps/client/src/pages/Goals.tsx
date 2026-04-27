@@ -71,7 +71,7 @@ export default function Goals() {
         </header>
 
         <div className="pt-3 flex gap-2" style={perforation}>
-          <button className="btn-primary flex-1" onClick={() => setAdding(true)}>
+          <button className="stamp stamp-square flex-1" onClick={() => setAdding(true)}>
             Add goal
           </button>
           <button
@@ -294,7 +294,7 @@ function GoalSheet({
         <div className="flex gap-2">
           <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
           <button
-            className="btn-primary flex-1"
+            className="stamp stamp-square flex-1"
             onClick={() => save.mutate()}
             disabled={save.isPending || !valid}
           >

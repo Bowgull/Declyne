@@ -92,12 +92,12 @@ export default function Onboarding() {
           </button>
         )}
         {step < 4 ? (
-          <button className="btn-primary flex-1" onClick={next}>
+          <button className="stamp stamp-square flex-1" onClick={next}>
             {step === 0 ? 'Begin' : 'Next'}
           </button>
         ) : (
           <button
-            className="btn-primary flex-1"
+            className="stamp stamp-square flex-1"
             onClick={() => finish.mutate()}
             disabled={finish.isPending}
           >

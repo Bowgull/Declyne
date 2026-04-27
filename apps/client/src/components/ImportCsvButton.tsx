@@ -73,7 +73,7 @@ export default function ImportCsvButton() {
 
   return (
     <>
-      <label className="btn-primary cursor-pointer inline-flex items-center justify-center">
+      <label className="stamp stamp-square cursor-pointer inline-flex items-center justify-center">
         {busy ? 'Parsing…' : 'Import CSV'}
         <input
           ref={fileRef}
@@ -138,7 +138,7 @@ function ImportPickerSheet({
             <p className="text-sm text-[color:var(--color-text-muted)]">
               No accounts yet. Add one before importing.
             </p>
-            <Link to="/settings/accounts" className="btn-primary text-center" onClick={onCancel}>
+            <Link to="/settings/accounts" className="stamp stamp-square text-center" onClick={onCancel}>
               Add account
             </Link>
           </div>
@@ -184,7 +184,7 @@ function ImportPickerSheet({
               <button type="button" className="btn-outline flex-1" onClick={onCancel}>
                 Cancel
               </button>
-              <button type="submit" className="btn-primary flex-1">
+              <button type="submit" className="stamp stamp-square flex-1">
                 Import
               </button>
             </div>

@@ -55,7 +55,7 @@ export default function Accounts() {
       />
 
       <div className="flex items-center gap-2 pb-3">
-        <button className="btn-primary flex-1" onClick={() => setEditing('new')}>
+        <button className="stamp stamp-square flex-1" onClick={() => setEditing('new')}>
           Add account
         </button>
         <button
@@ -273,7 +273,7 @@ function AccountSheet({
             <button type="button" className="btn-outline flex-1" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex-1" disabled={save.isPending}>
+            <button type="submit" className="stamp stamp-square flex-1" disabled={save.isPending}>
               {save.isPending ? 'Saving…' : initial ? 'Save' : 'Add'}
             </button>
           </div>

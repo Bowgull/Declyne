@@ -97,7 +97,7 @@ export default function CcStatements() {
           </p>
           <div className="flex gap-2">
             <button
-              className="btn-primary flex-1"
+              className="stamp stamp-square flex-1"
               onClick={() => setAdding(true)}
               disabled={ccDebts.length === 0}
             >
@@ -309,7 +309,7 @@ function StatementSheet({
         <div className="flex gap-2">
           <button className="btn-outline flex-1" onClick={onClose}>Cancel</button>
           <button
-            className="btn-primary flex-1"
+            className="stamp stamp-square flex-1"
             onClick={() => save.mutate()}
             disabled={save.isPending || !valid}
           >

@@ -30,6 +30,13 @@ import { ccStatementsRoutes } from './routes/ccStatements.js';
 import { reconciliationRoutes } from './routes/reconciliation.js';
 import { todayRoutes } from './routes/today.js';
 import { dataPurgeRoutes } from './routes/dataPurge.js';
+import {
+  paymentLinksRoutes,
+  loadPublicLink,
+  markViewed,
+  linkStatus,
+  renderPublicLinkHtml,
+} from './routes/paymentLinks.js';
 import { auth } from './middleware/auth.js';
 import { redactSensitive } from './lib/logRedact.js';
 
@@ -45,6 +52,26 @@ app.use('*', cors({
 app.get('/', (c) => c.json({ name: 'declyne-api', ok: true }));
 app.get('/health', (c) => c.json({ ok: true, as_of: new Date().toISOString() }));
 app.get('/healthz', (c) => c.json({ ok: true }));
+
+// Public, unauthed payment-link landing page. Served as standalone HTML.
+app.get('/pay/:token', async (c) => {
+  const token = c.req.param('token');
+  const row = await loadPublicLink(c.env, token);
+  if (!row) {
+    return c.html(
+      `<!doctype html><meta charset="utf-8" /><title>Not found</title>
+       <body style="font-family:ui-monospace,monospace;background:#1a141d;color:#e6dfd0;padding:48px 16px;text-align:center;">
+       <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;opacity:0.7;">** link not found **</p>
+       </body>`,
+      404,
+    );
+  }
+  const status = linkStatus(row, row.split_closed_at, new Date());
+  if (status === 'active' && !row.viewed_at) {
+    await markViewed(c.env, row.id);
+  }
+  return c.html(renderPublicLinkHtml(row, status));
+});
 
 app.use('/api/*', auth);
 
@@ -75,6 +102,7 @@ api.route('/cc-statements', ccStatementsRoutes);
 api.route('/reconciliation', reconciliationRoutes);
 api.route('/today', todayRoutes);
 api.route('/data/purge', dataPurgeRoutes);
+api.route('/payment-links', paymentLinksRoutes);
 
 app.route('/api', api);
 
