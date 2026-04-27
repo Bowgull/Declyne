@@ -3,6 +3,17 @@ import type { Env } from '../env.js';
 import { nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 
+// Pure: decide whether a dismiss call should write or no-op given the row's
+// current resolved_at. Resolved rows are already sealed, so dismiss is a noop.
+export function dismissAction(resolved_at: string | null): 'noop' | 'dismiss' {
+  return resolved_at ? 'noop' : 'dismiss';
+}
+
+// Pure: inverse — unresolve only acts on rows that are currently sealed.
+export function unresolveAction(resolved_at: string | null): 'noop' | 'unresolve' {
+  return resolved_at ? 'unresolve' : 'noop';
+}
+
 export const reviewRoutes = new Hono<{ Bindings: Env }>();
 
 reviewRoutes.get('/', async (c) => {
@@ -25,6 +36,20 @@ reviewRoutes.post('/:id/dismiss', async (c) => {
   await c.env.DB.prepare(`UPDATE review_queue SET resolved_at = ? WHERE id = ?`).bind(nowIso(), id).run();
   await writeEditLog(c.env, [
     { entity_type: 'transaction', entity_id: item.transaction_id, field: 'review_dismiss', old_value: null, new_value: null, actor: 'user', reason: 'manual_dismiss' },
+  ]);
+  return c.json({ ok: true });
+});
+
+// Reverse a previous resolve/dismiss. Clears resolved_at so the row
+// re-surfaces in the queue. Idempotent on already-open rows.
+reviewRoutes.post('/:id/unresolve', async (c) => {
+  const id = c.req.param('id');
+  const item = await c.env.DB.prepare(`SELECT transaction_id, resolved_at FROM review_queue WHERE id = ?`).bind(id).first<{ transaction_id: string; resolved_at: string | null }>();
+  if (!item) return c.json({ error: 'not found' }, 404);
+  if (!item.resolved_at) return c.json({ ok: true, already: true });
+  await c.env.DB.prepare(`UPDATE review_queue SET resolved_at = NULL WHERE id = ?`).bind(id).run();
+  await writeEditLog(c.env, [
+    { entity_type: 'transaction', entity_id: item.transaction_id, field: 'review_unresolve', old_value: null, new_value: null, actor: 'user', reason: 'manual_unresolve' },
   ]);
   return c.json({ ok: true });
 });
