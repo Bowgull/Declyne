@@ -78,12 +78,30 @@ export function validateLines(lines: JournalLineInput[]): Array<{
 // Posts a balanced JE in a single D1 batch. Returns the entry id.
 // Caller is responsible for source_type/source_id idempotency upstream
 // (e.g. backfill kernels look up existing rows by source before posting).
+//
+// Refuses (throws JournalEntryError code=period_locked) if posted_at falls
+// inside a closed period. Reversals (source_type='reversal') are exempt — the
+// reversing entry itself is dated in the current period; the locked one stays.
 export async function postJournalEntry(
   env: Env,
   lines: JournalLineInput[],
   meta: JournalEntryMeta,
 ): Promise<string> {
   const validated = validateLines(lines);
+  if (meta.source_type !== 'reversal') {
+    const day = meta.posted_at.slice(0, 10);
+    const cover = await env.DB.prepare(
+      `SELECT period_end FROM period_close WHERE period_end >= ? ORDER BY period_end ASC LIMIT 1`,
+    )
+      .bind(day)
+      .first<{ period_end: string }>();
+    if (cover) {
+      throw new JournalEntryError(
+        'period_locked',
+        `posted_at ${day} falls inside closed period ending ${cover.period_end}`,
+      );
+    }
+  }
   const entryId = newId('je');
   const now = nowIso();
   const stmts = [

@@ -21,6 +21,8 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'counterparty',
   'payment_link',
   'journal_line',
+  'journal_entry',
+  'period_close',
 ]);
 
 export function clampLimit(raw: string | undefined, fallback = 50, max = 500): number {

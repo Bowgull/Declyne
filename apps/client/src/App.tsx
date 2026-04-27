@@ -18,6 +18,7 @@ import Onboarding from './pages/Onboarding';
 import PhaseJourney from './pages/PhaseJourney';
 import Reconciliation from './pages/Reconciliation';
 import CounterpartyPage from './pages/Counterparty';
+import TrialBalance from './pages/TrialBalance';
 import ButtonsMockup from './pages/ButtonsMockup';
 import { api } from './lib/api';
 
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/settings/cc-statements" element={<CcStatements />} />
           <Route path="/phase" element={<PhaseJourney />} />
           <Route path="/reconcile" element={<Reconciliation />} />
+          <Route path="/settings/trial-balance" element={<TrialBalance />} />
           <Route path="/budget/tabs/:id" element={<CounterpartyPage />} />
           <Route path="/mockup/buttons" element={<ButtonsMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
