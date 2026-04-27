@@ -71,13 +71,13 @@ INSERT OR REPLACE INTO merchants (id, display_name, normalized_key, category_def
 -- ===== Chequing: paycheques + bills + CC payments + savings transfers =====
 INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, description_raw, merchant_id, category_id, dedup_hash, source, created_at) VALUES
   -- Paycheques (biweekly Fri, $2,400 net)
-  ('tx_pay_01', 'acc_td_chq', '2026-02-13', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_01', 'csv', '2026-02-13T10:00:00Z'),
-  ('tx_pay_02', 'acc_td_chq', '2026-02-27', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_02', 'csv', '2026-02-27T10:00:00Z'),
-  ('tx_pay_03', 'acc_td_chq', '2026-03-13', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_03', 'csv', '2026-03-13T10:00:00Z'),
-  ('tx_pay_04', 'acc_td_chq', '2026-03-27', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_04', 'csv', '2026-03-27T10:00:00Z'),
-  ('tx_pay_05', 'acc_td_chq', '2026-04-10', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_05', 'csv', '2026-04-10T10:00:00Z'),
-  ('tx_pay_06', 'acc_td_chq', '2026-04-24', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_06', 'csv', '2026-04-24T10:00:00Z'),
-  ('tx_pay_07', 'acc_td_chq', '2026-05-08', 240000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_07', 'csv', '2026-05-08T10:00:00Z'),
+  ('tx_pay_01', 'acc_td_chq', '2026-02-13', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_01', 'csv', '2026-02-13T10:00:00Z'),
+  ('tx_pay_02', 'acc_td_chq', '2026-02-27', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_02', 'csv', '2026-02-27T10:00:00Z'),
+  ('tx_pay_03', 'acc_td_chq', '2026-03-13', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_03', 'csv', '2026-03-13T10:00:00Z'),
+  ('tx_pay_04', 'acc_td_chq', '2026-03-27', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_04', 'csv', '2026-03-27T10:00:00Z'),
+  ('tx_pay_05', 'acc_td_chq', '2026-04-10', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_05', 'csv', '2026-04-10T10:00:00Z'),
+  ('tx_pay_06', 'acc_td_chq', '2026-04-24', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_06', 'csv', '2026-04-24T10:00:00Z'),
+  ('tx_pay_07', 'acc_td_chq', '2026-05-08', 425000, 'PAYROLL DEP ACME CORP', 'm_acme', 'cat_paycheque', 'h_pay_07', 'csv', '2026-05-08T10:00:00Z'),
 
   -- Rent: $2,400/mo (Toronto 1-bed)
   ('tx_rent_03', 'acc_td_chq', '2026-03-01', -240000, 'LANDLORD EFT RENT', 'm_landlord', 'cat_rent', 'h_rent_03', 'csv', '2026-03-01T09:00:00Z'),

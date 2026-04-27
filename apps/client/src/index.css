@@ -216,6 +216,19 @@
       inset 0 0 0 3px var(--color-bg-primary),
       inset 0 0 0 4px color-mix(in oklab, var(--color-danger) 70%, transparent);
   }
+  /* Filled selected state — used for chit direction toggle. Reads from any
+     surface (dark shell or cream receipt) because background is solid purple. */
+  .stamp-filled {
+    background: var(--color-accent-purple);
+    color: var(--color-paper);
+    box-shadow: inset 0 0 0 2px var(--color-accent-purple);
+    transform: rotate(0deg);
+  }
+  .receipt .stamp.stamp-filled {
+    background: var(--color-accent-purple);
+    color: var(--color-paper);
+    box-shadow: inset 0 0 0 2px var(--color-accent-purple);
+  }
   /* Stamps inside cream receipts: invert frame color so it reads on paper */
   .receipt .stamp,
   .receipt .btn-outline {
@@ -899,42 +912,33 @@
     100% { transform: translateY(-18px) scale(0.86) rotate(-3deg); opacity: 0; }
   }
   .chit {
-    background: var(--color-paper);
+    /* Slightly darker paper than the receipt below, so the saw-tooth cuts
+       reveal the receipt's lighter cream through the gaps — clear torn edge. */
+    background: var(--color-paper-shade);
     color: var(--color-ink);
-    box-shadow:
-      0 14px 28px -10px rgba(0, 0, 0, 0.55),
-      0 4px 10px -4px rgba(0, 0, 0, 0.35);
-    padding: 18px 18px 20px;
-    border-radius: 2px;
+    /* Saw-tooth top edge cut into the paper. Triangles every 5% across.
+       Bottom is straight; only the top is torn. */
+    clip-path: polygon(
+      0% 7px, 2.5% 0, 5% 7px, 7.5% 0, 10% 7px, 12.5% 0, 15% 7px, 17.5% 0,
+      20% 7px, 22.5% 0, 25% 7px, 27.5% 0, 30% 7px, 32.5% 0, 35% 7px, 37.5% 0,
+      40% 7px, 42.5% 0, 45% 7px, 47.5% 0, 50% 7px, 52.5% 0, 55% 7px, 57.5% 0,
+      60% 7px, 62.5% 0, 65% 7px, 67.5% 0, 70% 7px, 72.5% 0, 75% 7px, 77.5% 0,
+      80% 7px, 82.5% 0, 85% 7px, 87.5% 0, 90% 7px, 92.5% 0, 95% 7px, 97.5% 0, 100% 7px,
+      100% 100%, 0 100%
+    );
+    /* drop-shadow follows clip-path so the saw-edge gets a real ink shadow,
+       making it read as torn against the same-cream receipt below. */
+    filter:
+      drop-shadow(0 2px 0 rgba(26, 20, 29, 0.95))
+      drop-shadow(0 5px 5px rgba(26, 20, 29, 0.7))
+      drop-shadow(0 14px 22px rgba(26, 20, 29, 0.55));
+    padding: 22px 18px 20px;
     position: relative;
     transform-origin: top center;
     animation: chit-tear-down 320ms cubic-bezier(0.2, 0.7, 0.3, 1.05);
   }
   .chit.crumpling {
     animation: chit-crumple 220ms ease-in forwards;
-  }
-  /* Jagged tear at the top edge (random saw-tooth via repeating gradient mask). */
-  .chit::before {
-    content: '';
-    position: absolute;
-    top: -10px;
-    left: 0;
-    right: 0;
-    height: 12px;
-    background: var(--color-paper);
-    -webkit-mask: linear-gradient(135deg, transparent 33%, #000 33% 66%, transparent 66%) repeat-x 0 0 / 6px 12px;
-            mask: linear-gradient(135deg, transparent 33%, #000 33% 66%, transparent 66%) repeat-x 0 0 / 6px 12px;
-  }
-  /* Subtle bottom shadow to feel like paper resting on the dark ledger desk. */
-  .chit::after {
-    content: '';
-    position: absolute;
-    left: 8%;
-    right: 8%;
-    bottom: -6px;
-    height: 6px;
-    background: radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, transparent 70%);
-    pointer-events: none;
   }
   .chit-discard {
     position: absolute;
