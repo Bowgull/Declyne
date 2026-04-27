@@ -69,6 +69,8 @@ export const period_allocations = sqliteTable('period_allocations', {
   stamped_at: text('stamped_at'),
   stamped_by: text('stamped_by', { enum: ['user', 'csv_match'] }),
   created_at: text('created_at').notNull(),
+  plan_id: text('plan_id'),
+  committed_at: text('committed_at'),
 });
 
 export const debts = sqliteTable('debts', {

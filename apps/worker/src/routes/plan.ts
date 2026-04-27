@@ -8,6 +8,7 @@ import {
 } from '../lib/paymentPlan.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { redactSensitive } from '../lib/logRedact.js';
+import { writeEditLog } from '../lib/editlog.js';
 
 export const planRoutes = new Hono<{ Bindings: Env }>();
 
@@ -157,11 +158,72 @@ async function readLatestCache(env: Env, hash: string): Promise<CacheRow | null>
   return row ?? null;
 }
 
+interface CurrentPeriodRow {
+  id: string;
+  start_date: string;
+  end_date: string;
+}
+
+async function loadCurrentPeriod(env: Env): Promise<CurrentPeriodRow | null> {
+  const r = await env.DB.prepare(
+    `SELECT id, start_date, end_date FROM pay_periods
+     WHERE start_date <= date('now')
+     ORDER BY start_date DESC LIMIT 1`,
+  ).first<CurrentPeriodRow>();
+  return r ?? null;
+}
+
+interface CommittedRow {
+  id: string;
+  label: string;
+  planned_cents: number;
+  stamped_at: string | null;
+  committed_at: string;
+  plan_id: string;
+}
+
+interface CommittedSummary {
+  plan_id: string;
+  committed_at: string;
+  pay_period_id: string;
+  installment_count: number;
+  total_cents: number;
+  stamped_count: number;
+  unstamped_count: number;
+}
+
+async function loadCommittedForPeriod(env: Env, periodId: string): Promise<CommittedSummary | null> {
+  const { results } = await env.DB.prepare(
+    `SELECT id, label, planned_cents, stamped_at, committed_at, plan_id
+     FROM period_allocations
+     WHERE pay_period_id = ?
+       AND category_group = 'debt'
+       AND committed_at IS NOT NULL
+       AND plan_id IS NOT NULL`,
+  ).bind(periodId).all<CommittedRow>();
+  const rows = results ?? [];
+  if (rows.length === 0) return null;
+  // Most recent commit wins if user re-accepts after a refresh.
+  const latest = rows.reduce((acc, r) => (r.committed_at > acc.committed_at ? r : acc), rows[0]!);
+  const same = rows.filter((r) => r.plan_id === latest.plan_id);
+  return {
+    plan_id: latest.plan_id,
+    committed_at: latest.committed_at,
+    pay_period_id: periodId,
+    installment_count: same.length,
+    total_cents: same.reduce((s, r) => s + r.planned_cents, 0),
+    stamped_count: same.filter((r) => r.stamped_at != null).length,
+    unstamped_count: same.filter((r) => r.stamped_at == null).length,
+  };
+}
+
 planRoutes.get('/', async (c) => {
   const b = await loadPlanInputs(c.env);
   const out = runPlan(b);
   const hash = hashPlanInputs(b);
   const cache = await readLatestCache(c.env, hash);
+  const period = await loadCurrentPeriod(c.env);
+  const committed = period ? await loadCommittedForPeriod(c.env, period.id) : null;
 
   return c.json({
     plan: out,
@@ -177,6 +239,8 @@ planRoutes.get('/', async (c) => {
     rationale_generated_at: cache?.generated_at ?? null,
     rationale_source: cache?.source ?? null,
     inputs_hash: hash,
+    current_period_id: period?.id ?? null,
+    committed,
   });
 });
 
@@ -320,4 +384,101 @@ Rules:
     observations,
     inputs_hash: hash,
   });
+});
+
+// Accept the current plan: stamps every debt allocation in the current
+// pay period with the plan's cache id + a committed_at timestamp. Idempotent
+// on (period, hash) — re-accepting after a refresh just rewrites the plan_id.
+planRoutes.post('/accept', async (c) => {
+  const period = await loadCurrentPeriod(c.env);
+  if (!period) return c.json({ error: 'no_current_period' }, 400);
+
+  const b = await loadPlanInputs(c.env);
+  const out = runPlan(b);
+  const hash = hashPlanInputs(b);
+  const now = nowIso();
+
+  // Reuse a matching cache row when one exists; otherwise snapshot.
+  let cache = await readLatestCache(c.env, hash);
+  if (!cache) {
+    const id = newId('pcache');
+    await c.env.DB.prepare(
+      `INSERT INTO plan_cache (id, generated_at, inputs_hash, plan_json, rationale_text, observations_json, source)
+       VALUES (?,?,?,?,NULL,NULL,'manual')`,
+    ).bind(id, now, hash, JSON.stringify(out)).run();
+    cache = { id, generated_at: now, inputs_hash: hash, plan_json: JSON.stringify(out), rationale_text: null, observations_json: null, source: 'manual' };
+  }
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, plan_id, committed_at FROM period_allocations
+     WHERE pay_period_id = ? AND category_group = 'debt'`,
+  ).bind(period.id).all<{ id: string; plan_id: string | null; committed_at: string | null }>();
+  const rows = results ?? [];
+  if (rows.length === 0) return c.json({ error: 'no_debt_allocations', period_id: period.id }, 400);
+
+  await c.env.DB.batch(
+    rows.map((r) =>
+      c.env.DB.prepare(
+        `UPDATE period_allocations SET plan_id = ?, committed_at = ? WHERE id = ?`,
+      ).bind(cache.id, now, r.id),
+    ),
+  );
+
+  await writeEditLog(
+    c.env,
+    rows.map((r) => ({
+      entity_type: 'period_allocation',
+      entity_id: r.id,
+      field: 'committed_at',
+      old_value: r.committed_at,
+      new_value: now,
+      actor: 'user' as const,
+      reason: 'plan_accept',
+    })),
+  );
+
+  return c.json({
+    plan_id: cache.id,
+    committed_at: now,
+    pay_period_id: period.id,
+    installments_committed: rows.length,
+  });
+});
+
+// Release the current commitment for this period. Clears plan_id +
+// committed_at on every debt allocation. Already-stamped rows (paid) keep
+// their stamped_at; releasing only undoes the commitment, not the payment.
+planRoutes.post('/release', async (c) => {
+  const period = await loadCurrentPeriod(c.env);
+  if (!period) return c.json({ error: 'no_current_period' }, 400);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, plan_id, committed_at FROM period_allocations
+     WHERE pay_period_id = ? AND category_group = 'debt' AND committed_at IS NOT NULL`,
+  ).bind(period.id).all<{ id: string; plan_id: string | null; committed_at: string }>();
+  const rows = results ?? [];
+  if (rows.length === 0) return c.json({ released: 0, pay_period_id: period.id });
+
+  await c.env.DB.batch(
+    rows.map((r) =>
+      c.env.DB.prepare(
+        `UPDATE period_allocations SET plan_id = NULL, committed_at = NULL WHERE id = ?`,
+      ).bind(r.id),
+    ),
+  );
+
+  await writeEditLog(
+    c.env,
+    rows.map((r) => ({
+      entity_type: 'period_allocation',
+      entity_id: r.id,
+      field: 'committed_at',
+      old_value: r.committed_at,
+      new_value: null,
+      actor: 'user' as const,
+      reason: 'plan_release',
+    })),
+  );
+
+  return c.json({ released: rows.length, pay_period_id: period.id });
 });

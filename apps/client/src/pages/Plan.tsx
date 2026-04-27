@@ -27,6 +27,16 @@ type PlanOutput = {
   capacity_cents: number;
 };
 
+type CommittedSummary = {
+  plan_id: string;
+  committed_at: string;
+  pay_period_id: string;
+  installment_count: number;
+  total_cents: number;
+  stamped_count: number;
+  unstamped_count: number;
+};
+
 type PlanResponse = {
   plan: PlanOutput;
   inputs: {
@@ -41,6 +51,8 @@ type PlanResponse = {
   rationale_generated_at: string | null;
   rationale_source: 'ai' | 'manual' | 'pending' | null;
   inputs_hash: string;
+  current_period_id: string | null;
+  committed: CommittedSummary | null;
 };
 
 const ROLE_LABEL: Record<PlanAllocation['role'], string> = {
@@ -62,6 +74,7 @@ function payoffLabel(months: number | null): string {
 export default function Plan() {
   const qc = useQueryClient();
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+  const [commitMsg, setCommitMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const planQ = useQuery({
@@ -79,6 +92,44 @@ export default function Plan() {
     onError: (err) => {
       const m = err instanceof Error ? err.message : 'refresh failed';
       setRefreshMsg(m.includes('rate_limited') ? 'rate limit hit; try later' : m);
+    },
+  });
+
+  const accept = useMutation({
+    mutationFn: () =>
+      api.post<{ plan_id: string; committed_at: string; installments_committed: number }>(
+        '/api/plan/accept',
+        {},
+      ),
+    onSuccess: (r) => {
+      setCommitMsg(`accepted · ${r.installments_committed} installments`);
+      qc.invalidateQueries({ queryKey: ['plan'] });
+      qc.invalidateQueries({ queryKey: ['today'] });
+      qc.invalidateQueries({ queryKey: ['allocations'] });
+    },
+    onError: (err) => {
+      const m = err instanceof Error ? err.message : 'accept failed';
+      setCommitMsg(
+        m.includes('no_debt_allocations')
+          ? 'no debt allocations this period — draft them first'
+          : m.includes('no_current_period')
+            ? 'no current pay period'
+            : m,
+      );
+    },
+  });
+
+  const release = useMutation({
+    mutationFn: () => api.post<{ released: number }>('/api/plan/release', {}),
+    onSuccess: (r) => {
+      setCommitMsg(`released · ${r.released} cleared`);
+      qc.invalidateQueries({ queryKey: ['plan'] });
+      qc.invalidateQueries({ queryKey: ['today'] });
+      qc.invalidateQueries({ queryKey: ['allocations'] });
+    },
+    onError: (err) => {
+      const m = err instanceof Error ? err.message : 'release failed';
+      setCommitMsg(m);
     },
   });
 
@@ -177,6 +228,63 @@ export default function Plan() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {plan && debtIds.length > 0 && (
+          <div className="pt-3 flex flex-col gap-2" style={perforation}>
+            <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+              <span>Commitment</span>
+              {data?.committed ? (
+                <button
+                  type="button"
+                  className="stamp stamp-square"
+                  disabled={release.isPending}
+                  onClick={() => {
+                    setCommitMsg(null);
+                    release.mutate();
+                  }}
+                >
+                  {release.isPending ? 'Releasing' : 'Release'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="postage"
+                  style={{ minWidth: 80, padding: '8px 10px 6px', transform: 'rotate(-1.6deg)' }}
+                  disabled={accept.isPending || !data?.current_period_id}
+                  onClick={() => {
+                    setCommitMsg(null);
+                    accept.mutate();
+                  }}
+                >
+                  <span className="postage-denom" style={{ fontSize: 8 }}>$1</span>
+                  <span className="postage-label" style={{ fontSize: 9 }}>
+                    {accept.isPending ? 'Stamping' : <>Accept<br />this plan</>}
+                  </span>
+                </button>
+              )}
+            </div>
+            {data?.committed ? (
+              <div className="flex flex-col gap-0.5">
+                <div className="text-sm">
+                  {data.committed.installment_count} installments · {formatCents(data.committed.total_cents)}
+                </div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                  committed {data.committed.committed_at.slice(0, 10)} ·{' '}
+                  {data.committed.stamped_count}/{data.committed.installment_count} paid
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-[color:var(--color-text-muted)] italic">
+                Stamp the plan to lock these installments. Today will surface them. Reconciliation will track them.
+              </p>
+            )}
+            {commitMsg && (
+              <div className="text-[11px] text-[color:var(--color-text-muted)] uppercase tracking-[0.18em]">
+                {commitMsg}
+              </div>
+            )}
           </div>
         )}
 
