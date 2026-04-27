@@ -1,12 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { Share } from '@capacitor/share';
-import { Capacitor } from '@capacitor/core';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { DeclyneWordmark } from '../components/DeclyneWordmark';
-import { MailArt } from '../components/PostageArt';
 
 type TankResp = {
   period: { start_date: string; end_date: string } | null;
@@ -24,7 +21,6 @@ type Counterparty = {
   direction: 'owes_you' | 'you_owe' | 'settled';
   open_tab_count: number;
   last_tab_at: string | null;
-  latest_owes_you_split_id: string | null;
 };
 
 function pad(n: number, w: number) {
@@ -202,34 +198,6 @@ export default function Today() {
     }, 220);
   }
 
-  // Send-payment-link state. Inline postage stamp on owes-you rows fires the
-  // link generator against the counterparty's largest open they_owe split
-  // (resolved server-side via latest_owes_you_split_id).
-  const [linkBusy, setLinkBusy] = useState<string | null>(null);
-  const [linkErr, setLinkErr] = useState<string | null>(null);
-
-  async function sendPaymentLink(splitId: string, recipientName: string, amountCents: number) {
-    setLinkBusy(splitId);
-    setLinkErr(null);
-    try {
-      const res = await api.post<{ url: string }>('/api/payment-links', { split_id: splitId });
-      const message = `Hey ${recipientName} — here's the tab. ${formatCents(amountCents)} my way: ${res.url}`;
-      if (Capacitor.isNativePlatform()) {
-        await Share.share({ title: 'Payment request', text: message, url: res.url });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(res.url);
-        setLinkErr('Link copied.');
-      } else {
-        setLinkErr(res.url);
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Send failed.';
-      setLinkErr(/interac_email/i.test(msg) ? 'Set your Interac email in Settings first.' : 'Send failed.');
-    } finally {
-      setLinkBusy(null);
-    }
-  }
-
   const createSplit = useMutation({
     mutationFn: (input: {
       counterparty_id?: string;
@@ -300,32 +268,20 @@ export default function Today() {
 
         {/* TODAY queue — actionable items + upcoming bills, sorted chronologically. */}
         {(() => {
+          // Row-type glyph vocabulary. See lib/rowGlyph.ts for the full set.
+          // Today's queue uses: ↻ bill, ▸ plan installment, + payday,
+          // ? review queue. Reconcile action stays glyph-free (it's a ritual,
+          // not a money row).
+          type Glyph = '↻' | '▸' | '+' | '?' | null;
           type QueueItem = {
             key: string;
             label: string;
             meta: string;
             days_until: number;
             href?: string;
-            // 'income' | 'debt' | 'essentials' | 'lifestyle' | 'savings' | 'indulgence' | null
-            dotClass?: string | null;
+            glyph?: Glyph;
+            glyphTone?: 'income' | 'debt' | 'muted' | null;
           };
-          // Map worker category_group to a cat-dot class. Transfer (CC payment,
-          // savings sweep) reads as savings — sage feels right for "moving
-          // money around". Anything unknown gets no dot.
-          function dotFor(group: string | undefined): string | null {
-            if (!group) return null;
-            if (group === 'transfer') return 'savings';
-            if (
-              group === 'essentials' ||
-              group === 'lifestyle' ||
-              group === 'savings' ||
-              group === 'debt' ||
-              group === 'indulgence' ||
-              group === 'income'
-            )
-              return group;
-            return null;
-          }
           const queue: QueueItem[] = [];
           if (sundayDays === 0 && !reconciliation.data?.completed_this_week) {
             queue.push({ key: 'reconcile', label: 'Reconcile this week', meta: 'now', days_until: 0, href: '/reconcile' });
@@ -337,21 +293,29 @@ export default function Today() {
               meta: 'now',
               days_until: 0,
               href: '/review',
+              glyph: '?',
+              glyphTone: 'muted',
             });
           }
           for (const row of printingAhead) {
-            const dot =
-              row.kind === 'payday'
-                ? 'income'
-                : row.kind === 'plan'
-                ? 'debt'
-                : dotFor(row.category_group);
+            let glyph: Glyph;
+            let tone: QueueItem['glyphTone'] = null;
+            if (row.kind === 'payday') {
+              glyph = '+';
+              tone = 'income';
+            } else if (row.kind === 'plan') {
+              glyph = '▸';
+              tone = 'debt';
+            } else {
+              glyph = '↻';
+            }
             queue.push({
               key: `${row.kind}-${row.due_date}-${row.label}`,
               label: row.kind === 'plan' ? `Plan: ${row.label}` : row.label,
               meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
               days_until: row.days_until,
-              dotClass: dot,
+              glyph,
+              glyphTone: tone,
               ...(row.kind === 'plan' ? { href: '/budget/plan' } : {}),
             });
           }
@@ -370,21 +334,15 @@ export default function Today() {
                         <div className="flex items-baseline gap-3">
                           <div className="num label-tag" style={{ width: 44, color: 'var(--color-ink-muted)' }}>{dayLabel}</div>
                           <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
-                            {item.dotClass && <span className={`cat-dot ${item.dotClass}`} />}
+                            {item.glyph && (
+                              <span className={`row-glyph${item.glyphTone ? ' ' + item.glyphTone : ''}`}>
+                                {item.glyph}
+                              </span>
+                            )}
                             {item.label}
                           </div>
                         </div>
-                        <div
-                          className="num text-sm"
-                          style={{
-                            color:
-                              item.dotClass === 'income'
-                                ? 'var(--cat-income)'
-                                : item.dotClass === 'debt'
-                                ? 'var(--cat-debt)'
-                                : 'var(--color-ink)',
-                          }}
-                        >
+                        <div className="num text-sm" style={{ color: 'var(--color-ink)' }}>
                           {item.meta}
                           {item.href && <span style={{ color: 'var(--color-ink-muted)' }}> &rsaquo;</span>}
                         </div>
@@ -441,31 +399,9 @@ export default function Today() {
                           {dirLabel} &middot; {cp.open_tab_count} {cp.open_tab_count === 1 ? 'chit' : 'chits'}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className={`num text-sm ${colorClass}`}>
-                          {cp.direction === 'owes_you' ? '+' : cp.direction === 'you_owe' ? '−' : ''}
-                          {formatCents(Math.abs(cp.net_cents))}
-                        </div>
-                        {cp.direction === 'owes_you' && cp.latest_owes_you_split_id && (
-                          <button
-                            type="button"
-                            className="postage"
-                            disabled={linkBusy === cp.latest_owes_you_split_id}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (cp.latest_owes_you_split_id) {
-                                sendPaymentLink(cp.latest_owes_you_split_id, cp.name, cp.owes_you_cents);
-                              }
-                            }}
-                            style={{ minWidth: 64, padding: '8px 10px 6px', transform: 'rotate(-2deg)' }}
-                          >
-                            <span className="postage-art" style={{ width: 24, height: 24 }}><MailArt /></span>
-                            <span className="postage-label" style={{ fontSize: 8 }}>
-                              {linkBusy === cp.latest_owes_you_split_id ? 'Sending' : <>Send<br />link</>}
-                            </span>
-                          </button>
-                        )}
+                      <div className={`num text-sm ${colorClass}`}>
+                        {cp.direction === 'owes_you' ? '+' : cp.direction === 'you_owe' ? '−' : ''}
+                        {formatCents(Math.abs(cp.net_cents))}
                       </div>
                     </div>
                     {chitOpen?.prefilledFor === cp.id && (
@@ -507,11 +443,6 @@ export default function Today() {
             <span>Tear new chit</span>
             <span className="cut-line" aria-hidden />
           </button>
-          {linkErr && (
-            <div className="label-tag mt-2 text-center" style={{ color: 'var(--color-ink-muted)' }}>
-              {linkErr}
-            </div>
-          )}
           <div className="label-tag mt-2 text-center" style={{ color: 'var(--color-ink-muted)', opacity: 0.6 }}>
             long-press a name above to prefill
           </div>

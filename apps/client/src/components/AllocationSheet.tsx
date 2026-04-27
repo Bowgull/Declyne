@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { glyphForCategory } from '../lib/rowGlyph';
 
 export type AllocationRow = {
   id: string;
@@ -95,8 +96,12 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
           {groupRows.length === 0 && (
             <li className="text-sm ink-muted py-3">Nothing assigned here yet.</li>
           )}
-          {groupRows.map((r) => (
+          {groupRows.map((r) => {
+            const glyph = glyphForCategory(r.category_group, -r.planned_cents);
+            const tone = glyph === '▸' ? 'debt' : '';
+            return (
             <li key={r.id} className="row-tap py-3 perf flex items-center justify-between gap-3">
+              <span className={`row-glyph${tone ? ' ' + tone : ''}`}>{glyph}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm truncate">{r.label}</div>
                 <div className="text-[10px] uppercase tracking-[0.18em] ink-muted">
@@ -132,7 +137,8 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
                 ×
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
 
         {adding ? (

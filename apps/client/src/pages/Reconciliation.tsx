@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { dismissFollowUpThisWeek } from '../native/notifications';
 import { SealArt } from '../components/PostageArt';
+import { glyphForCategory } from '../lib/rowGlyph';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
@@ -529,9 +530,13 @@ function AccountRec({
 function LineItem({ t }: { t: Txn }) {
   const isIncome = t.amount_cents > 0;
   const hue = hueFor(t.category_group);
+  const glyph = glyphForCategory(t.category_group, t.amount_cents);
+  const tone =
+    glyph === '+' ? 'income' : glyph === '▸' ? 'debt' : glyph === '?' ? 'muted' : '';
   return (
     <div className="flex items-baseline justify-between gap-3 text-xs">
       <div className="min-w-0 flex-1 flex items-baseline gap-2">
+        <span className={`row-glyph${tone ? ' ' + tone : ''}`}>{glyph}</span>
         <span className={`cat-dot ${hue}`} style={{ marginTop: 4 }} />
         <div className="min-w-0 flex-1">
           <div className="truncate">{t.merchant_name}</div>
