@@ -42,25 +42,39 @@ interface AllocationsResp {
     stamped_cents: number;
   } | null;
 }
-interface Goal {
-  id: string;
-  name: string;
-  target_cents: number;
-  progress_cents: number;
-  archived: number;
-}
-interface Debt {
-  id: string;
-  name: string;
-  principal_cents: number;
-  archived: number;
-}
 interface Counterparty {
   id: string;
   name: string;
   net_cents: number;
   direction: 'owes_you' | 'you_owe' | 'settled';
   open_tab_count: number;
+}
+
+type CommittedSource = 'bill' | 'debt_min' | 'savings_goal' | 'savings_recurring';
+interface CommittedLine {
+  source: CommittedSource;
+  label: string;
+  amount_cents: number;
+  due_date?: string;
+  ref_id?: string;
+}
+interface PaycheckSnapshot {
+  period: { id: string; start_date: string; end_date: string };
+  paycheque_cents: number;
+  committed: {
+    bills_cents: number;
+    debt_mins_cents: number;
+    savings_cents: number;
+    total_cents: number;
+    lines: CommittedLine[];
+  };
+  available_for_debt_extra_cents: number;
+  spending_money_cents: number;
+  baseline: {
+    lifestyle_per_paycheque_cents: number;
+    indulgence_per_paycheque_cents: number;
+  };
+  spent_so_far_cents: number;
 }
 
 type AllocGroup = AllocationRow['category_group'];
@@ -74,6 +88,17 @@ function fmtRange(start: string, end: string) {
 
 function pct(num: number, denom: number): number {
   return denom <= 0 ? 0 : Math.max(0, Math.min(100, (num / denom) * 100));
+}
+
+function fmtDay(iso?: string) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }).toUpperCase();
+}
+
+function ruleClassFor(source: CommittedSource): string {
+  if (source === 'bill') return 'cat-rule essentials';
+  if (source === 'debt_min') return 'cat-rule debt';
+  return 'cat-rule savings';
 }
 
 function MiniTank({ row }: { row: HistoryRow }) {
@@ -117,13 +142,9 @@ export default function Budget() {
     queryKey: ['allocations'],
     queryFn: () => api.get<AllocationsResp>('/api/allocations'),
   });
-  const goals = useQuery({
-    queryKey: ['goals-active'],
-    queryFn: () => api.get<{ goals: Goal[] }>('/api/goals'),
-  });
-  const debts = useQuery({
-    queryKey: ['debts'],
-    queryFn: () => api.get<{ debts: Debt[] }>('/api/debts'),
+  const paycheque = useQuery({
+    queryKey: ['paycheque-snapshot'],
+    queryFn: () => api.get<{ snapshot: PaycheckSnapshot | null }>('/api/paycheque'),
   });
   const counterparties = useQuery({
     queryKey: ['counterparties'],
@@ -132,12 +153,15 @@ export default function Budget() {
 
   const draft = useMutation({
     mutationFn: () => api.post<{ inserted: number }>('/api/allocations/draft'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['allocations'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['allocations'] });
+      qc.invalidateQueries({ queryKey: ['paycheque-snapshot'] });
+    },
   });
 
   const t = tank.data;
   const period = t?.period ?? null;
-  const paycheque = t?.paycheque_cents ?? 0;
+  const paycheque_cents = t?.paycheque_cents ?? 0;
   const essentialsSpend = t?.by_group.essentials ?? 0;
   const lifestyleSpend = t?.by_group.lifestyle ?? 0;
   const indulgenceSpend = t?.by_group.indulgence ?? 0;
@@ -148,7 +172,7 @@ export default function Budget() {
     essentialsSpend + lifestyleSpend + indulgenceSpend + debtSpend + transferSpend + uncatSpend;
   const remaining = t?.remaining_cents ?? 0;
 
-  const denom = Math.max(paycheque, totalSpend + remaining, 1);
+  const denom = Math.max(paycheque_cents, totalSpend + remaining, 1);
   const fillPctV = pct(remaining, denom);
   const savingsPctV = pct(transferSpend, denom);
   const essentialsPctV = pct(essentialsSpend, denom);
@@ -157,7 +181,7 @@ export default function Budget() {
   const uncatPctV = pct(uncatSpend, denom);
   const indulgencePctV = pct(indulgenceSpend, denom);
 
-  // Velocity: last 4 weeks vs prior 4 weeks (cents — what the trend route gives us).
+  // Velocity: last 4 weeks vs prior 4 weeks.
   const weeks = trend.data?.weeks ?? [];
   const recent4 = weeks.slice(-4);
   const prior4 = weeks.slice(-8, -4);
@@ -173,11 +197,12 @@ export default function Budget() {
   const totals = allocations.data?.totals ?? null;
   const assigned = totals?.assigned_cents ?? 0;
   const unassigned = totals?.unassigned_cents ?? 0;
-  const activeGoals = (goals.data?.goals ?? []).filter((g) => !g.archived).slice(0, 3);
   const historyRows = history.data?.rows ?? [];
-  const activeDebts = (debts.data?.debts ?? []).filter((d) => !d.archived);
-  const totalOwed = activeDebts.reduce((s, d) => s + d.principal_cents, 0);
   const openTabs = (counterparties.data?.counterparties ?? []).filter((c) => c.direction !== 'settled');
+
+  const snapshot = paycheque.data?.snapshot ?? null;
+  const committedLines = snapshot?.committed.lines ?? [];
+  const committedTotal = snapshot?.committed.total_cents ?? 0;
 
   const subtitle = period ? fmtRange(period.start_date, period.end_date) : 'No paycheque yet';
 
@@ -197,28 +222,69 @@ export default function Budget() {
         </section>
       )}
 
-      <PlanRow />
-
-      {period && weeks.length > 0 && (
-        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] flex items-center gap-2 flex-wrap">
-          <span className="cat-dot indulgence" />
-          <span>Indulgence 30d</span>
-          <span style={{ color: 'var(--cat-indulgence)' }}>{recentPct.toFixed(0)}%</span>
-          <span>·</span>
-          <span>{formatCents(indulgenceDollars)}</span>
-          {prior4.length > 0 && (
-            <>
-              <span>·</span>
-              <span>
-                {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts).toFixed(1)}pt vs prior
-              </span>
-            </>
-          )}
-        </div>
+      {period && (
+        <section className="ledger-section pt-4">
+          <span className="ledger-section-kicker">
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>01</span> Income
+          </span>
+          <div className="ledger-row">
+            <div className="flex items-center gap-3 ledger-row-main">
+              <span className="cat-rule income" />
+              <div className="min-w-0">
+                <div className="text-sm">Paycheque</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                  {fmtRange(period.start_date, period.end_date)}
+                </div>
+              </div>
+            </div>
+            <span className="num ledger-row-value" style={{ color: 'var(--cat-income)' }}>
+              + {formatCents(paycheque_cents)}
+            </span>
+          </div>
+        </section>
       )}
 
       {period && (
-        <section style={{ height: '60vh', minHeight: 380 }}>
+        <section className="ledger-section pt-4">
+          <span className="ledger-section-kicker">
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Committed
+          </span>
+          <span className="ledger-section-meta">
+            {formatCents(committedTotal)}
+          </span>
+          {committedLines.length === 0 ? (
+            <div className="ledger-row">
+              <span className="ledger-row-main text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                Nothing yet · bills, debt mins and savings sweeps land here
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              {committedLines.map((line, i) => (
+                <div key={`${line.source}-${line.ref_id ?? i}-${i}`} className="ledger-row">
+                  <div className="flex items-center gap-3 ledger-row-main">
+                    <span className={ruleClassFor(line.source)} />
+                    <div className="min-w-0">
+                      <div className="text-sm truncate">{line.label}</div>
+                      {line.due_date && (
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                          due {fmtDay(line.due_date)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="num ledger-row-value">{formatCents(line.amount_cents)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <PlanRow />
+
+      {period && (
+        <section style={{ height: '40vh', minHeight: 280 }}>
           <div className="tank h-full">
             <div className="tank-grid" />
             <span className="tank-tick" style={{ top: '25%' }} />
@@ -263,12 +329,12 @@ export default function Budget() {
             </div>
             <div className="tank-overlay">
               <div className="tank-overlay-top">
-                <span>In {formatCents(paycheque)}</span>
+                <span>In {formatCents(paycheque_cents)}</span>
                 <span>{t?.days_remaining ?? 0}d left</span>
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.18em] tank-number-label font-mono">
-                  Left to spend
+                  Available
                 </div>
                 <div className="tank-number text-5xl mt-1">{formatCents(remaining)}</div>
                 {totals && (
@@ -305,85 +371,42 @@ export default function Budget() {
         </button>
       )}
 
-      <NetWorthRow />
-
-      {historyRows.length > 0 && (
+      {(weeks.length > 0 || historyRows.length > 0) && (
         <section className="ledger-section pt-4">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>04</span> Last {historyRows.length} {historyRows.length === 1 ? 'period' : 'periods'}
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>05</span> Trends
           </span>
-          <div className="grid grid-cols-4 gap-2 pt-3">
-            {historyRows.map((r) => (
-              <MiniTank key={r.id} row={r} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {activeGoals.length > 0 && (
-        <section className="ledger-section pt-4">
-          <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>05</span> Goals
-          </span>
-          <Link to="/goals" className="ledger-section-meta hover:underline">all &rsaquo;</Link>
-          <div className="flex flex-col">
-            {activeGoals.map((g) => {
-              const p = g.target_cents > 0 ? Math.min(100, (g.progress_cents / g.target_cents) * 100) : 0;
-              return (
-                <div key={g.id} className="ledger-row">
-                  <div className="flex items-center gap-3 ledger-row-main">
-                    <span className="cat-rule savings" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm truncate">{g.name}</div>
-                      <div className="h-px bg-[color:var(--rule-ink)] relative mt-1.5">
-                        <div
-                          className="absolute inset-y-0 left-0"
-                          style={{ width: `${p}%`, height: 1, background: 'var(--cat-savings)' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <span className="num ledger-row-value text-xs text-[color:var(--color-text-muted)]">
-                    {formatCents(g.progress_cents)} / {formatCents(g.target_cents)}
+          {weeks.length > 0 && (
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] flex items-center gap-2 flex-wrap pt-3">
+              <span className="cat-dot indulgence" />
+              <span>Indulgence 30d</span>
+              <span style={{ color: 'var(--cat-indulgence)' }}>{recentPct.toFixed(0)}%</span>
+              <span>·</span>
+              <span>{formatCents(indulgenceDollars)}</span>
+              {prior4.length > 0 && (
+                <>
+                  <span>·</span>
+                  <span>
+                    {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts).toFixed(1)}pt vs prior
                   </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {activeDebts.length > 0 && (
-        <section className="ledger-section pt-4">
-          <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>06</span> Debts
-          </span>
-          <Link to="/debts" className="ledger-section-meta hover:underline">manage &rsaquo;</Link>
-          <div className="flex flex-col">
-            {activeDebts.slice(0, 4).map((d) => (
-              <Link key={d.id} to="/debts" className="ledger-row">
-                <div className="flex items-center gap-3 ledger-row-main">
-                  <span className="cat-rule debt" />
-                  <div className="text-sm truncate">{d.name}</div>
-                </div>
-                <span className="num ledger-row-value">{formatCents(d.principal_cents)}</span>
-                <span className="ledger-row-chevron">&rsaquo;</span>
-              </Link>
-            ))}
-            <div className="ledger-row">
-              <span className="ledger-row-main text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-                Total owed
-              </span>
-              <span className="num ledger-row-value">{formatCents(totalOwed)}</span>
+                </>
+              )}
             </div>
-          </div>
+          )}
+          {historyRows.length > 0 && (
+            <div className="grid grid-cols-4 gap-2 pt-3">
+              {historyRows.map((r) => (
+                <MiniTank key={r.id} row={r} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
       {openTabs.length > 0 && (
         <section className="ledger-section pt-4">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>07</span> Open tabs
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>06</span> Open tabs
           </span>
           <div className="flex flex-col">
             {openTabs.slice(0, 4).map((c) => (
@@ -431,40 +454,6 @@ export default function Budget() {
   );
 }
 
-interface NetWorthResp {
-  assets_cents: number;
-  liabilities_cents: number;
-  net_worth_cents: number;
-}
-
-function NetWorthRow() {
-  const nw = useQuery({
-    queryKey: ['net-worth'],
-    queryFn: () => api.get<NetWorthResp>('/api/gl/net-worth'),
-  });
-  const data = nw.data;
-  return (
-    <section className="ledger-section pt-4">
-      <span className="ledger-section-kicker">
-        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Net worth
-      </span>
-      <Link to="/settings/trial-balance" className="ledger-section-meta hover:underline">trial &rsaquo;</Link>
-      <Link to="/settings/trial-balance" className="ledger-row tap">
-        <div className="ledger-row-main">
-          <span className="ledger-row-label">Assets − Liabilities</span>
-          <span className="ledger-row-hint">
-            {data
-              ? `${formatCents(data.assets_cents)} − ${formatCents(data.liabilities_cents)}`
-              : '—'}
-          </span>
-        </div>
-        <span className="ledger-row-value">{data ? formatCents(data.net_worth_cents) : '—'}</span>
-        <span className="ledger-row-chevron">&rsaquo;</span>
-      </Link>
-    </section>
-  );
-}
-
 type PlanRowResp = {
   plan: {
     capacity_cents: number;
@@ -483,12 +472,12 @@ function PlanRow() {
   return (
     <section className="ledger-section pt-4">
       <span className="ledger-section-kicker">
-        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Payoff plan
+        <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Recommended
       </span>
       <Link to="/budget/plan" className="ledger-section-meta hover:underline">open &rsaquo;</Link>
       <Link to="/budget/plan" className="ledger-row tap">
         <div className="ledger-row-main">
-          <span className="ledger-row-label">Next paycheque toward debt</span>
+          <span className="ledger-row-label">Toward debt next paycheque</span>
           <span className="ledger-row-hint">
             {data ? `capacity ${formatCents(data.capacity_cents)} · saves ${formatCents(data.savings_cents)}` : '—'}
           </span>
