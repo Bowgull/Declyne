@@ -19,6 +19,8 @@ interface TankResp {
   by_group: Record<string, number>;
   total_spent_cents: number;
   remaining_cents: number;
+  committed_cents: number;
+  truly_free_cents: number;
   days_remaining: number;
 }
 interface HistoryRow {
@@ -343,6 +345,12 @@ export default function Budget() {
                     <span style={{ color: unassigned < 0 ? 'var(--cat-indulgence)' : '#2a2228' }}>
                       Unassigned {formatCents(unassigned)}
                     </span>
+                  </div>
+                )}
+                {(t?.committed_cents ?? 0) > 0 && (
+                  <div className="tank-overlay-bottom mt-1 font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: '#2a2228' }}>
+                    <span>Free {formatCents(t?.truly_free_cents ?? 0)}</span>
+                    <span style={{ color: 'var(--cat-debt)' }}>Committed {formatCents(t?.committed_cents ?? 0)}</span>
                   </div>
                 )}
                 <div className="tank-overlay-bottom mt-2">

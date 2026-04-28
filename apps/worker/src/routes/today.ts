@@ -124,6 +124,7 @@ todayRoutes.get('/', async (c) => {
     due_date: string;
     days_until: number;
     category_group?: string;
+    merchant_id?: string;
   };
   const printing_ahead: Item[] = [
     ...bills.map<Item>((b) => ({
@@ -133,6 +134,7 @@ todayRoutes.get('/', async (c) => {
       due_date: b.next_due,
       days_until: b.days_until,
       category_group: b.category_group,
+      merchant_id: b.merchant_id,
     })),
     ...installments.map<Item>((i) => ({ kind: 'plan', ...i, category_group: 'debt' })),
     ...(payday
@@ -150,5 +152,78 @@ todayRoutes.get('/', async (c) => {
 
   const next_bill = bills[0] ?? null;
 
-  return c.json({ rcpt_days, last_indulgence, next_bill, printing_ahead });
+  // Active plan summary for the Today hero slot — non-null when there are
+  // pending (committed but not stamped) installments this period.
+  const active_plan =
+    installments.length > 0
+      ? {
+          total_pending_cents: installments.reduce((s, i) => s + i.amount_cents, 0),
+          installment_count: installments.length,
+          period_end: period!.end_date,
+        }
+      : null;
+
+  return c.json({ rcpt_days, last_indulgence, next_bill, printing_ahead, active_plan });
+});
+
+// Last 3 occurrences for a Today queue row. Powers the drill-in accordion.
+todayRoutes.get('/history', async (c) => {
+  const kind = c.req.query('kind');
+  type Row = { posted_at: string; amount_cents: number; description?: string };
+
+  if (kind === 'bill') {
+    const merchant_id = c.req.query('merchant_id');
+    if (!merchant_id) return c.json({ error: 'merchant_id required' }, 400);
+    const { results } = await c.env.DB.prepare(
+      `SELECT posted_at, amount_cents, description_raw as description
+       FROM transactions
+       WHERE merchant_id = ? AND amount_cents < 0
+       ORDER BY posted_at DESC LIMIT 3`,
+    ).bind(merchant_id).all<Row>();
+    return c.json({
+      occurrences: (results ?? []).map((r) => ({
+        posted_at: r.posted_at,
+        amount_cents: Math.abs(r.amount_cents),
+        description: r.description ?? '',
+      })),
+    });
+  }
+
+  if (kind === 'payday') {
+    const { results } = await c.env.DB.prepare(
+      `SELECT start_date as posted_at, paycheque_cents as amount_cents
+       FROM pay_periods
+       WHERE start_date <= date('now')
+       ORDER BY start_date DESC LIMIT 3`,
+    ).all<{ posted_at: string; amount_cents: number }>();
+    return c.json({
+      occurrences: (results ?? []).map((r) => ({
+        posted_at: r.posted_at,
+        amount_cents: r.amount_cents,
+        description: '',
+      })),
+    });
+  }
+
+  if (kind === 'plan') {
+    const label = c.req.query('label');
+    if (!label) return c.json({ error: 'label required' }, 400);
+    const { results } = await c.env.DB.prepare(
+      `SELECT pa.stamped_at as posted_at, pa.planned_cents as amount_cents, pa.label as description
+       FROM period_allocations pa
+       WHERE pa.category_group = 'debt'
+         AND pa.stamped_at IS NOT NULL
+         AND (pa.label = ? OR pa.label LIKE ? OR pa.label LIKE ? OR pa.label LIKE ?)
+       ORDER BY pa.stamped_at DESC LIMIT 3`,
+    ).bind(label, `${label} priority`, `${label} avalanche`, `${label} min`).all<Row>();
+    return c.json({
+      occurrences: (results ?? []).map((r) => ({
+        posted_at: (r.posted_at ?? '').slice(0, 10),
+        amount_cents: r.amount_cents,
+        description: r.description ?? '',
+      })),
+    });
+  }
+
+  return c.json({ error: 'unknown kind' }, 400);
 });

@@ -235,17 +235,38 @@ interface CommittedRow {
   plan_id: string;
 }
 
+export interface InstallmentRow {
+  allocation_id: string;
+  debt_name: string;
+  amount_cents: number;
+  due_date: string;
+  status: 'paid' | 'pending';
+  stamped_at: string | null;
+}
+
 interface CommittedSummary {
   plan_id: string;
   committed_at: string;
   pay_period_id: string;
+  period_end_date: string;
   installment_count: number;
   total_cents: number;
   stamped_count: number;
   unstamped_count: number;
+  installments: InstallmentRow[];
 }
 
-async function loadCommittedForPeriod(env: Env, periodId: string): Promise<CommittedSummary | null> {
+// Pure: strips trailing role label from a period_allocation label so the
+// debt name surfaces cleanly (e.g. "Capital One avalanche" → "Capital One").
+export function stripRoleSuffix(label: string): string {
+  return label.replace(/\s+(priority|avalanche|min)\s*$/i, '').trim();
+}
+
+async function loadCommittedForPeriod(
+  env: Env,
+  periodId: string,
+  periodEndDate: string,
+): Promise<CommittedSummary | null> {
   const { results } = await env.DB.prepare(
     `SELECT id, label, planned_cents, stamped_at, committed_at, plan_id
      FROM period_allocations
@@ -259,14 +280,26 @@ async function loadCommittedForPeriod(env: Env, periodId: string): Promise<Commi
   // Most recent commit wins if user re-accepts after a refresh.
   const latest = rows.reduce((acc, r) => (r.committed_at > acc.committed_at ? r : acc), rows[0]!);
   const same = rows.filter((r) => r.plan_id === latest.plan_id);
+
+  const installments: InstallmentRow[] = same.map((r) => ({
+    allocation_id: r.id,
+    debt_name: stripRoleSuffix(r.label),
+    amount_cents: r.planned_cents,
+    due_date: periodEndDate,
+    status: r.stamped_at != null ? 'paid' : 'pending',
+    stamped_at: r.stamped_at,
+  }));
+
   return {
     plan_id: latest.plan_id,
     committed_at: latest.committed_at,
     pay_period_id: periodId,
+    period_end_date: periodEndDate,
     installment_count: same.length,
     total_cents: same.reduce((s, r) => s + r.planned_cents, 0),
     stamped_count: same.filter((r) => r.stamped_at != null).length,
     unstamped_count: same.filter((r) => r.stamped_at == null).length,
+    installments,
   };
 }
 
@@ -276,7 +309,7 @@ planRoutes.get('/', async (c) => {
   const hash = hashPlanInputs(b);
   const cache = await readLatestCache(c.env, hash);
   const period = await loadCurrentPeriod(c.env);
-  const committed = period ? await loadCommittedForPeriod(c.env, period.id) : null;
+  const committed = period ? await loadCommittedForPeriod(c.env, period.id, period.end_date) : null;
 
   return c.json({
     plan: out,
