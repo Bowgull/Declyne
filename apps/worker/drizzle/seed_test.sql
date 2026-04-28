@@ -18,6 +18,7 @@ DELETE FROM journal_lines;
 DELETE FROM journal_entries;
 DELETE FROM period_close;
 DELETE FROM transactions;
+DELETE FROM debts;
 
 -- Accounts
 INSERT OR REPLACE INTO accounts (id, name, institution, type, currency, last_import_at, archived) VALUES
