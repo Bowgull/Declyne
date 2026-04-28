@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { newId } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
+import { projectGoalCompletion } from '../lib/forecast.js';
 
 export const goalsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -109,7 +110,37 @@ goalsRoutes.get('/', async (c) => {
      FROM goals ${where}
      ORDER BY archived ASC, target_date ASC, name ASC`,
   ).all<GoalRow>();
-  return c.json({ goals: results });
+
+  // Projection: derive next_payday from latest pay_period (bi-weekly cadence).
+  // Per-paycheque allocation = remaining / periods-until-target-date, mirroring
+  // the loadActiveGoals heuristic in periodIntelligence.
+  const period = await c.env.DB.prepare(
+    `SELECT end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
+  ).first<{ end_date: string }>();
+  const next_payday = period
+    ? new Date(Date.parse(period.end_date) + 86_400_000).toISOString().slice(0, 10)
+    : null;
+  const todayMs = Date.now();
+
+  const goals = (results ?? []).map((g) => {
+    const remaining = Math.max(0, g.target_cents - g.progress_cents);
+    const daysRem = Math.max(14, Math.round((Date.parse(g.target_date) - todayMs) / 86_400_000));
+    const periodsRem = Math.max(1, Math.round(daysRem / 14));
+    const per_paycheque_cents = Math.ceil(remaining / periodsRem);
+    const projected_complete_date = projectGoalCompletion({
+      remaining_cents: remaining,
+      per_paycheque_cents,
+      next_payday,
+      cadence_days: 14,
+    });
+    return {
+      ...g,
+      per_paycheque_cents,
+      projected_complete_date,
+    };
+  });
+
+  return c.json({ goals });
 });
 
 goalsRoutes.post('/', async (c) => {

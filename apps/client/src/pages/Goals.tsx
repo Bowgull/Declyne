@@ -16,6 +16,8 @@ type Goal = {
   linked_account_id: string | null;
   progress_cents: number;
   archived: number;
+  per_paycheque_cents?: number;
+  projected_complete_date?: string | null;
 };
 
 type Account = {
@@ -111,6 +113,14 @@ export default function Goals() {
                     <span>{formatCents(g.progress_cents)} of {formatCents(g.target_cents)}</span>
                     <span>{formatCents(remaining)} to go · {pct}%</span>
                   </div>
+                  {g.projected_complete_date && (
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                      projected complete {g.projected_complete_date}
+                      {g.per_paycheque_cents
+                        ? ` · ${formatCents(g.per_paycheque_cents)}/paycheque`
+                        : ''}
+                    </div>
+                  )}
                   <div className="h-1 w-full bg-[color:var(--color-line)] rounded">
                     <div
                       className="h-1 bg-[color:var(--color-text)] rounded"

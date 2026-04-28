@@ -42,6 +42,7 @@ import { glRoutes, glAdminRoutes } from './routes/gl.js';
 import { planRoutes } from './routes/plan.js';
 import { paychequeRoutes } from './routes/paycheque.js';
 import { transactionsRoutes } from './routes/transactions.js';
+import { forecastRoutes } from './routes/forecast.js';
 import { auth } from './middleware/auth.js';
 import { redactSensitive } from './lib/logRedact.js';
 
@@ -117,6 +118,7 @@ api.route('/admin', glAdminRoutes);
 api.route('/plan', planRoutes);
 api.route('/paycheque', paychequeRoutes);
 api.route('/transactions', transactionsRoutes);
+api.route('/forecast', forecastRoutes);
 
 app.route('/api', api);
 
