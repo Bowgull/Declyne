@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm --filter @declyne/client build",
+  "outputDirectory": "apps/client/dist",
+  "installCommand": "pnpm install",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
