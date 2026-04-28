@@ -57,6 +57,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
+  const [displayName, setDisplayName] = useState('');
+  const [displayNameSaving, setDisplayNameSaving] = useState(false);
+  const [displayNameSavedAt, setDisplayNameSavedAt] = useState<string | null>(null);
+
   const [interacEmail, setInteracEmail] = useState('');
   const [interacAnswer, setInteracAnswer] = useState('');
   const [interacSaving, setInteracSaving] = useState(false);
@@ -66,6 +70,10 @@ export default function Settings() {
   const [newToken, setNewToken] = useState('');
   const [tokenSaving, setTokenSaving] = useState(false);
   const [tokenMsg, setTokenMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDisplayName(s.user_display_name ?? '');
+  }, [s.user_display_name]);
 
   useEffect(() => {
     setInteracEmail(s.interac_email ?? '');
@@ -100,6 +108,17 @@ export default function Settings() {
     }
   }
 
+  async function saveProfile() {
+    setDisplayNameSaving(true);
+    try {
+      await api.post('/api/settings/user_display_name', { value: displayName.trim() });
+      await qc.invalidateQueries({ queryKey: ['settings'] });
+      setDisplayNameSavedAt(new Date().toLocaleTimeString());
+    } finally {
+      setDisplayNameSaving(false);
+    }
+  }
+
   async function saveInterac() {
     setInteracSaving(true);
     try {
@@ -129,7 +148,29 @@ export default function Settings() {
       />
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">01</span>Data</span>
+        <span className="ledger-section-kicker"><span className="num">01</span>Profile</span>
+        <div className="flex flex-col gap-3 pt-2 pb-4">
+          <label className="field-label">Your name</label>
+          <input
+            className="field"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="How you appear on payment requests"
+            autoComplete="name"
+          />
+          <div className="flex gap-2 pt-1">
+            <button className="stamp stamp-square flex-1" onClick={saveProfile} disabled={displayNameSaving}>
+              {displayNameSaving ? 'Saving.' : 'Save'}
+            </button>
+          </div>
+          {displayNameSavedAt && (
+            <p className="text-xs text-[color:var(--color-text-muted)]">Saved at {displayNameSavedAt}</p>
+          )}
+        </div>
+      </section>
+
+      <section className="ledger-section">
+        <span className="ledger-section-kicker"><span className="num">02</span>Data</span>
         {NAV_ITEMS.map((it) => (
           <Link key={it.to} to={it.to} className="ledger-row tap">
             <div className="ledger-row-main">
@@ -142,7 +183,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">02</span>Interac e-transfer</span>
+        <span className="ledger-section-kicker"><span className="num">03</span>Interac e-transfer</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Used on payment links sent from open tabs. Recipients copy these into their bank app.
         </p>
@@ -175,7 +216,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">03</span>Paycheque detection</span>
+        <span className="ledger-section-kicker"><span className="num">04</span>Paycheque detection</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Anchors pay periods to real deposits. Runs after every CSV import.
         </p>
@@ -238,7 +279,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">04</span>System</span>
+        <span className="ledger-section-kicker"><span className="num">05</span>System</span>
         <Link to="/phase" className="ledger-row tap">
           <div className="ledger-row-main">
             <span className="ledger-row-label">Phase journey</span>
@@ -266,7 +307,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">05</span>Notifications</span>
+        <span className="ledger-section-kicker"><span className="num">06</span>Notifications</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Sunday 9am reconciliation. Tuesday 9am follow-up if Sunday was skipped.
         </p>
@@ -278,7 +319,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">06</span>Cron runs</span>
+        <span className="ledger-section-kicker"><span className="num">07</span>Cron runs</span>
         <span className="ledger-section-meta">last 5</span>
         <div className="pt-3 pb-1">
           {cronRuns.data?.runs.length ? (
@@ -314,7 +355,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">07</span>Audit</span>
+        <span className="ledger-section-kicker"><span className="num">08</span>Audit</span>
         <Link to="/settings/edit-log" className="ledger-row tap">
           <div className="ledger-row-main">
             <span className="ledger-row-label">View edit log</span>
@@ -325,7 +366,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">08</span>Export</span>
+        <span className="ledger-section-kicker"><span className="num">09</span>Export</span>
         <div className="pt-3 pb-2">
           <a className="sticker sticker-cool" href={`${api.baseUrl}/api/export`}>
             <span className="sticker-glyph">⤓</span>
@@ -335,7 +376,7 @@ export default function Settings() {
       </section>
 
       <section className="ledger-section">
-        <span className="ledger-section-kicker"><span className="num">09</span>API token</span>
+        <span className="ledger-section-kicker"><span className="num">10</span>API token</span>
         <p className="text-sm text-[color:var(--color-text-muted)] pt-2 pb-3">
           Stored in iOS Keychain (or browser secure storage). Paste a fresh token after rotating in Cloudflare.
         </p>

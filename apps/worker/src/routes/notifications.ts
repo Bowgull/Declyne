@@ -6,6 +6,7 @@ import {
   type BillInput,
   type DebtInput,
   type TankInput,
+  type ScheduleInput,
 } from '../lib/notificationSchedule.js';
 
 export const notificationsRoutes = new Hono<{ Bindings: Env }>();
@@ -73,15 +74,18 @@ notificationsRoutes.get('/schedule', async (c) => {
     };
   }
 
-  const notifications = buildNotificationSchedule(
-    {
-      bills,
-      debts: debtRows ?? [],
-      payday: { next_payday: payday?.next_due ?? null },
-      tank,
-    },
-    today,
-  );
+  const nameRow = await c.env.DB.prepare(
+    `SELECT value FROM settings WHERE key = 'user_display_name' LIMIT 1`,
+  ).first<{ value: string }>();
+
+  const scheduleInput: ScheduleInput = {
+    bills,
+    debts: debtRows ?? [],
+    payday: { next_payday: payday?.next_due ?? null },
+    tank,
+  };
+  if (nameRow?.value) scheduleInput.userName = nameRow.value;
+  const notifications = buildNotificationSchedule(scheduleInput, today);
 
   return c.json({ today, notifications });
 });

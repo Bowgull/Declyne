@@ -3,6 +3,7 @@ import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { closeWeek, mostRecentSaturday } from '../lib/periodClose.js';
+import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
 
 export const reconciliationRoutes = new Hono<{ Bindings: Env }>();
 
@@ -514,6 +515,8 @@ reconciliationRoutes.post('/complete', async (c) => {
     period_close_skipped = msg;
   }
 
+  const vocabularyUnlock = await maybeUnlockVocabulary(c.env, 2).catch(() => null);
+
   return c.json({
     ok: true,
     already: false,
@@ -523,6 +526,7 @@ reconciliationRoutes.post('/complete', async (c) => {
     acknowledged_outstanding: acknowledge && !fullyCleared,
     period_close,
     period_close_skipped,
+    ...(vocabularyUnlock ? { vocabulary_unlock: vocabularyUnlock } : {}),
   });
 });
 

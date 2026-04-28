@@ -253,11 +253,10 @@ function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export function renderPublicLinkHtml(row: LinkRow, status: LinkStatus): string {
-  const fromName = escapeHtml(row.counterparty_name ?? 'Declyne');
-  // The receipt is FROM the collector (the user); the recipient is the one who owes.
-  // Counterparty.name is the recipient. The user's identity is implicit ("Declyne").
-  // We frame "from Declyne" since we don't store the user's display name yet.
+export function renderPublicLinkHtml(row: LinkRow, status: LinkStatus, userName?: string): string {
+  // FROM = the person requesting payment (the user). Falls back to "Declyne" if no name set.
+  const fromName = escapeHtml(userName || 'Declyne');
+  const toName = escapeHtml(row.counterparty_name ?? '');
   const amountCents = row.split_closed_at ? 0 : row.split_remaining_cents;
   const amount = formatCents(amountCents);
   const reason = escapeHtml(row.split_reason);
@@ -307,7 +306,7 @@ export function renderPublicLinkHtml(row: LinkRow, status: LinkStatus): string {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="robots" content="noindex,nofollow" />
-<title>Payment request &middot; ${fromName}</title>
+<title>Payment request &middot; ${toName}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
