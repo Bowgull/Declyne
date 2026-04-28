@@ -452,6 +452,26 @@ export default function Budget() {
         </button>
       )}
 
+      <section className="ledger-section pt-4">
+        <span className="ledger-section-kicker">
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>04</span> Books
+        </span>
+        <Link to="/paycheque/pl" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Income statement</span>
+            <span className="ledger-row-hint">Income · expenses · surplus</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </Link>
+        <Link to="/paycheque/net-worth" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Net worth trend</span>
+            <span className="ledger-row-hint">Assets − liabilities, per close</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </Link>
+      </section>
+
       {(weeks.length > 0 || historyRows.length > 0) && (
         <section className="ledger-section pt-4">
           <span className="ledger-section-kicker">
