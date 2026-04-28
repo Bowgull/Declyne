@@ -798,10 +798,10 @@
      Mono, ink color, fixed 16px slot so labels align across rows. */
   .row-glyph {
     display: inline-block;
-    width: 16px;
+    width: 22px;
     text-align: center;
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: 20px;
     line-height: 1;
     color: var(--color-ink);
     flex: none;
@@ -1315,6 +1315,28 @@
   .row-with-margin .ink-glyph:nth-child(1) { transform: rotate(-4deg); }
   .row-with-margin:nth-child(even) .ink-glyph { transform: rotate(3deg); }
   .row-with-margin:nth-child(3n) .ink-glyph { transform: rotate(-2deg); }
+
+  /* Paid stamp: gold ink rubber-stamp that appears over an installment row
+     when it's marked paid. Animates from nothing with an overshoot bounce. */
+  @keyframes stamp-paid-appear {
+    0%   { transform: scale(0) rotate(-6deg); opacity: 0; }
+    65%  { transform: scale(1.15) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(-1.5deg); }
+  }
+  .stamp-paid-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1.5px solid var(--color-accent-gold);
+    border-radius: 2px;
+    color: var(--color-accent-gold);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    transform: rotate(-1.5deg);
+    transform-origin: center;
+    animation: stamp-paid-appear 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
 
   /* Sticker / appliqué: post-it that sits ON the page.
      Tape strip across top. Tilted. Drop shadow. Reserved for ad-hoc actions

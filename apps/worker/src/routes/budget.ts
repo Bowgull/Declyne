@@ -112,12 +112,28 @@ budgetRoutes.get('/tank', async (c) => {
     Math.ceil((Date.parse(end) - Date.parse(today)) / msPerDay),
   );
 
+  const remaining_cents = Math.max(0, period.paycheque_cents - total_spent_cents);
+
+  // Pending plan installments reduce how much is truly unallocated.
+  const committedRow = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(planned_cents), 0) AS cents
+     FROM period_allocations
+     WHERE pay_period_id = ?
+       AND category_group = 'debt'
+       AND committed_at IS NOT NULL
+       AND stamped_at IS NULL`,
+  ).bind(period.id).first<{ cents: number }>();
+  const committed_cents = committedRow?.cents ?? 0;
+  const truly_free_cents = Math.max(0, remaining_cents - committed_cents);
+
   return c.json({
     period,
     paycheque_cents: period.paycheque_cents,
     by_group,
     total_spent_cents,
-    remaining_cents: Math.max(0, period.paycheque_cents - total_spent_cents),
+    remaining_cents,
+    committed_cents,
+    truly_free_cents,
     days_remaining,
   });
 });

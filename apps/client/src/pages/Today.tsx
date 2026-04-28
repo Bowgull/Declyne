@@ -43,6 +43,108 @@ function isoWeek(d: Date) {
 
 const LONG_PRESS_MS = 450;
 
+type Glyph = '↻' | '▸' | '+' | '?' | null;
+type HistoryRef =
+  | { kind: 'bill'; merchant_id: string }
+  | { kind: 'payday' }
+  | { kind: 'plan'; label: string };
+type QueueItem = {
+  key: string;
+  label: string;
+  meta: string;
+  days_until: number;
+  href?: string;
+  glyph?: Glyph;
+  glyphTone?: 'income' | 'debt' | 'muted' | null;
+  history?: HistoryRef;
+};
+
+function historyQuery(ref: HistoryRef): string {
+  const params = new URLSearchParams({ kind: ref.kind });
+  if (ref.kind === 'bill') params.set('merchant_id', ref.merchant_id);
+  if (ref.kind === 'plan') params.set('label', ref.label);
+  return `/api/today/history?${params.toString()}`;
+}
+
+function QueueRow({ item }: { item: QueueItem }) {
+  const [open, setOpen] = useState(false);
+  const dayLabel = item.days_until === 0 ? 'today' : `${item.days_until}d`;
+  const expandable = !!item.history;
+  const history = useQuery({
+    queryKey: ['today-history', item.history],
+    queryFn: () =>
+      api.get<{ occurrences: Array<{ posted_at: string; amount_cents: number; description: string }> }>(
+        historyQuery(item.history!),
+      ),
+    enabled: open && expandable,
+  });
+
+  const inner = (
+    <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
+      <div className="flex items-baseline gap-3">
+        <div className="num label-tag" style={{ width: 44, color: 'var(--color-ink-muted)' }}>{dayLabel}</div>
+        <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
+          {item.glyph && (
+            <span className={`row-glyph${item.glyphTone ? ' ' + item.glyphTone : ''}`}>
+              {item.glyph}
+            </span>
+          )}
+          {item.label}
+        </div>
+      </div>
+      <div className="num text-sm" style={{ color: 'var(--color-ink)' }}>
+        {item.meta}
+        {(item.href || expandable) && <span style={{ color: 'var(--color-ink-muted)' }}> &rsaquo;</span>}
+      </div>
+    </div>
+  );
+
+  return (
+    <li style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
+      {item.href ? (
+        <Link to={item.href} className="row-tap block">{inner}</Link>
+      ) : expandable ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="row-tap block w-full text-left"
+          style={{ background: 'transparent', border: 0, padding: 0 }}
+        >
+          {inner}
+        </button>
+      ) : (
+        inner
+      )}
+      {open && expandable && (
+        <div className="px-1 pb-3" style={{ paddingLeft: 60 }}>
+          {history.isLoading ? (
+            <div className="label-tag ink-muted">loading.</div>
+          ) : history.data && history.data.occurrences.length > 0 ? (
+            <ul className="flex flex-col">
+              {history.data.occurrences.map((o, i) => (
+                <li
+                  key={i}
+                  className="flex items-baseline justify-between py-1"
+                  style={{ gap: 12 }}
+                >
+                  <div className="num label-tag" style={{ color: 'var(--color-ink-muted)' }}>
+                    {o.posted_at}
+                  </div>
+                  <div className="num text-sm" style={{ color: 'var(--color-ink-muted)' }}>
+                    {formatCents(o.amount_cents)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="label-tag ink-muted">no prior occurrences yet.</div>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 export default function Today() {
   const qc = useQueryClient();
   const [heroIdx, setHeroIdx] = useState(0);
@@ -103,7 +205,13 @@ export default function Today() {
           due_date: string;
           days_until: number;
           category_group?: string;
+          merchant_id?: string;
         }>;
+        active_plan: {
+          total_pending_cents: number;
+          installment_count: number;
+          period_end: string;
+        } | null;
       }>('/api/today'),
   });
 
@@ -143,13 +251,17 @@ export default function Today() {
     if (ratio >= 0.85) return 'var(--color-accent-gold)';
     return 'var(--cat-indulgence)';
   }
-  const heroStates = [
-    { label: 'Left in tank', value: formatCents(remaining), sub: '' },
-    { label: 'Days to payday', value: `${daysLeft}d`, sub: tank.data?.period?.end_date ?? '' },
-    { label: 'Reconciliation streak', value: `${streak}`, sub: streak === 1 ? 'week kept' : 'weeks kept' },
+  const activePlan = todayExtras.data?.active_plan ?? null;
+  type HeroState = { label: string; value: string; sub: string; kind: 'plan' | 'tank' | 'payday' | 'streak'; href?: string };
+  const baseHeroStates: HeroState[] = [
+    { kind: 'tank', label: 'Left in tank', value: formatCents(remaining), sub: '' },
+    { kind: 'payday', label: 'Days to payday', value: `${daysLeft}d`, sub: tank.data?.period?.end_date ?? '' },
+    { kind: 'streak', label: 'Reconciliation streak', value: `${streak}`, sub: streak === 1 ? 'week kept' : 'weeks kept' },
   ];
+  const heroStates: HeroState[] = activePlan
+    ? [{ kind: 'plan', label: 'Plan installments due', value: formatCents(activePlan.total_pending_cents), sub: `${activePlan.installment_count} pending · due ${activePlan.period_end}`, href: '/paycheque/plan' }, ...baseHeroStates]
+    : baseHeroStates;
   const hero = heroStates[heroIdx % heroStates.length]!;
-  const activeHero = heroIdx % heroStates.length;
 
   // Streak color: gold ≥4 (locked-in), sage 1-3 (building), ink at 0 (reset).
   function streakColor(n: number): string {
@@ -163,10 +275,11 @@ export default function Today() {
     return 'var(--color-ink)';
   }
 
-  let heroColor = 'var(--color-ink)';
-  if (activeHero === 0) heroColor = tankColor();
-  else if (activeHero === 1) heroColor = paydayColor(daysLeft);
-  else if (activeHero === 2) heroColor = streakColor(streak);
+  const heroColor =
+    hero.kind === 'plan' ? 'var(--cat-debt)' :
+    hero.kind === 'tank' ? tankColor() :
+    hero.kind === 'payday' ? paydayColor(daysLeft) :
+    streakColor(streak);
 
   // Show counterparties with at least one open tab. Sort by absolute net cents
   // descending so the biggest open balance leads.
@@ -271,6 +384,16 @@ export default function Today() {
           <div className="section-label mb-2">{hero.label}</div>
           <div className="hero-num" style={{ color: heroColor, transition: 'color 240ms ease' }}>{hero.value}</div>
           {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
+          {hero.href && (
+            <Link
+              to={hero.href}
+              className="text-[10px] uppercase tracking-[0.18em] mt-2 inline-block"
+              style={{ color: 'var(--cat-debt)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              View plan ▸
+            </Link>
+          )}
         </button>
 
         {/* TODAY queue — actionable items + upcoming bills, sorted chronologically. */}
@@ -279,16 +402,6 @@ export default function Today() {
           // Today's queue uses: ↻ bill, ▸ plan installment, + payday,
           // ? review queue. Reconcile action stays glyph-free (it's a ritual,
           // not a money row).
-          type Glyph = '↻' | '▸' | '+' | '?' | null;
-          type QueueItem = {
-            key: string;
-            label: string;
-            meta: string;
-            days_until: number;
-            href?: string;
-            glyph?: Glyph;
-            glyphTone?: 'income' | 'debt' | 'muted' | null;
-          };
           const queue: QueueItem[] = [];
           if (sundayDays === 0 && !reconciliation.data?.completed_this_week) {
             queue.push({ key: 'reconcile', label: 'Reconcile this week', meta: 'now', days_until: 0, href: '/reconcile' });
@@ -307,23 +420,27 @@ export default function Today() {
           for (const row of printingAhead) {
             let glyph: Glyph;
             let tone: QueueItem['glyphTone'] = null;
+            let history: HistoryRef | undefined;
             if (row.kind === 'payday') {
               glyph = '+';
               tone = 'income';
+              history = { kind: 'payday' };
             } else if (row.kind === 'plan') {
               glyph = '▸';
               tone = 'debt';
+              history = { kind: 'plan', label: row.label };
             } else {
               glyph = '↻';
+              if (row.merchant_id) history = { kind: 'bill', merchant_id: row.merchant_id };
             }
             queue.push({
               key: `${row.kind}-${row.due_date}-${row.label}`,
-              label: row.kind === 'plan' ? `Plan: ${row.label}` : row.label,
+              label: row.label,
               meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
               days_until: row.days_until,
               glyph,
               glyphTone: tone,
-              ...(row.kind === 'plan' ? { href: '/paycheque/plan' } : {}),
+              ...(history ? { history } : {}),
             });
           }
           queue.sort((a, b) => a.days_until - b.days_until);
@@ -334,33 +451,9 @@ export default function Today() {
                 <div className="text-sm ink-muted">Nothing pending.</div>
               ) : (
                 <ul className="flex flex-col">
-                  {queue.map((item) => {
-                    const dayLabel = item.days_until === 0 ? 'today' : `${item.days_until}d`;
-                    const inner = (
-                      <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
-                        <div className="flex items-baseline gap-3">
-                          <div className="num label-tag" style={{ width: 44, color: 'var(--color-ink-muted)' }}>{dayLabel}</div>
-                          <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--color-ink)' }}>
-                            {item.glyph && (
-                              <span className={`row-glyph${item.glyphTone ? ' ' + item.glyphTone : ''}`}>
-                                {item.glyph}
-                              </span>
-                            )}
-                            {item.label}
-                          </div>
-                        </div>
-                        <div className="num text-sm" style={{ color: 'var(--color-ink)' }}>
-                          {item.meta}
-                          {item.href && <span style={{ color: 'var(--color-ink-muted)' }}> &rsaquo;</span>}
-                        </div>
-                      </div>
-                    );
-                    return (
-                      <li key={item.key} style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
-                        {item.href ? <Link to={item.href} className="row-tap block">{inner}</Link> : inner}
-                      </li>
-                    );
-                  })}
+                  {queue.map((item) => (
+                    <QueueRow key={item.key} item={item} />
+                  ))}
                 </ul>
               )}
             </div>

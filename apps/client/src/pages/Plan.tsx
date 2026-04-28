@@ -6,9 +6,7 @@ import { formatCents } from '@declyne/shared';
 import { SeedArt } from '../components/PostageArt';
 import { showVocabularyToast } from '../lib/vocabularyToast';
 
-const perforation: React.CSSProperties = {
-  borderTop: '1px dashed var(--color-hairline)',
-};
+const perf: React.CSSProperties = { borderTop: '1px dashed var(--color-hairline)' };
 
 type DebtSeverity = 'current' | 'past_due' | 'in_collections' | 'charged_off' | 'settled_partial';
 
@@ -29,14 +27,25 @@ type PlanOutput = {
   capacity_cents: number;
 };
 
+type InstallmentRow = {
+  allocation_id: string;
+  debt_name: string;
+  amount_cents: number;
+  due_date: string;
+  status: 'paid' | 'pending';
+  stamped_at: string | null;
+};
+
 type CommittedSummary = {
   plan_id: string;
   committed_at: string;
   pay_period_id: string;
+  period_end_date: string;
   installment_count: number;
   total_cents: number;
   stamped_count: number;
   unstamped_count: number;
+  installments: InstallmentRow[];
 };
 
 type PlanResponse = {
@@ -73,11 +82,52 @@ function payoffLabel(months: number | null): string {
   return `${years}y ${rem}mo`;
 }
 
+// Horizontal payoff timeline — a perforated arrow sequence showing each debt
+// name and its payoff month in the plan. Sorted earliest-to-last.
+function PayoffTimeline({ plan, debtIds, allocsByDebt }: {
+  plan: PlanOutput;
+  debtIds: string[];
+  allocsByDebt: Map<string, { name: string; total: number; role: PlanAllocation['role'] }>;
+}) {
+  const sorted = debtIds
+    .map((id) => ({ id, name: allocsByDebt.get(id)!.name, months: plan.payoff_months[id] ?? null }))
+    .filter((d) => d.months != null)
+    .sort((a, b) => (a.months ?? Infinity) - (b.months ?? Infinity));
+
+  if (sorted.length === 0) return null;
+
+  return (
+    <div className="pt-3 flex flex-col gap-2" style={perf}>
+      <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+        Payoff order
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        {sorted.map((d, i) => (
+          <span key={d.id} className="flex items-center gap-1">
+            <span className="flex flex-col">
+              <span className="text-xs font-mono">{d.name}</span>
+              <span className="text-[10px] text-[color:var(--color-text-muted)] uppercase tracking-[0.14em]">{payoffLabel(d.months)}</span>
+            </span>
+            {i < sorted.length - 1 && (
+              <span className="text-[color:var(--color-text-muted)] text-xs mx-1">→</span>
+            )}
+          </span>
+        ))}
+        <span className="flex items-center gap-1">
+          <span className="text-[color:var(--color-text-muted)] text-xs mx-1">→</span>
+          <span className="text-xs font-mono" style={{ color: 'var(--color-accent-gold)' }}>Debt free</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function Plan() {
   const qc = useQueryClient();
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [paidIds, setPaidIds] = useState<Set<string>>(new Set());
 
   const planQ = useQuery({
     queryKey: ['plan'],
@@ -128,13 +178,24 @@ export default function Plan() {
     mutationFn: () => api.post<{ released: number }>('/api/plan/release', {}),
     onSuccess: (r) => {
       setCommitMsg(`released · ${r.released} cleared`);
+      setPaidIds(new Set());
       qc.invalidateQueries({ queryKey: ['plan'] });
       qc.invalidateQueries({ queryKey: ['today'] });
       qc.invalidateQueries({ queryKey: ['allocations'] });
     },
     onError: (err) => {
-      const m = err instanceof Error ? err.message : 'release failed';
-      setCommitMsg(m);
+      setCommitMsg(err instanceof Error ? err.message : 'release failed');
+    },
+  });
+
+  const stamp = useMutation({
+    mutationFn: (allocationId: string) =>
+      api.post<{ ok: boolean; already: boolean }>(`/api/period-allocations/${allocationId}/stamp`, {}),
+    onSuccess: (_, allocationId) => {
+      setPaidIds((prev) => new Set([...prev, allocationId]));
+      qc.invalidateQueries({ queryKey: ['plan'] });
+      qc.invalidateQueries({ queryKey: ['today'] });
+      qc.invalidateQueries({ queryKey: ['allocations'] });
     },
   });
 
@@ -159,10 +220,12 @@ export default function Plan() {
     }
   }
   const debtIds = Array.from(allocsByDebt.keys());
+  const isActive = !!data?.committed;
 
   return (
     <div className="pb-6">
       <section className="receipt stub-top stub-bottom flex flex-col gap-4">
+        {/* Header */}
         <header className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <span className="mascot-sigil" aria-hidden="true" />
@@ -173,26 +236,91 @@ export default function Plan() {
               </div>
             </div>
           </div>
-          <Link to="/paycheque" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
-            Back
-          </Link>
+          <div className="flex flex-col items-end gap-1 mt-1">
+            <Link to="/paycheque" className="text-[color:var(--color-text-muted)] text-xs uppercase tracking-[0.18em]">
+              Back
+            </Link>
+            {isActive && (
+              <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--cat-savings)' }}>
+                Active
+              </div>
+            )}
+          </div>
         </header>
 
+        {/* Interest hero — draft and active both show this */}
         {plan && (
-          <div className="pt-3 flex flex-col gap-1" style={perforation}>
+          <div className="pt-3 flex flex-col gap-1" style={perf}>
             <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
               Total interest under this plan
             </div>
             <div className="hero-num">{formatCents(plan.total_interest_cents)}</div>
             <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-              vs minimums-only baseline {formatCents(plan.baseline_total_interest_cents)} · saves{' '}
+              vs minimums-only {formatCents(plan.baseline_total_interest_cents)} · saves{' '}
               <span style={{ color: 'var(--color-accent-gold)' }}>{formatCents(plan.savings_cents)}</span>
             </div>
           </div>
         )}
 
-        {plan && debtIds.length > 0 && (
-          <div className="pt-3 flex flex-col gap-2" style={perforation}>
+        {/* Active state: per-installment rows with PAID / pay-early */}
+        {isActive && data?.committed && data.committed.installments.length > 0 && (
+          <div className="pt-3 flex flex-col gap-2" style={perf}>
+            <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+              <span>This paycheque</span>
+              <span className="font-mono">{data.committed.stamped_count}/{data.committed.installment_count} paid</span>
+            </div>
+            {data.committed.installments.map((inst) => {
+              const isPaid = inst.status === 'paid' || paidIds.has(inst.allocation_id);
+              return (
+                <div key={inst.allocation_id} className="flex justify-between items-center gap-2">
+                  <div className="flex flex-col">
+                    <span className="text-sm">{inst.debt_name}</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                      due {inst.due_date}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-sm">{formatCents(inst.amount_cents)}</span>
+                    {isPaid ? (
+                      <span className="stamp-paid-badge">Paid</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ink-glyph commit"
+                        style={{ fontSize: 14 }}
+                        disabled={stamp.isPending}
+                        title="Mark paid"
+                        onClick={() => stamp.mutate(inst.allocation_id)}
+                      >
+                        ▸
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="stamp stamp-square"
+                style={{ fontSize: 10, padding: '4px 10px' }}
+                disabled={release.isPending}
+                onClick={() => { setCommitMsg(null); release.mutate(); }}
+              >
+                {release.isPending ? 'Releasing' : 'Release plan'}
+              </button>
+            </div>
+            {commitMsg && (
+              <div className="text-[11px] text-[color:var(--color-text-muted)] uppercase tracking-[0.18em]">
+                {commitMsg}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Draft state: per-debt kernel rows with expandable schedule */}
+        {!isActive && plan && debtIds.length > 0 && (
+          <div className="pt-3 flex flex-col gap-2" style={perf}>
             <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
               <span>Next paycheque</span>
               <span className="font-mono">
@@ -236,75 +364,46 @@ export default function Plan() {
           </div>
         )}
 
+        {/* Payoff timeline — both states */}
         {plan && debtIds.length > 0 && (
-          <div className="pt-3 flex flex-col gap-2" style={perforation}>
-            <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-              <span>Commitment</span>
-              {data?.committed ? (
-                <button
-                  type="button"
-                  className="stamp stamp-square"
-                  disabled={release.isPending}
-                  onClick={() => {
-                    setCommitMsg(null);
-                    release.mutate();
-                  }}
-                >
-                  {release.isPending ? 'Releasing' : 'Release'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="postage"
-                  style={{ minWidth: 100, padding: '10px 12px 8px', transform: 'rotate(-1.6deg)' }}
-                  disabled={accept.isPending || !data?.current_period_id}
-                  onClick={() => {
-                    setCommitMsg(null);
-                    accept.mutate();
-                  }}
-                >
-                  <span className="postage-denom" style={{ fontSize: 8 }}>$1</span>
-                  <span className="postage-art" style={{ width: 24, height: 24 }}><SeedArt /></span>
-                  <span className="postage-label" style={{ fontSize: 8 }}>
-                    {accept.isPending ? 'Stamping' : <>Accept<br />this plan</>}
-                  </span>
-                </button>
-              )}
-            </div>
-            {data?.committed ? (
-              <div className="flex flex-col gap-0.5">
-                <div className="text-sm">
-                  {data.committed.installment_count} installments · {formatCents(data.committed.total_cents)}
-                </div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-                  committed {data.committed.committed_at.slice(0, 10)} ·{' '}
-                  {data.committed.stamped_count}/{data.committed.installment_count} paid
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-[color:var(--color-text-muted)] italic">
-                Stamp the plan to lock these installments. Today will surface them. Reconciliation will track them.
-              </p>
-            )}
+          <PayoffTimeline plan={plan} debtIds={debtIds} allocsByDebt={allocsByDebt} />
+        )}
+
+        {/* Draft accept: tear-tab */}
+        {!isActive && plan && debtIds.length > 0 && (
+          <div className="pt-3 flex flex-col gap-2" style={perf}>
+            <button
+              type="button"
+              className="tear-tab tear-tab-motion w-full"
+              disabled={accept.isPending || !data?.current_period_id}
+              onClick={() => { setCommitMsg(null); accept.mutate(); }}
+            >
+              <span className="tear-arrow" aria-hidden="true" />
+              <span className="glyph">▸</span>
+              {accept.isPending ? 'Stamping the plan' : 'Accept this plan'}
+              <span className="cut-line left" aria-hidden="true" />
+              <span className="cut-line right" aria-hidden="true" />
+            </button>
+            <p className="text-xs text-[color:var(--color-text-muted)] italic text-center">
+              Stamp the plan to lock these installments. Today will surface them. Reconciliation will track them.
+            </p>
             {commitMsg && (
-              <div className="text-[11px] text-[color:var(--color-text-muted)] uppercase tracking-[0.18em]">
+              <div className="text-[11px] text-[color:var(--color-text-muted)] uppercase tracking-[0.18em] text-center">
                 {commitMsg}
               </div>
             )}
           </div>
         )}
 
-        <div className="pt-3 flex flex-col gap-2" style={perforation}>
+        {/* Rationale */}
+        <div className="pt-3 flex flex-col gap-2" style={perf}>
           <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
             <span>Rationale</span>
             <button
               className="postage"
               style={{ minWidth: 100, padding: '10px 12px 8px', transform: 'rotate(1.4deg)' }}
               disabled={refresh.isPending}
-              onClick={() => {
-                setRefreshMsg(null);
-                refresh.mutate();
-              }}
+              onClick={() => { setRefreshMsg(null); refresh.mutate(); }}
             >
               <span className="postage-denom" style={{ fontSize: 8 }}>AI</span>
               <span className="postage-art" style={{ width: 24, height: 24 }}><SeedArt /></span>
@@ -332,16 +431,15 @@ export default function Plan() {
           )}
         </div>
 
+        {/* Observations */}
         {data && data.observations.length > 0 && (
-          <div className="pt-3 flex flex-col gap-1" style={perforation}>
+          <div className="pt-3 flex flex-col gap-1" style={perf}>
             <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
               Observations
             </div>
             <ul className="flex flex-col gap-1">
               {data.observations.map((o, i) => (
-                <li key={i} className="text-sm leading-snug">
-                  · {o}
-                </li>
+                <li key={i} className="text-sm leading-snug">· {o}</li>
               ))}
             </ul>
           </div>

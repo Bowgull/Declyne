@@ -695,3 +695,48 @@ reconciliationRoutes.post('/tabs-to-match/:split_id/match', async (c) => {
 
   return c.json({ ok: true, split_id: split.id, transaction_id: txn.id });
 });
+
+// Current period committed plan installments — lightweight snapshot for the
+// Reconciliation receipt's "THIS WEEK'S PLAN" section. Does not run the full
+// plan kernel; reads directly from period_allocations.
+reconciliationRoutes.get('/plan-summary', async (c) => {
+  const period = await c.env.DB.prepare(
+    `SELECT id, end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
+  ).first<{ id: string; end_date: string }>();
+
+  if (!period) return c.json({ installments: [], total_cents: 0, paid_count: 0, pending_count: 0, is_active_plan: false });
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, label, planned_cents, stamped_at
+     FROM period_allocations
+     WHERE pay_period_id = ?
+       AND category_group = 'debt'
+       AND committed_at IS NOT NULL
+       AND plan_id IS NOT NULL
+       AND planned_cents > 0
+     ORDER BY label ASC`,
+  ).bind(period.id).all<{ id: string; label: string; planned_cents: number; stamped_at: string | null }>();
+
+  const rows = results ?? [];
+  if (rows.length === 0) return c.json({ installments: [], total_cents: 0, paid_count: 0, pending_count: 0, is_active_plan: false });
+
+  function stripSuffix(label: string): string {
+    return label.replace(/\s+(priority|avalanche|min)\s*$/i, '').trim();
+  }
+
+  const installments = rows.map((r) => ({
+    allocation_id: r.id,
+    debt_name: stripSuffix(r.label),
+    amount_cents: r.planned_cents,
+    due_date: period.end_date,
+    status: r.stamped_at != null ? 'paid' : 'pending',
+  }));
+
+  return c.json({
+    installments,
+    total_cents: rows.reduce((s, r) => s + r.planned_cents, 0),
+    paid_count: rows.filter((r) => r.stamped_at != null).length,
+    pending_count: rows.filter((r) => r.stamped_at == null).length,
+    is_active_plan: true,
+  });
+});
