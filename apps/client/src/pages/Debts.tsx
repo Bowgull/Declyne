@@ -54,6 +54,23 @@ interface Split {
   reason: string;
 }
 
+interface StatementMismatch {
+  debt_id: string;
+  debt_name: string;
+  statement_date: string;
+  statement_balance_cents: number;
+  gl_balance_cents: number;
+  mismatch_cents: number;
+}
+
+function minPaymentCents(d: Debt): number {
+  if (d.min_payment_type === 'fixed') return Math.min(d.min_payment_value, d.principal_cents);
+  // percent: bps × principal / 10000, $10 floor, capped at principal
+  const computed = Math.round((d.min_payment_value * d.principal_cents) / 10000);
+  const withFloor = Math.max(computed, 1000);
+  return Math.min(withFloor, d.principal_cents);
+}
+
 export default function Debts() {
   const [editing, setEditing] = useState<Debt | 'new' | null>(null);
   const [splitEditing, setSplitEditing] = useState<'new' | null>(null);
@@ -75,6 +92,14 @@ export default function Debts() {
     queryFn: () =>
       api.get<{ plan: { next_paycheque_allocations: Array<{ debt_id: string; role: 'min' | 'priority' | 'avalanche' }> } }>('/api/plan'),
   });
+  const tank = useQuery({
+    queryKey: ['budget-tank'],
+    queryFn: () => api.get<{ paycheque_cents?: number }>('/api/budget/tank'),
+  });
+  const stmtRec = useQuery({
+    queryKey: ['statement-reconcile'],
+    queryFn: () => api.get<{ rows: StatementMismatch[] }>('/api/gl/statement-reconcile?window_days=60'),
+  });
   const roleByDebt = new Map<string, 'min' | 'priority' | 'avalanche'>();
   for (const a of planQ.data?.plan.next_paycheque_allocations ?? []) {
     const cur = roleByDebt.get(a.debt_id);
@@ -87,7 +112,20 @@ export default function Debts() {
 
   const debtBalance = (d: Debt) =>
     typeof d.gl_balance_cents === 'number' ? d.gl_balance_cents : d.principal_cents;
-  const totalOwed = list.filter((d) => !d.archived).reduce((s, d) => s + debtBalance(d), 0);
+  const open = list.filter((d) => !d.archived);
+  const totalOwed = open.reduce((s, d) => s + debtBalance(d), 0);
+  const monthlyMins = open.reduce((s, d) => s + minPaymentCents(d), 0);
+  const paychequeCents = tank.data?.paycheque_cents ?? 0;
+  // Bi-weekly paycheque × 26 / 12 ≈ monthly take-home.
+  const monthlyIncomeCents = paychequeCents > 0 ? Math.round((paychequeCents * 26) / 12) : 0;
+  const dtiPct = monthlyIncomeCents > 0 ? (monthlyMins / monthlyIncomeCents) * 100 : null;
+
+  // Latest mismatch per debt within the 60d window.
+  const mismatchByDebt = new Map<string, StatementMismatch>();
+  for (const r of stmtRec.data?.rows ?? []) {
+    const cur = mismatchByDebt.get(r.debt_id);
+    if (!cur || r.statement_date > cur.statement_date) mismatchByDebt.set(r.debt_id, r);
+  }
 
   return (
     <div className="ledger-page">
@@ -100,13 +138,32 @@ export default function Debts() {
 
       <section className="ledger-section">
         <span className="ledger-section-kicker"><span className="num">01</span>Balances</span>
+        {open.length > 0 && monthlyMins > 0 && (
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)] pt-2">
+            Monthly minimums {formatCents(monthlyMins)}
+            {dtiPct !== null && (
+              <>
+                {' · '}
+                <span style={{ color: dtiPct > 36 ? 'var(--cat-indulgence)' : 'var(--color-text-muted)' }}>
+                  {dtiPct.toFixed(0)}% of income
+                </span>
+                <span> · stress threshold 36%</span>
+              </>
+            )}
+          </div>
+        )}
         {list.length === 0 && !debts.isLoading && (
           <p className="text-sm text-[color:var(--color-text-muted)] py-4">No debts tracked.</p>
         )}
         <ul className="flex flex-col gap-3 pt-4 pb-2">
           {list.map((d) => (
             <li key={d.id}>
-              <DebtCard debt={d} role={roleByDebt.get(d.id) ?? null} onClick={() => setEditing(d)} />
+              <DebtCard
+                debt={d}
+                role={roleByDebt.get(d.id) ?? null}
+                mismatch={mismatchByDebt.get(d.id) ?? null}
+                onClick={() => setEditing(d)}
+              />
             </li>
           ))}
         </ul>
@@ -404,13 +461,24 @@ function SettleSheet({
   );
 }
 
-function DebtCard({ debt, role, onClick }: { debt: Debt; role: 'min' | 'priority' | 'avalanche' | null; onClick: () => void }) {
+function DebtCard({
+  debt,
+  role,
+  mismatch,
+  onClick,
+}: {
+  debt: Debt;
+  role: 'min' | 'priority' | 'avalanche' | null;
+  mismatch: StatementMismatch | null;
+  onClick: () => void;
+}) {
   const rate = (debt.interest_rate_bps / 100).toFixed(2);
   const min =
     debt.min_payment_type === 'fixed'
       ? formatCents(debt.min_payment_value)
       : `${(debt.min_payment_value / 100).toFixed(2)}%`;
   const sev = debt.severity ?? 'current';
+  const gap = mismatch?.mismatch_cents ?? 0;
   return (
     <button
       onClick={onClick}
@@ -432,6 +500,14 @@ function DebtCard({ debt, role, onClick }: { debt: Debt; role: 'min' | 'priority
               </span>
             )}
           </div>
+          {mismatch && gap !== 0 && (
+            <div
+              className="mt-1 text-[10px] uppercase tracking-[0.12em]"
+              style={{ color: 'var(--cat-indulgence)' }}
+            >
+              GL {formatCents(mismatch.gl_balance_cents)} · stmt {formatCents(mismatch.statement_balance_cents)} · gap {formatCents(Math.abs(gap))}
+            </div>
+          )}
         </div>
         <div className="num text-lg shrink-0">
           {formatCents(typeof debt.gl_balance_cents === 'number' ? debt.gl_balance_cents : debt.principal_cents)}

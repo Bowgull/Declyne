@@ -34,6 +34,16 @@ interface HistoryRow {
 interface TrendResp {
   weeks: { week_start: string; indulgence_cents: number; lifestyle_cents: number; ratio_bps: number }[];
 }
+interface VarianceRow {
+  group: 'essentials' | 'lifestyle' | 'debt' | 'savings' | 'indulgence';
+  planned_cents: number;
+  spent_cents: number;
+  delta_cents: number;
+}
+interface VarianceResp {
+  period: TankPeriod | null;
+  rows: VarianceRow[];
+}
 interface AllocationsResp {
   period: TankPeriod | null;
   rows: AllocationRow[];
@@ -148,6 +158,10 @@ export default function Budget() {
     queryKey: ['paycheque-snapshot'],
     queryFn: () => api.get<{ snapshot: PaycheckSnapshot | null }>('/api/paycheque'),
   });
+  const variance = useQuery({
+    queryKey: ['budget-variance'],
+    queryFn: () => api.get<VarianceResp>('/api/budget/variance'),
+  });
   const counterparties = useQuery({
     queryKey: ['counterparties'],
     queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
@@ -158,6 +172,7 @@ export default function Budget() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['allocations'] });
       qc.invalidateQueries({ queryKey: ['paycheque-snapshot'] });
+      qc.invalidateQueries({ queryKey: ['budget-variance'] });
     },
   });
 
@@ -243,6 +258,16 @@ export default function Budget() {
               + {formatCents(paycheque_cents)}
             </span>
           </div>
+          {totals && unassigned > 0 && (
+            <div className="ledger-row">
+              <span
+                className="ledger-row-main text-[10px] uppercase tracking-[0.18em]"
+                style={{ color: 'var(--cat-indulgence)' }}
+              >
+                {formatCents(unassigned)} unassigned · give every dollar a job
+              </span>
+            </div>
+          )}
         </section>
       )}
 
@@ -282,6 +307,54 @@ export default function Budget() {
           )}
         </section>
       )}
+
+      {(() => {
+        // Aggregate by group so the section is stable even if the worker
+        // hasn't yet shipped the new per-group response shape.
+        const agg = new Map<string, { planned: number; spent: number }>();
+        for (const r of variance.data?.rows ?? []) {
+          if (!r?.group) continue;
+          const cur = agg.get(r.group) ?? { planned: 0, spent: 0 };
+          const p = Number(r.planned_cents);
+          const s = Number(r.spent_cents);
+          cur.planned += Number.isFinite(p) ? p : 0;
+          cur.spent += Number.isFinite(s) ? s : 0;
+          agg.set(r.group, cur);
+        }
+        const visible = Array.from(agg.entries()).filter(([, v]) => v.planned > 0 || v.spent > 0);
+        if (!period || visible.length === 0) return null;
+        return (
+          <section className="ledger-section pt-4">
+            <span className="ledger-section-kicker">
+              <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02b</span> Budget vs. actual
+            </span>
+            <div className="flex flex-col">
+              {visible.map(([group, v]) => {
+                const delta = v.planned - v.spent;
+                const over = delta < 0;
+                const deltaColor = over ? 'var(--cat-indulgence)' : 'var(--cat-savings)';
+                const deltaPrefix = over ? '−' : '+';
+                return (
+                  <div key={group} className="ledger-row">
+                    <div className="flex items-center gap-3 ledger-row-main">
+                      <span className={`cat-rule ${group}`} />
+                      <div className="min-w-0">
+                        <div className="text-sm capitalize">{group}</div>
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+                          planned {formatCents(v.planned)} · spent {formatCents(v.spent)}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="num ledger-row-value" style={{ color: deltaColor }}>
+                      {deltaPrefix}{formatCents(Math.abs(delta))}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       <PlanRow />
 
