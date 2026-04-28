@@ -20,6 +20,8 @@ import Reconciliation from './pages/Reconciliation';
 import CounterpartyPage from './pages/Counterparty';
 import TrialBalance from './pages/TrialBalance';
 import Plan from './pages/Plan';
+import PL from './pages/PL';
+import NetWorthTrend from './pages/NetWorthTrend';
 import ButtonsMockup from './pages/ButtonsMockup';
 import PaymentLinkMockup from './pages/PaymentLinkMockup';
 import VocabularyToast from './components/VocabularyToast';
@@ -70,6 +72,10 @@ export default function App() {
           <Route path="/reconcile" element={<Reconciliation />} />
           <Route path="/settings/trial-balance" element={<TrialBalance />} />
           <Route path="/paycheque/plan" element={<Plan />} />
+          <Route path="/paycheque/pl" element={<PL />} />
+          <Route path="/budget/pl" element={<Navigate to="/paycheque/pl" replace />} />
+          <Route path="/paycheque/net-worth" element={<NetWorthTrend />} />
+          <Route path="/budget/net-worth" element={<Navigate to="/paycheque/net-worth" replace />} />
           <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />
           <Route path="/paycheque/tabs/:id" element={<CounterpartyPage />} />
           <Route path="/budget/tabs/:id" element={<RedirectTabs />} />

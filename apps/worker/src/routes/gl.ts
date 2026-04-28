@@ -178,6 +178,145 @@ glRoutes.get('/net-worth', async (c) => {
   return c.json({ as_of: asOf, ...nw, net_worth_cents: nw.assets_cents - nw.liabilities_cents });
 });
 
+// GET /api/gl/pl?period_id= — Income statement for a pay period (or a custom
+// from/to window). Sums GL income and expense accounts whose entries fall in
+// the window. Income shown as a positive number (credits − debits); expenses
+// as positive (debits − credits); surplus = income − expense. Per-category
+// expense breakdown returned as expense_by_path.
+glRoutes.get('/pl', async (c) => {
+  const periodId = c.req.query('period_id');
+  const fromQ = c.req.query('from');
+  const toQ = c.req.query('to');
+  let from: string | null = null;
+  let to: string | null = null;
+  let label: { period_id: string | null; start_date: string; end_date: string } | null = null;
+
+  if (periodId) {
+    const row = await c.env.DB.prepare(
+      `SELECT id, start_date, end_date FROM pay_periods WHERE id = ?`,
+    )
+      .bind(periodId)
+      .first<{ id: string; start_date: string; end_date: string }>();
+    if (!row) return c.json({ error: 'period_not_found' }, 404);
+    from = row.start_date;
+    to = row.end_date;
+    label = { period_id: row.id, start_date: row.start_date, end_date: row.end_date };
+  } else if (
+    typeof fromQ === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(fromQ) &&
+    typeof toQ === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(toQ)
+  ) {
+    from = fromQ;
+    to = toQ;
+    label = { period_id: null, start_date: fromQ, end_date: toQ };
+  } else {
+    const cur = await c.env.DB.prepare(
+      `SELECT id, start_date, end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
+    ).first<{ id: string; start_date: string; end_date: string }>();
+    if (!cur) return c.json({ error: 'no_period' }, 404);
+    from = cur.start_date;
+    to = cur.end_date;
+    label = { period_id: cur.id, start_date: cur.start_date, end_date: cur.end_date };
+  }
+
+  const rows = await c.env.DB.prepare(
+    `SELECT a.id AS account_id, a.path, a.type,
+            COALESCE(SUM(l.debit_cents), 0) AS debit_cents,
+            COALESCE(SUM(l.credit_cents), 0) AS credit_cents
+     FROM gl_accounts a
+     JOIN journal_lines l ON l.account_id = a.id
+     JOIN journal_entries e ON e.id = l.journal_entry_id
+     WHERE a.type IN ('income', 'expense')
+       AND date(e.posted_at) >= ?
+       AND date(e.posted_at) <= ?
+     GROUP BY a.id, a.path, a.type
+     ORDER BY a.path`,
+  )
+    .bind(from, to)
+    .all<{
+      account_id: string;
+      path: string;
+      type: 'income' | 'expense';
+      debit_cents: number;
+      credit_cents: number;
+    }>();
+
+  let income_cents = 0;
+  let expense_cents = 0;
+  const expense_by_path: Array<{ path: string; amount_cents: number }> = [];
+  const income_by_path: Array<{ path: string; amount_cents: number }> = [];
+  for (const r of rows.results ?? []) {
+    if (r.type === 'income') {
+      const v = r.credit_cents - r.debit_cents;
+      income_cents += v;
+      if (v !== 0) income_by_path.push({ path: r.path, amount_cents: v });
+    } else {
+      const v = r.debit_cents - r.credit_cents;
+      expense_cents += v;
+      if (v !== 0) expense_by_path.push({ path: r.path, amount_cents: v });
+    }
+  }
+  expense_by_path.sort((a, b) => b.amount_cents - a.amount_cents);
+  income_by_path.sort((a, b) => b.amount_cents - a.amount_cents);
+
+  return c.json({
+    ...label,
+    income_cents,
+    expense_cents,
+    surplus_cents: income_cents - expense_cents,
+    income_by_path,
+    expense_by_path,
+  });
+});
+
+// GET /api/gl/net-worth/history — net worth value at each period_close.period_end.
+// Reads each close's snapshotted trial balance once, then iterates the close
+// dates oldest→newest, returning a derived net-worth per close. Cheap, no
+// per-close re-aggregation of journal_lines.
+glRoutes.get('/net-worth/history', async (c) => {
+  const closes = await c.env.DB.prepare(
+    `SELECT period_start, period_end FROM period_close ORDER BY period_end ASC`,
+  ).all<{ period_start: string; period_end: string }>();
+
+  const points: Array<{
+    period_start: string;
+    period_end: string;
+    assets_cents: number;
+    liabilities_cents: number;
+    net_worth_cents: number;
+  }> = [];
+
+  for (const cl of closes.results ?? []) {
+    const r = await c.env.DB.prepare(
+      `SELECT a.type,
+              COALESCE(SUM(l.debit_cents), 0) AS debit_cents,
+              COALESCE(SUM(l.credit_cents), 0) AS credit_cents
+       FROM gl_accounts a
+       LEFT JOIN journal_lines l ON l.account_id = a.id
+       LEFT JOIN journal_entries e ON e.id = l.journal_entry_id
+       WHERE (e.posted_at IS NULL OR date(e.posted_at) <= ?)
+       GROUP BY a.type`,
+    )
+      .bind(cl.period_end)
+      .all<{
+        type: 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+        debit_cents: number;
+        credit_cents: number;
+      }>();
+    const nw = netWorthFromTrialBalance(r.results ?? []);
+    points.push({
+      period_start: cl.period_start,
+      period_end: cl.period_end,
+      assets_cents: nw.assets_cents,
+      liabilities_cents: nw.liabilities_cents,
+      net_worth_cents: nw.assets_cents - nw.liabilities_cents,
+    });
+  }
+
+  return c.json({ points });
+});
+
 // GET /api/gl/period-close — list closed periods, newest first.
 glRoutes.get('/period-close', async (c) => {
   const rows = await c.env.DB.prepare(
