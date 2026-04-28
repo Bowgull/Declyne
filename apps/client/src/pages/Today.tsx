@@ -351,7 +351,7 @@ export default function Today() {
     chitOpen?.prefilledFor ? allCps.find((c) => c.id === chitOpen.prefilledFor) ?? null : null;
 
   return (
-    <div className="px-3 pt-4 pb-6">
+    <div className="ledger-page">
       <section className="receipt paper-in flex flex-col gap-5">
         <header className="flex flex-col" style={{ marginBottom: 4 }}>
           <div style={{ height: 3, background: 'var(--color-ink)' }} />
