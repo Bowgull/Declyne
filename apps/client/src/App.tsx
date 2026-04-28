@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { NavLink, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { NavLink, Route, Routes, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Today from './pages/Today';
 import Budget from './pages/Budget';
@@ -50,7 +50,8 @@ export default function App() {
             path="/today"
             element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Today />}
           />
-          <Route path="/budget" element={<Budget />} />
+          <Route path="/paycheque" element={<Budget />} />
+          <Route path="/budget" element={<Navigate to="/paycheque" replace />} />
           <Route path="/debts" element={<Debts />} />
           <Route path="/yield" element={<Grow unlocked={growUnlocked} />} />
           <Route path="/grow" element={<Navigate to="/yield" replace />} />
@@ -66,8 +67,10 @@ export default function App() {
           <Route path="/phase" element={<PhaseJourney />} />
           <Route path="/reconcile" element={<Reconciliation />} />
           <Route path="/settings/trial-balance" element={<TrialBalance />} />
-          <Route path="/budget/plan" element={<Plan />} />
-          <Route path="/budget/tabs/:id" element={<CounterpartyPage />} />
+          <Route path="/paycheque/plan" element={<Plan />} />
+          <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />
+          <Route path="/paycheque/tabs/:id" element={<CounterpartyPage />} />
+          <Route path="/budget/tabs/:id" element={<RedirectTabs />} />
           <Route path="/mockup/buttons" element={<ButtonsMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
@@ -76,7 +79,7 @@ export default function App() {
       <nav className="tab-bar" aria-label="Primary">
         <div className="tab-bar-inner">
           <TabLink to="/today" label="Today" icon={<TodayIcon />} />
-          <TabLink to="/budget" label="Budget" icon={<BudgetIcon />} />
+          <TabLink to="/paycheque" label="Paycheque" icon={<PaychequeIcon />} />
           <TabLink to="/yield" label="Yield" icon={<YieldIcon />} muted={!growUnlocked} />
         </div>
       </nav>
@@ -126,15 +129,19 @@ function TodayIcon() {
   );
 }
 
-function BudgetIcon() {
+function PaychequeIcon() {
+  // Envelope: a paycheque arrives in the mail.
   return (
     <svg {...STROKE}>
-      <path d="M4 20V11" />
-      <path d="M10 20V6" />
-      <path d="M16 20v-9" />
-      <path d="M3 20h18" />
+      <rect x="3" y="6" width="18" height="13" rx="1.5" />
+      <path d="M3.5 7.5L12 13.5L20.5 7.5" />
     </svg>
   );
+}
+
+function RedirectTabs() {
+  const { id } = useParams();
+  return <Navigate to={`/paycheque/tabs/${id}`} replace />;
 }
 
 function YieldIcon() {

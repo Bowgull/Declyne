@@ -316,7 +316,7 @@ export default function Today() {
               days_until: row.days_until,
               glyph,
               glyphTone: tone,
-              ...(row.kind === 'plan' ? { href: '/budget/plan' } : {}),
+              ...(row.kind === 'plan' ? { href: '/paycheque/plan' } : {}),
             });
           }
           queue.sort((a, b) => a.days_until - b.days_until);
@@ -392,7 +392,7 @@ export default function Today() {
                       style={{ gap: 12 }}
                     >
                       <div className="flex flex-col" style={{ minWidth: 0 }}>
-                        <Link to={`/budget/tabs/${cp.id}`} style={{ color: 'var(--color-ink)' }} className="text-sm">
+                        <Link to={`/paycheque/tabs/${cp.id}`} style={{ color: 'var(--color-ink)' }} className="text-sm">
                           {cp.name}
                         </Link>
                         <div className="label-tag mt-0.5">

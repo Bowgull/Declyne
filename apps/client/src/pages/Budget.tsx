@@ -410,7 +410,7 @@ export default function Budget() {
           </span>
           <div className="flex flex-col">
             {openTabs.slice(0, 4).map((c) => (
-              <Link key={c.id} to={`/budget/tabs/${c.id}`} className="ledger-row">
+              <Link key={c.id} to={`/paycheque/tabs/${c.id}`} className="ledger-row">
                 <div className="flex items-center gap-3 ledger-row-main">
                   <span
                     className="cat-rule"
@@ -474,8 +474,8 @@ function PlanRow() {
       <span className="ledger-section-kicker">
         <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Recommended
       </span>
-      <Link to="/budget/plan" className="ledger-section-meta hover:underline">open &rsaquo;</Link>
-      <Link to="/budget/plan" className="ledger-row tap">
+      <Link to="/paycheque/plan" className="ledger-section-meta hover:underline">open &rsaquo;</Link>
+      <Link to="/paycheque/plan" className="ledger-row tap">
         <div className="ledger-row-main">
           <span className="ledger-row-label">Toward debt next paycheque</span>
           <span className="ledger-row-hint">
