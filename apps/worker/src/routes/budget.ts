@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
+import { detectSubscriptions, type RecurringTxn } from '../lib/recurring.js';
 
 export const budgetRoutes = new Hono<{ Bindings: Env }>();
 
@@ -209,4 +210,64 @@ budgetRoutes.get('/indulgence', async (c) => {
   const denom = indulgence + lifestyle;
   const ratio_bps = denom === 0 ? 0 : Math.round((indulgence / denom) * 10_000);
   return c.json({ indulgence_cents: indulgence, lifestyle_cents: lifestyle, ratio_bps });
+});
+
+// GET /api/budget/history?periods=N — last N closed pay periods with per-category
+// spend breakdown. Oldest-first. Used for the "Spending history" ledger section
+// on the Paycheque page. Excludes the current (open) period.
+budgetRoutes.get('/history', async (c) => {
+  const limit = Math.min(12, Math.max(1, Number(c.req.query('periods') ?? '6')));
+  const { results: periods } = await c.env.DB.prepare(
+    `SELECT id, start_date, end_date, paycheque_cents
+     FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT ?`,
+  ).bind(limit + 1).all<{ id: string; start_date: string; end_date: string; paycheque_cents: number }>();
+  // Drop the current (most recent) period — we only want history.
+  const closed = periods.slice(1);
+  if (closed.length === 0) return c.json({ rows: [] });
+
+  const GROUPS = ['essentials', 'lifestyle', 'indulgence', 'debt', 'savings'] as const;
+  const rows: Array<{
+    id: string;
+    start_date: string;
+    end_date: string;
+    paycheque_cents: number;
+    by_group: Record<string, number>;
+  }> = [];
+
+  for (const p of closed) {
+    const r = await c.env.DB.prepare(
+      `SELECT COALESCE(c."group", 'uncategorized') AS g,
+              COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS s
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.posted_at BETWEEN ? AND ?
+       GROUP BY g`,
+    ).bind(p.start_date, p.end_date).all<{ g: string; s: number }>();
+    const by_group: Record<string, number> = {};
+    for (const g of GROUPS) by_group[g] = 0;
+    for (const x of r.results) {
+      if (x.g in by_group) by_group[x.g] = x.s;
+    }
+    rows.push({ ...p, by_group });
+  }
+  // Return oldest-first so the client can read left-to-right as time progression.
+  return c.json({ rows: rows.reverse() });
+});
+
+// GET /api/budget/subscriptions — recurring charges in lifestyle + indulgence
+// categories. These are the subscriptions the user might have forgotten about.
+// Sorted by monthly cost descending. Uses 180 days of history for detection.
+budgetRoutes.get('/subscriptions', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT t.posted_at, t.amount_cents, t.merchant_id,
+            m.display_name AS merchant_name,
+            c."group" AS "group"
+     FROM transactions t
+     LEFT JOIN merchants m ON m.id = t.merchant_id
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE t.posted_at >= date('now', '-180 days')
+       AND t.merchant_id IS NOT NULL`,
+  ).all<RecurringTxn>();
+  const subscriptions = detectSubscriptions(results);
+  return c.json({ subscriptions });
 });

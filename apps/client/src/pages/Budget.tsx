@@ -61,6 +61,21 @@ interface Counterparty {
   direction: 'owes_you' | 'you_owe' | 'settled';
   open_tab_count: number;
 }
+interface SpendHistoryRow {
+  id: string;
+  start_date: string;
+  end_date: string;
+  paycheque_cents: number;
+  by_group: Record<string, number>;
+}
+interface PeriodSurplusRow {
+  id: string;
+  start_date: string;
+  end_date: string;
+  income_cents: number;
+  expense_cents: number;
+  surplus_cents: number;
+}
 
 type CommittedSource = 'bill' | 'debt_min' | 'savings_goal' | 'savings_recurring';
 interface CommittedLine {
@@ -134,6 +149,64 @@ function MiniTank({ row }: { row: HistoryRow }) {
   );
 }
 
+const SPEND_GROUPS = ['essentials', 'lifestyle', 'debt', 'savings', 'indulgence'] as const;
+const GROUP_LABELS: Record<string, string> = {
+  essentials: 'Essentials',
+  lifestyle: 'Lifestyle',
+  debt: 'Debt',
+  savings: 'Savings',
+  indulgence: 'Indulgence',
+};
+const GROUP_COLORS: Record<string, string> = {
+  essentials: 'var(--cat-essentials)',
+  lifestyle: 'var(--cat-lifestyle)',
+  debt: 'var(--cat-debt)',
+  savings: 'var(--cat-savings)',
+  indulgence: 'var(--cat-indulgence)',
+};
+
+function SpendHistoryTable({ rows }: { rows: SpendHistoryRow[] }) {
+  return (
+    <div className="pt-2 overflow-x-auto">
+      <table className="w-full font-mono text-[10px] border-collapse">
+        <thead>
+          <tr>
+            <td className="pr-3 pb-1 text-[color:var(--color-text-muted)] uppercase tracking-[0.14em] whitespace-nowrap">
+              Category
+            </td>
+            {rows.map((r) => (
+              <td
+                key={r.id}
+                className="pb-1 text-right text-[color:var(--color-text-muted)] uppercase tracking-[0.12em] whitespace-nowrap pl-2"
+              >
+                {new Date(r.start_date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+              </td>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {SPEND_GROUPS.map((g) => (
+            <tr key={g} style={{ borderTop: '1px solid var(--color-hairline)' }}>
+              <td className="pr-3 py-1 whitespace-nowrap flex items-center gap-2">
+                <span className="cat-dot" style={{ background: GROUP_COLORS[g] }} />
+                <span style={{ color: 'var(--color-text-primary)' }}>{GROUP_LABELS[g]}</span>
+              </td>
+              {rows.map((r) => {
+                const v = r.by_group[g] ?? 0;
+                return (
+                  <td key={r.id} className="py-1 pl-2 text-right" style={{ color: v > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+                    {v > 0 ? formatCents(v) : '—'}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Budget() {
   const qc = useQueryClient();
   const [openGroup, setOpenGroup] = useState<AllocGroup | null>(null);
@@ -165,6 +238,14 @@ export default function Budget() {
   const counterparties = useQuery({
     queryKey: ['counterparties'],
     queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
+  });
+  const spendHistory = useQuery({
+    queryKey: ['budget-spend-history'],
+    queryFn: () => api.get<{ rows: SpendHistoryRow[] }>('/api/budget/history?periods=6'),
+  });
+  const periodHistory = useQuery({
+    queryKey: ['periods-history'],
+    queryFn: () => api.get<{ rows: PeriodSurplusRow[] }>('/api/periods/history?limit=8'),
   });
 
   const draft = useMutation({
@@ -216,6 +297,8 @@ export default function Budget() {
   const unassigned = totals?.unassigned_cents ?? 0;
   const historyRows = history.data?.rows ?? [];
   const openTabs = (counterparties.data?.counterparties ?? []).filter((c) => c.direction !== 'settled');
+  const spendHistoryRows = spendHistory.data?.rows ?? [];
+  const periodHistoryRows = periodHistory.data?.rows ?? [];
 
   const snapshot = paycheque.data?.snapshot ?? null;
   const committedLines = snapshot?.committed.lines ?? [];
@@ -477,6 +560,13 @@ export default function Budget() {
           </div>
           <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
+        <Link to="/paycheque/subscriptions" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Subscriptions</span>
+            <span className="ledger-row-hint">Recurring discretionary charges</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </Link>
       </section>
 
       {(weeks.length > 0 || historyRows.length > 0) && (
@@ -547,6 +637,43 @@ export default function Budget() {
                 <span className="ledger-row-chevron">&rsaquo;</span>
               </Link>
             ))}
+          </div>
+        </section>
+      )}
+
+      {spendHistoryRows.length > 0 && (
+        <section className="ledger-section pt-4">
+          <span className="ledger-section-kicker">
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>07</span> Spending history
+          </span>
+          <span className="ledger-section-meta">{spendHistoryRows.length} periods</span>
+          <SpendHistoryTable rows={spendHistoryRows} />
+        </section>
+      )}
+
+      {periodHistoryRows.length > 0 && (
+        <section className="ledger-section pt-4">
+          <span className="ledger-section-kicker">
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>08</span> Period surplus
+          </span>
+          <div className="flex flex-col">
+            {periodHistoryRows.map((r) => {
+              const surplus = r.surplus_cents;
+              const color = surplus >= 0 ? 'var(--cat-savings)' : 'var(--cat-indulgence)';
+              return (
+                <div key={r.id} className="ledger-row">
+                  <div className="ledger-row-main">
+                    <span className="ledger-row-label">{fmtRange(r.start_date, r.end_date)}</span>
+                    <span className="ledger-row-hint">
+                      {formatCents(r.income_cents)} in · {formatCents(r.expense_cents)} out
+                    </span>
+                  </div>
+                  <span className="ledger-row-value font-mono text-sm" style={{ color }}>
+                    {surplus >= 0 ? '+' : ''}{formatCents(surplus)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

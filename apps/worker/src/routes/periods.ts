@@ -97,3 +97,49 @@ periodsRoutes.post('/detect', async (c) => {
 
   return c.json({ detected: detected.length, inserted: inserts.length });
 });
+
+// GET /api/periods/history?limit=N — last N closed pay periods with GL-derived
+// income, expense, and surplus. Used for the "Period history" section on Budget.
+periodsRoutes.get('/history', async (c) => {
+  const limit = Math.min(12, Math.max(1, Number(c.req.query('limit') ?? '8')));
+  const { results: periods } = await c.env.DB.prepare(
+    `SELECT id, start_date, end_date, paycheque_cents
+     FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT ?`,
+  ).bind(limit + 1).all<{ id: string; start_date: string; end_date: string; paycheque_cents: number }>();
+  // Drop the current (open) period.
+  const closed = periods.slice(1);
+  if (closed.length === 0) return c.json({ rows: [] });
+
+  const rows: Array<{
+    id: string;
+    start_date: string;
+    end_date: string;
+    income_cents: number;
+    expense_cents: number;
+    surplus_cents: number;
+  }> = [];
+
+  for (const p of closed) {
+    const glRows = await c.env.DB.prepare(
+      `SELECT a.type,
+              COALESCE(SUM(l.debit_cents), 0) AS debit_cents,
+              COALESCE(SUM(l.credit_cents), 0) AS credit_cents
+       FROM gl_accounts a
+       JOIN journal_lines l ON l.account_id = a.id
+       JOIN journal_entries e ON e.id = l.journal_entry_id
+       WHERE a.type IN ('income', 'expense')
+         AND date(e.posted_at) >= ?
+         AND date(e.posted_at) <= ?
+       GROUP BY a.type`,
+    ).bind(p.start_date, p.end_date).all<{ type: string; debit_cents: number; credit_cents: number }>();
+    let income_cents = 0;
+    let expense_cents = 0;
+    for (const r of glRows.results) {
+      if (r.type === 'income') income_cents += r.credit_cents - r.debit_cents;
+      else expense_cents += r.debit_cents - r.credit_cents;
+    }
+    rows.push({ id: p.id, start_date: p.start_date, end_date: p.end_date, income_cents, expense_cents, surplus_cents: income_cents - expense_cents });
+  }
+  // Return oldest-first.
+  return c.json({ rows: rows.reverse() });
+});

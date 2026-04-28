@@ -103,6 +103,65 @@ export function detectRecurring(
   return out;
 }
 
+// Discretionary recurring charges — subscriptions the user might have forgotten.
+// Same cadence logic as detectRecurring but filters to lifestyle + indulgence
+// instead of essentials/debt/transfer. No horizon filter; returns all qualifying
+// merchants sorted by monthly cost descending.
+const SUBSCRIPTION_GROUPS = new Set(['lifestyle', 'indulgence']);
+
+export type SubscriptionPrediction = {
+  merchant_id: string;
+  merchant_name: string;
+  amount_cents: number; // median charge, absolute
+  category_group: string;
+  first_seen: string;
+  last_seen: string;
+  cadence_days: number;
+  occurrences: number;
+  months_running: number;
+};
+
+export function detectSubscriptions(txns: RecurringTxn[]): SubscriptionPrediction[] {
+  const groups = new Map<string, RecurringTxn[]>();
+  for (const t of txns) {
+    if (!t.merchant_id || !t.merchant_name) continue;
+    if (t.amount_cents >= 0) continue;
+    if (!t.group || !SUBSCRIPTION_GROUPS.has(t.group)) continue;
+    const arr = groups.get(t.merchant_id) ?? [];
+    arr.push(t);
+    groups.set(t.merchant_id, arr);
+  }
+
+  const out: SubscriptionPrediction[] = [];
+  for (const [merchant_id, rows] of groups) {
+    if (rows.length < MIN_OCCURRENCES) continue;
+    rows.sort((a, b) => a.posted_at.localeCompare(b.posted_at));
+    const intervals: number[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      intervals.push(daysBetween(rows[i - 1]!.posted_at, rows[i]!.posted_at));
+    }
+    const cadence = median(intervals);
+    if (cadence < MIN_CADENCE_DAYS || cadence > MAX_CADENCE_DAYS) continue;
+    const amountAbs = median(rows.map((r) => Math.abs(r.amount_cents)));
+    const first = rows[0]!.posted_at;
+    const last = rows[rows.length - 1]!.posted_at;
+    const months_running = Math.max(1, Math.round(daysBetween(first, last) / 30));
+    out.push({
+      merchant_id,
+      merchant_name: rows[0]!.merchant_name!,
+      amount_cents: amountAbs,
+      category_group: rows[rows.length - 1]!.group ?? 'lifestyle',
+      first_seen: first,
+      last_seen: last,
+      cadence_days: cadence,
+      occurrences: rows.length,
+      months_running,
+    });
+  }
+  out.sort((a, b) => b.amount_cents - a.amount_cents);
+  return out;
+}
+
 export type PaydayPrediction = {
   next_due: string;
   days_until: number;

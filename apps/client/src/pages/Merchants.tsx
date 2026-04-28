@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { formatCents } from '@declyne/shared';
 import LedgerHeader from '../components/LedgerHeader';
 
 type Merchant = {
@@ -14,6 +15,7 @@ type Merchant = {
   txn_count: number;
   last_seen_at: string | null;
   uncategorized_txn_count: number;
+  spend_90d_cents: number;
 };
 
 type Category = {
@@ -100,6 +102,7 @@ export default function Merchants() {
                 <span className="num text-[10px] text-[color:var(--color-text-muted)]">
                   {m.txn_count} txns
                   {m.uncategorized_txn_count > 0 ? ` · ${m.uncategorized_txn_count} unc.` : ''}
+                  {m.spend_90d_cents > 0 ? ` · ${formatCents(m.spend_90d_cents)} 90d` : ''}
                 </span>
               </div>
               <span className="ledger-row-chevron">&rsaquo;</span>

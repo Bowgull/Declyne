@@ -31,6 +31,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; hint: string }> = [
   { to: '/settings/cc-statements', label: 'CC statements', hint: 'per-cycle balances + due' },
   { to: '/goals', label: 'Goals', hint: 'targets + progress' },
   { to: '/holdings', label: 'Holdings', hint: 'lots, wrappers, costs' },
+  { to: '/settings/tax', label: 'Tax year', hint: 'income YTD · TFSA · FHSA · RRSP' },
   { to: '/onboarding', label: 'Re-run onboarding', hint: '5 steps, skippable' },
 ];
 
