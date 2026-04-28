@@ -296,7 +296,7 @@ export default function Reconciliation() {
               {missed.data.installments.map((m) => (
                 <Link
                   key={m.id}
-                  to="/budget/plan"
+                  to="/paycheque/plan"
                   className="row-tap flex items-baseline justify-between gap-3 text-left"
                 >
                   <div className="min-w-0 flex-1 flex items-baseline gap-2">

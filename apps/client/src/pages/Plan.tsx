@@ -169,7 +169,7 @@ export default function Plan() {
               </div>
             </div>
           </div>
-          <Link to="/budget" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
+          <Link to="/paycheque" className="text-[color:var(--color-text-muted)] mt-1 text-xs uppercase tracking-[0.18em]">
             Back
           </Link>
         </header>
