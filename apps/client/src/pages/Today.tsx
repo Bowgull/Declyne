@@ -55,6 +55,9 @@ type QueueItem = {
   label: string;
   meta: string;
   days_until: number;
+  // Priority tier for ordering: 0 ritual (reconcile/review) > 1 bill >
+  // 2 installment > 3 payday. Within tier, sort by days_until ascending.
+  tier: 0 | 1 | 2 | 3;
   href?: string;
   glyph?: Glyph;
   glyphTone?: 'income' | 'debt' | 'muted' | null;
@@ -150,6 +153,7 @@ function QueueRow({ item }: { item: QueueItem }) {
 export default function Today() {
   const qc = useQueryClient();
   const [heroIdx, setHeroIdx] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const settings = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get<{ settings: Record<string, string> }>('/api/settings'),
@@ -418,7 +422,7 @@ export default function Today() {
           // not a money row).
           const queue: QueueItem[] = [];
           if (sundayDays === 0 && !reconciliation.data?.completed_this_week) {
-            queue.push({ key: 'reconcile', label: 'Reconcile this week', meta: 'now', days_until: 0, href: '/reconcile' });
+            queue.push({ key: 'reconcile', label: 'Reconcile this week', meta: 'now', days_until: 0, tier: 0, href: '/reconcile' });
           }
           if (reviewCount > 0) {
             queue.push({
@@ -426,6 +430,7 @@ export default function Today() {
               label: `${reviewCount} to categorize`,
               meta: 'now',
               days_until: 0,
+              tier: 0,
               href: '/review',
               glyph: '?',
               glyphTone: 'muted',
@@ -435,32 +440,40 @@ export default function Today() {
             let glyph: Glyph;
             let tone: QueueItem['glyphTone'] = null;
             let history: HistoryRef | undefined;
+            let tier: QueueItem['tier'];
             if (row.kind === 'payday') {
               glyph = '+';
               tone = 'income';
               history = { kind: 'payday' };
+              tier = 3;
             } else if (row.kind === 'plan') {
               glyph = '▸';
               tone = 'debt';
               history = { kind: 'plan', label: row.label };
+              tier = 2;
             } else {
               glyph = '↻';
               if (row.merchant_id) history = { kind: 'bill', merchant_id: row.merchant_id };
+              tier = 1;
             }
             queue.push({
               key: `${row.kind}-${row.due_date}-${row.label}`,
               label: row.label,
               meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
               days_until: row.days_until,
+              tier,
               glyph,
               glyphTone: tone,
               ...(history ? { history } : {}),
             });
           }
-          queue.sort((a, b) => a.days_until - b.days_until);
+          queue.sort((a, b) => a.tier - b.tier || a.days_until - b.days_until);
+          const visible = expanded ? queue.slice(0, 5) : queue.slice(0, 3);
+          const hiddenCount = Math.min(queue.length, 5) - visible.length;
+          const overflowToPaycheque = queue.length > 5;
           return (
             <div className="perf pt-4">
-              <div className="section-label mb-2">Queue</div>
+              <div className="section-label mb-2">Up next</div>
               {committedExceedsRemaining && (
                 <div
                   className="flex items-baseline justify-between py-2 px-1 mb-1"
@@ -476,12 +489,58 @@ export default function Today() {
                 </div>
               )}
               {queue.length === 0 ? (
-                <div className="text-sm ink-muted">Nothing pending.</div>
+                <div className="text-sm ink-muted">Nothing up next.</div>
               ) : (
                 <ul className="flex flex-col">
-                  {queue.map((item) => (
+                  {visible.map((item) => (
                     <QueueRow key={item.key} item={item} />
                   ))}
+                  {!expanded && hiddenCount > 0 && (
+                    <li style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(true)}
+                        className="row-tap block w-full text-left"
+                        style={{ background: 'transparent', border: 0, padding: 0 }}
+                      >
+                        <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
+                          <div className="text-sm" style={{ color: 'var(--color-ink-muted)' }}>
+                            + {hiddenCount} more
+                          </div>
+                          <div className="num text-sm" style={{ color: 'var(--color-ink-muted)' }}>&rsaquo;</div>
+                        </div>
+                      </button>
+                    </li>
+                  )}
+                  {(expanded || queue.length <= 5) && overflowToPaycheque && (
+                    <li style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
+                      <Link to="/paycheque" className="row-tap block">
+                        <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
+                          <div className="text-sm" style={{ color: 'var(--color-ink-muted)' }}>
+                            see all in paycheque
+                          </div>
+                          <div className="num text-sm" style={{ color: 'var(--color-ink-muted)' }}>&rsaquo;</div>
+                        </div>
+                      </Link>
+                    </li>
+                  )}
+                  {expanded && queue.length > 3 && (
+                    <li style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(false)}
+                        className="row-tap block w-full text-left"
+                        style={{ background: 'transparent', border: 0, padding: 0 }}
+                      >
+                        <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
+                          <div className="text-sm" style={{ color: 'var(--color-ink-muted)' }}>
+                            show less
+                          </div>
+                          <div className="num text-sm" style={{ color: 'var(--color-ink-muted)' }}>&lsaquo;</div>
+                        </div>
+                      </button>
+                    </li>
+                  )}
                 </ul>
               )}
             </div>
