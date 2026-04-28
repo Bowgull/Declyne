@@ -1,10 +1,14 @@
 -- Test data seed for Declyne. Idempotent-ish: uses stable ids so re-running overwrites.
--- Anchored as if "today" is mid-May 2026 (2026-05-15, Friday).
--- ~90 days of activity, Feb 13 → May 15 2026.
+-- Anchored as if "today" is 2026-04-28 (Tuesday). Data runs Feb 13 → May 21 2026
+-- so the recurring detector sees future-month payday + bill rows.
 -- Scenario: Toronto, single, renting a 1-bed in Leslieville/Roncesvalles area.
---   Gross salary ~$65k at Northside Media Group.
---   Net biweekly after tax/CPP/EI: $1,900 (190,000 cents).
+--   Gross salary ~$82k at Northside Media Group.
+--   Net biweekly after tax/CPP/EI: $2,700 (270,000 cents).
 --   Carrying CC debt. Phase 2. 3 months of use. Finances are tight but improving.
+-- WIRING NOTE: every CC payment from chequing has a matching positive receipt
+-- row on the credit-card account. Every savings transfer is mirrored. Pay periods
+-- and weekly period-closes are inserted directly so the Tank + reconciliation
+-- history work without running /api/periods/detect after seeding.
 
 -- Wipe transactional state so date-anchored data refreshes cleanly.
 DELETE FROM period_allocations;
@@ -27,15 +31,32 @@ INSERT OR REPLACE INTO accounts (id, name, institution, type, currency, last_imp
   ('acc_td_visa', 'TD Visa', 'TD', 'credit', 'CAD', '2026-05-14T22:00:00Z', 0),
   ('acc_capone', 'Capital One', 'Capital One', 'credit', 'CAD', '2026-05-14T22:00:00Z', 0);
 
--- Settings: realistic $65k Toronto profile, Phase 2
+-- Settings: realistic $82k Toronto profile, Phase 2
 INSERT OR REPLACE INTO settings (key, value) VALUES
   ('paycheque_source_account_id', 'acc_td_chq'),
   ('paycheque_pattern', 'DIRECT DEP NORTHSIDE'),
-  ('paycheque_min_cents', '100000'),
+  ('paycheque_min_cents', '150000'),
   ('paycheque_fallback_days', '14'),
-  ('essentials_monthly_cents_manual', '200000'),
+  ('essentials_monthly_cents_manual', '230000'),
   ('current_phase', '2'),
-  ('phase2_entry_non_mortgage_debt_cents', '420000');
+  ('phase2_entry_non_mortgage_debt_cents', '420000'),
+  ('last_reconciliation_at', '2026-04-26T10:30:00Z'),
+  ('reconciliation_streak', '11'),
+  ('vocabulary_level', '2'),
+  ('user_display_name', 'Bowgull'),
+  ('onboarding_completed', '1');
+
+-- ===== Pay periods (biweekly, paycheque-anchored) =====
+-- Period 6 (Apr 24 → May 7) is the CURRENT period as of today (Apr 28).
+-- Period 7 (May 8 → May 21) is the next paycheque, surfaced in the queue.
+INSERT OR REPLACE INTO pay_periods (id, start_date, end_date, paycheque_cents, source_account_id) VALUES
+  ('pp_2026_02_13','2026-02-13','2026-02-26',270000,'acc_td_chq'),
+  ('pp_2026_02_27','2026-02-27','2026-03-12',270000,'acc_td_chq'),
+  ('pp_2026_03_13','2026-03-13','2026-03-26',270000,'acc_td_chq'),
+  ('pp_2026_03_27','2026-03-27','2026-04-09',270000,'acc_td_chq'),
+  ('pp_2026_04_10','2026-04-10','2026-04-23',270000,'acc_td_chq'),
+  ('pp_2026_04_24','2026-04-24','2026-05-07',270000,'acc_td_chq'),
+  ('pp_2026_05_08','2026-05-08','2026-05-21',270000,'acc_td_chq');
 
 -- Merchants
 INSERT OR REPLACE INTO merchants (id, display_name, normalized_key, category_default_id, verified) VALUES
@@ -73,17 +94,17 @@ INSERT OR REPLACE INTO merchants (id, display_name, normalized_key, category_def
   ('m_capone',      'Capital One Payment',  'capone payment',          'cat_cc_payment',    1);
 
 -- ===== Chequing: paycheques + bills + CC payments + savings transfers =====
--- Net biweekly $1,900 on ~$65k gross. Tight budget. Barely saving.
+-- Net biweekly $2,700 on ~$82k gross. Tight budget. Barely saving.
 INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, description_raw, merchant_id, category_id, dedup_hash, source, created_at) VALUES
 
-  -- Paycheques (biweekly Fri, $1,900 net after tax/CPP/EI)
-  ('tx_pay_01','acc_td_chq','2026-02-13',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_01','csv','2026-02-13T10:00:00Z'),
-  ('tx_pay_02','acc_td_chq','2026-02-27',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_02','csv','2026-02-27T10:00:00Z'),
-  ('tx_pay_03','acc_td_chq','2026-03-13',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_03','csv','2026-03-13T10:00:00Z'),
-  ('tx_pay_04','acc_td_chq','2026-03-27',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_04','csv','2026-03-27T10:00:00Z'),
-  ('tx_pay_05','acc_td_chq','2026-04-10',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_05','csv','2026-04-10T10:00:00Z'),
-  ('tx_pay_06','acc_td_chq','2026-04-24',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_06','csv','2026-04-24T10:00:00Z'),
-  ('tx_pay_07','acc_td_chq','2026-05-08',190000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_07','csv','2026-05-08T10:00:00Z'),
+  -- Paycheques (biweekly Fri, $2,700 net after tax/CPP/EI on ~$82k gross)
+  ('tx_pay_01','acc_td_chq','2026-02-13',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_01','csv','2026-02-13T10:00:00Z'),
+  ('tx_pay_02','acc_td_chq','2026-02-27',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_02','csv','2026-02-27T10:00:00Z'),
+  ('tx_pay_03','acc_td_chq','2026-03-13',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_03','csv','2026-03-13T10:00:00Z'),
+  ('tx_pay_04','acc_td_chq','2026-03-27',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_04','csv','2026-03-27T10:00:00Z'),
+  ('tx_pay_05','acc_td_chq','2026-04-10',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_05','csv','2026-04-10T10:00:00Z'),
+  ('tx_pay_06','acc_td_chq','2026-04-24',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_06','csv','2026-04-24T10:00:00Z'),
+  ('tx_pay_07','acc_td_chq','2026-05-08',270000,'DIRECT DEP NORTHSIDE MEDIA','m_northside','cat_paycheque','h_pay_07','csv','2026-05-08T10:00:00Z'),
 
   -- Rent: $1,650/mo 1-bed, Leslieville/Roncesvalles area (1st of month)
   ('tx_rent_03','acc_td_chq','2026-03-01',-165000,'LANDLORD EFT RENT','m_landlord','cat_rent','h_rent_03','csv','2026-03-01T09:00:00Z'),
@@ -266,7 +287,14 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   ('tx_v_sd01','acc_td_visa','2026-02-27', -2640,'SHOPPERS DRUG MART','m_shoppers','cat_medical','h_v_sd01','csv','2026-02-27T16:00:00Z'),
   ('tx_v_sd02','acc_td_visa','2026-03-25', -3180,'SHOPPERS DRUG MART','m_shoppers','cat_medical','h_v_sd02','csv','2026-03-25T16:00:00Z'),
   ('tx_v_sd03','acc_td_visa','2026-04-24', -2940,'SHOPPERS DRUG MART','m_shoppers','cat_medical','h_v_sd03','csv','2026-04-24T16:00:00Z'),
-  ('tx_v_sd04','acc_td_visa','2026-05-13', -2480,'SHOPPERS DRUG MART','m_shoppers','cat_medical','h_v_sd04','csv','2026-05-13T16:00:00Z');
+  ('tx_v_sd04','acc_td_visa','2026-05-13', -2480,'SHOPPERS DRUG MART','m_shoppers','cat_medical','h_v_sd04','csv','2026-05-13T16:00:00Z'),
+
+  -- TD Visa payment RECEIPTS: positive amounts mirror the chequing outflows.
+  -- Without these, the credit-card account looks like charges-only and the books don't balance.
+  ('tx_v_pmt_02','acc_td_visa','2026-02-22', 12000,'PAYMENT - THANK YOU','m_td_visa','cat_transfer','h_v_pmt_02','csv','2026-02-22T09:05:00Z'),
+  ('tx_v_pmt_03','acc_td_visa','2026-03-22', 12500,'PAYMENT - THANK YOU','m_td_visa','cat_transfer','h_v_pmt_03','csv','2026-03-22T09:05:00Z'),
+  ('tx_v_pmt_04','acc_td_visa','2026-04-22', 13000,'PAYMENT - THANK YOU','m_td_visa','cat_transfer','h_v_pmt_04','csv','2026-04-22T09:05:00Z'),
+  ('tx_v_pmt_05','acc_td_visa','2026-05-12', 11500,'PAYMENT - THANK YOU','m_td_visa','cat_transfer','h_v_pmt_05','csv','2026-05-12T09:05:00Z');
 
 -- ===== Capital One: secondary card, smaller mix of indulgence + dining =====
 -- Used when over the mental spending limit on TD Visa. Slower to pay down.
@@ -282,7 +310,11 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   ('tx_c_dn03','acc_capone','2026-05-09', -1920,'BANH MI BOYS QUEEN',  'm_banhmi',    'cat_dining',  'h_c_dn03','csv','2026-05-09T13:00:00Z'),
   -- Two uncategorized / unrecognized rows for review queue
   ('tx_c_mys01','acc_capone','2026-05-07', -2840,'SQ *MYSTERY CAFE',   NULL,          NULL,          'h_c_mys01','csv','2026-05-07T14:00:00Z'),
-  ('tx_c_mys02','acc_capone','2026-04-29', -1640,'AMZN MKTP CA*AB124', NULL,          NULL,          'h_c_mys02','csv','2026-04-29T11:00:00Z');
+  ('tx_c_mys02','acc_capone','2026-04-29', -1640,'AMZN MKTP CA*AB124', NULL,          NULL,          'h_c_mys02','csv','2026-04-29T11:00:00Z'),
+  -- Capital One payment RECEIPTS mirror the chequing outflows
+  ('tx_c_pmt_02','acc_capone','2026-02-25', 6500,'PAYMENT - THANK YOU','m_capone','cat_transfer','h_c_pmt_02','csv','2026-02-25T09:05:00Z'),
+  ('tx_c_pmt_03','acc_capone','2026-03-25', 7000,'PAYMENT - THANK YOU','m_capone','cat_transfer','h_c_pmt_03','csv','2026-03-25T09:05:00Z'),
+  ('tx_c_pmt_04','acc_capone','2026-04-27', 7500,'PAYMENT - THANK YOU','m_capone','cat_transfer','h_c_pmt_04','csv','2026-04-27T09:05:00Z');
 
 -- ===== Savings account: credits mirror chequing transfers =====
 INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, description_raw, merchant_id, category_id, dedup_hash, source, created_at) VALUES
@@ -327,10 +359,10 @@ INSERT OR REPLACE INTO counterparties (id, name, default_settlement_method, arch
 
 -- Bowgull split: they spotted me $400 for a dental emergency (not covered by insurance).
 -- Paying back $100/month. $100 remaining after 3 payments.
-UPDATE splits SET original_cents = 40000, remaining_cents = 10000, counterparty_id = 'cp_bowgull',
-  direction = 'i_owe', reason = 'dental emergency front'
-WHERE id = 'split_bowgull_mexico';
 DELETE FROM split_events WHERE split_id = 'split_bowgull_mexico';
+DELETE FROM splits WHERE id = 'split_bowgull_mexico';
+INSERT OR REPLACE INTO splits (id, counterparty_id, direction, original_cents, remaining_cents, reason, created_at, closed_at) VALUES
+  ('split_bowgull_mexico','cp_bowgull','i_owe',40000,10000,'dental emergency front','2026-01-15T12:00:00Z',NULL);
 INSERT OR REPLACE INTO split_events (id, split_id, delta_cents, transaction_id, note, created_at) VALUES
   ('se_bg_01','split_bowgull_mexico',-10000,NULL,'etransfer to Bowgull Feb','2026-02-20T12:00:00Z'),
   ('se_bg_02','split_bowgull_mexico',-10000,NULL,'etransfer to Bowgull Mar','2026-03-19T12:00:00Z'),
@@ -379,3 +411,19 @@ INSERT INTO phase_log (id, phase, entered_at, trigger_rule, metrics_json) VALUES
 INSERT OR REPLACE INTO goals (id, name, target_cents, target_date, linked_account_id, progress_cents, archived) VALUES
   ('goal_emerg',   'Emergency fund (1 month rent)',  165000,'2026-12-01','acc_td_sav', 38000, 0),
   ('goal_camping', 'Summer camping trip',             80000,'2026-08-01','acc_td_sav', 12000, 0);
+
+-- ===== Period closes: 11 weekly Sunday→Saturday closes, Feb 8 → Apr 25 =====
+-- TB values are 0/0 because the seed wipes journal_entries; run /api/admin/gl-backfill
+-- after seeding to populate the GL and recompute net-worth history.
+INSERT OR REPLACE INTO period_close (id, period_start, period_end, closed_at, closed_by, trial_balance_debits_cents, trial_balance_credits_cents) VALUES
+  ('pc_2026_02_14','2026-02-08','2026-02-14','2026-02-15T10:30:00Z','user',0,0),
+  ('pc_2026_02_21','2026-02-15','2026-02-21','2026-02-22T10:15:00Z','user',0,0),
+  ('pc_2026_02_28','2026-02-22','2026-02-28','2026-03-01T09:45:00Z','user',0,0),
+  ('pc_2026_03_07','2026-03-01','2026-03-07','2026-03-08T10:20:00Z','user',0,0),
+  ('pc_2026_03_14','2026-03-08','2026-03-14','2026-03-15T10:00:00Z','user',0,0),
+  ('pc_2026_03_21','2026-03-15','2026-03-21','2026-03-22T11:10:00Z','user',0,0),
+  ('pc_2026_03_28','2026-03-22','2026-03-28','2026-03-29T09:30:00Z','user',0,0),
+  ('pc_2026_04_04','2026-03-29','2026-04-04','2026-04-05T10:25:00Z','user',0,0),
+  ('pc_2026_04_11','2026-04-05','2026-04-11','2026-04-12T10:40:00Z','user',0,0),
+  ('pc_2026_04_18','2026-04-12','2026-04-18','2026-04-19T09:55:00Z','user',0,0),
+  ('pc_2026_04_25','2026-04-19','2026-04-25','2026-04-26T10:30:00Z','user',0,0);
