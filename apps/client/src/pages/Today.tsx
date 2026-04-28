@@ -10,6 +10,8 @@ type TankResp = {
   paycheque_cents?: number;
   remaining_cents?: number;
   days_remaining?: number;
+  committed_cents?: number;
+  truly_free_cents?: number;
 };
 
 type Counterparty = {
@@ -153,7 +155,6 @@ export default function Today() {
     queryFn: () => api.get<{ settings: Record<string, string> }>('/api/settings'),
   });
   const vocabLevel = parseInt(settings.data?.settings.vocabulary_level ?? '0', 10);
-  const footerCopy = vocabLevel >= 2 ? '* still printing *' : '* still counting *';
 
   // Chit state. `prefilledFor` is the counterparty id when tearing from a row;
   // null means "tear from scratch".
@@ -211,6 +212,11 @@ export default function Today() {
           total_pending_cents: number;
           installment_count: number;
           period_end: string;
+        } | null;
+        last_paid_installment: {
+          label: string;
+          amount_cents: number;
+          stamped_at: string;
         } | null;
       }>('/api/today'),
   });
@@ -289,6 +295,14 @@ export default function Today() {
     .sort((a, b) => Math.abs(b.net_cents) - Math.abs(a.net_cents));
 
   const printingAhead = todayExtras.data?.printing_ahead ?? [];
+  const lastPaid = todayExtras.data?.last_paid_installment ?? null;
+  const committedCents = tank.data?.committed_cents ?? 0;
+  const committedExceedsRemaining = committedCents > 0 && committedCents > remaining;
+  const footerCopy = lastPaid
+    ? `* ${lastPaid.label} — done *`
+    : vocabLevel >= 2
+      ? '* still printing *'
+      : '* still counting *';
 
   // Long-press detection.
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -447,6 +461,20 @@ export default function Today() {
           return (
             <div className="perf pt-4">
               <div className="section-label mb-2">Queue</div>
+              {committedExceedsRemaining && (
+                <div
+                  className="flex items-baseline justify-between py-2 px-1 mb-1"
+                  style={{
+                    borderTop: '1px dashed var(--cat-indulgence)',
+                    borderBottom: '1px dashed var(--cat-indulgence)',
+                    color: 'var(--cat-indulgence)',
+                  }}
+                >
+                  <div className="text-sm">
+                    Committed {formatCents(committedCents)} exceeds {formatCents(remaining)} left.
+                  </div>
+                </div>
+              )}
               {queue.length === 0 ? (
                 <div className="text-sm ink-muted">Nothing pending.</div>
               ) : (

@@ -5,6 +5,7 @@ import {
   predictNextPayday,
   type RecurringTxn,
 } from '../lib/recurring.js';
+import { mostRecentSunday } from './reconciliation.js';
 
 export const todayRoutes = new Hono<{ Bindings: Env }>();
 
@@ -163,7 +164,33 @@ todayRoutes.get('/', async (c) => {
         }
       : null;
 
-  return c.json({ rcpt_days, last_indulgence, next_bill, printing_ahead, active_plan });
+  // Most recent installment stamped this reconciliation week — drives the
+  // footer evolution from "still printing" to "<debt> — done".
+  const weekStart = mostRecentSunday(today);
+  const lastPaidRow = await c.env.DB.prepare(
+    `SELECT label, planned_cents, stamped_at
+     FROM period_allocations
+     WHERE category_group = 'debt'
+       AND stamped_at IS NOT NULL
+       AND date(stamped_at) >= ?
+     ORDER BY stamped_at DESC LIMIT 1`,
+  ).bind(weekStart).first<{ label: string; planned_cents: number; stamped_at: string }>();
+  const last_paid_installment = lastPaidRow
+    ? {
+        label: stripRoleSuffix(lastPaidRow.label),
+        amount_cents: lastPaidRow.planned_cents,
+        stamped_at: lastPaidRow.stamped_at,
+      }
+    : null;
+
+  return c.json({
+    rcpt_days,
+    last_indulgence,
+    next_bill,
+    printing_ahead,
+    active_plan,
+    last_paid_installment,
+  });
 });
 
 // Last 3 occurrences for a Today queue row. Powers the drill-in accordion.
