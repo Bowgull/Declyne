@@ -23,6 +23,8 @@ import Plan from './pages/Plan';
 import PL from './pages/PL';
 import NetWorthTrend from './pages/NetWorthTrend';
 import Forecast from './pages/Forecast';
+import Subscriptions from './pages/Subscriptions';
+import TaxYear from './pages/TaxYear';
 import ButtonsMockup from './pages/ButtonsMockup';
 import PaymentLinkMockup from './pages/PaymentLinkMockup';
 import VocabularyToast from './components/VocabularyToast';
@@ -77,6 +79,8 @@ export default function App() {
           <Route path="/budget/pl" element={<Navigate to="/paycheque/pl" replace />} />
           <Route path="/paycheque/net-worth" element={<NetWorthTrend />} />
           <Route path="/paycheque/forecast" element={<Forecast />} />
+          <Route path="/paycheque/subscriptions" element={<Subscriptions />} />
+          <Route path="/settings/tax" element={<TaxYear />} />
           <Route path="/budget/forecast" element={<Navigate to="/paycheque/forecast" replace />} />
           <Route path="/budget/net-worth" element={<Navigate to="/paycheque/net-worth" replace />} />
           <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />

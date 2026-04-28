@@ -17,6 +17,7 @@ type MerchantListRow = MerchantRow & {
   txn_count: number;
   last_seen_at: string | null;
   uncategorized_txn_count: number;
+  spend_90d_cents: number;
 };
 
 export type MerchantPatch = {
@@ -65,13 +66,14 @@ merchantsRoutes.get('/', async (c) => {
                       c.name AS category_name,
                       COUNT(t.id) AS txn_count,
                       MAX(t.posted_at) AS last_seen_at,
-                      SUM(CASE WHEN t.category_id IS NULL THEN 1 ELSE 0 END) AS uncategorized_txn_count
+                      SUM(CASE WHEN t.category_id IS NULL THEN 1 ELSE 0 END) AS uncategorized_txn_count,
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_90d_cents
                FROM merchants m
                LEFT JOIN transactions t ON t.merchant_id = m.id
                LEFT JOIN categories c ON c.id = m.category_default_id
                ${whereSql}
                GROUP BY m.id
-               ORDER BY m.verified ASC, txn_count DESC, m.display_name ASC
+               ORDER BY m.verified ASC, spend_90d_cents DESC, txn_count DESC, m.display_name ASC
                LIMIT ?`;
   binds.push(limit);
   const { results } = await c.env.DB.prepare(sql).bind(...binds).all<MerchantListRow>();
