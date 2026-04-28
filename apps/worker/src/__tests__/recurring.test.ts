@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectRecurring, predictNextPayday, type RecurringTxn } from '../lib/recurring.js';
+import { detectRecurring, detectSubscriptions, predictNextPayday, type RecurringTxn } from '../lib/recurring.js';
 
 const mk = (
   merchant_id: string,
@@ -127,5 +127,53 @@ describe('predictNextPayday', () => {
     expect(
       predictNextPayday({ end_date: '2026-05-20', paycheque_cents: 240_000 }, '2026-04-25', 14),
     ).toBeNull();
+  });
+});
+
+describe('detectSubscriptions', () => {
+  const sub = (id: string, name: string, group: string, dates: string[], amount: number): RecurringTxn[] =>
+    dates.map((d) => mk(id, name, group, d, -amount));
+
+  it('detects a stable monthly lifestyle charge', () => {
+    const txns = sub('m_netflix', 'Netflix', 'lifestyle', ['2026-01-15', '2026-02-15', '2026-03-15'], 1599);
+    const result = detectSubscriptions(txns);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.merchant_id).toBe('m_netflix');
+    expect(result[0]!.amount_cents).toBe(1599);
+  });
+
+  it('rejects variable-amount merchant (meals, groceries)', () => {
+    const txns = [
+      mk('m_timhortons', 'Tim Hortons', 'indulgence', '2026-01-20', -350),
+      mk('m_timhortons', 'Tim Hortons', 'indulgence', '2026-02-18', -825),
+      mk('m_timhortons', 'Tim Hortons', 'indulgence', '2026-03-19', -1200),
+    ];
+    const result = detectSubscriptions(txns);
+    expect(result).toHaveLength(0);
+  });
+
+  it('rejects essentials-group merchants (bills belong to detectRecurring)', () => {
+    const txns = sub('m_rogers', 'Rogers', 'essentials', ['2026-01-10', '2026-02-10', '2026-03-10'], 9500);
+    expect(detectSubscriptions(txns)).toHaveLength(0);
+  });
+
+  it('sorts results by amount descending', () => {
+    const txns = [
+      ...sub('m_spotify', 'Spotify', 'lifestyle', ['2026-01-01', '2026-02-01', '2026-03-01'], 999),
+      ...sub('m_netflix', 'Netflix', 'lifestyle', ['2026-01-05', '2026-02-05', '2026-03-05'], 1599),
+    ];
+    const result = detectSubscriptions(txns);
+    expect(result[0]!.merchant_id).toBe('m_netflix');
+    expect(result[1]!.merchant_id).toBe('m_spotify');
+  });
+
+  it('allows small amount variance within 15% CV (annual price increase)', () => {
+    // $14.99 for 3 months, then $15.99 for 3 months — CV is well under 15%
+    const txns = [
+      ...sub('m_streaming', 'StreamCo', 'lifestyle', ['2025-10-01', '2025-11-01', '2025-12-01'], 1499),
+      ...sub('m_streaming', 'StreamCo', 'lifestyle', ['2026-01-01', '2026-02-01', '2026-03-01'], 1599),
+    ];
+    const result = detectSubscriptions(txns);
+    expect(result).toHaveLength(1);
   });
 });

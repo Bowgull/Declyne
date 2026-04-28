@@ -34,6 +34,16 @@ const BILL_GROUPS = new Set(['essentials', 'debt', 'transfer']);
 const MIN_CADENCE_DAYS = 14;
 const MAX_CADENCE_DAYS = 35;
 const MIN_OCCURRENCES = 3;
+// Subscriptions charge a stable amount. Coefficient of variation above this
+// threshold means the charges vary too much to be a fixed recurring fee.
+const MAX_AMOUNT_CV = 0.15;
+
+function stddev(nums: number[]): number {
+  if (nums.length < 2) return 0;
+  const mean = nums.reduce((s, n) => s + n, 0) / nums.length;
+  const variance = nums.reduce((s, n) => s + (n - mean) ** 2, 0) / nums.length;
+  return Math.sqrt(variance);
+}
 
 function median(nums: number[]): number {
   const sorted = [...nums].sort((a, b) => a - b);
@@ -142,7 +152,9 @@ export function detectSubscriptions(txns: RecurringTxn[]): SubscriptionPredictio
     }
     const cadence = median(intervals);
     if (cadence < MIN_CADENCE_DAYS || cadence > MAX_CADENCE_DAYS) continue;
-    const amountAbs = median(rows.map((r) => Math.abs(r.amount_cents)));
+    const amounts = rows.map((r) => Math.abs(r.amount_cents));
+    const amountAbs = median(amounts);
+    if (amountAbs > 0 && stddev(amounts) / amountAbs > MAX_AMOUNT_CV) continue;
     const first = rows[0]!.posted_at;
     const last = rows[rows.length - 1]!.posted_at;
     const months_running = Math.max(1, Math.round(daysBetween(first, last) / 30));
