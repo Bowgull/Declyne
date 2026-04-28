@@ -9,6 +9,12 @@ import {
 import { newId, nowIso } from '../lib/ids.js';
 import { redactSensitive } from '../lib/logRedact.js';
 import { writeEditLog } from '../lib/editlog.js';
+import {
+  loadPaycheckInputs,
+  computePaycheckCommitments,
+  essentialsBaselineForKernel,
+  type CommittedLine,
+} from '../lib/periodIntelligence.js';
 
 export const planRoutes = new Hono<{ Bindings: Env }>();
 
@@ -30,6 +36,12 @@ interface PlanInputsBundle {
   indulgence_per_paycheque: number;
   charge_velocity_per_debt_cents: Record<string, number>;
   debt_rows: DebtRow[];
+  // Session 72: forward-looking commitment breakdown that fed essentials_per_paycheque.
+  // Kept on the bundle so /api/plan can surface it without a second route round-trip.
+  commitment_lines: CommittedLine[];
+  bills_cents: number;
+  savings_cents: number;
+  lifestyle_baseline_cents: number;
 }
 
 // Rate limit on AI rationale calls. Pure cache reads are free.
@@ -70,47 +82,87 @@ async function computeChargeVelocity(env: Env, debts: DebtRow[]): Promise<Record
 }
 
 async function loadPlanInputs(env: Env): Promise<PlanInputsBundle> {
-  const { results } = await env.DB.prepare(
-    `SELECT id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value,
-            severity, account_id_linked
-     FROM debts
-     WHERE archived = 0
-     ORDER BY severity, principal_cents`,
-  ).all<DebtRow>();
-  const debt_rows = (results ?? []) as DebtRow[];
-  const debts: PlanDebtInput[] = debt_rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    principal_cents: r.principal_cents,
-    interest_rate_bps: r.interest_rate_bps,
-    min_payment_type: r.min_payment_type,
-    min_payment_value: r.min_payment_value,
-    severity: r.severity,
-  }));
+  // Session 72: switched from 90d essentials average to forward-looking
+  // commitments via periodIntelligence. The kernel now sees real bills due
+  // this paycheque + savings sweeps + lifestyle baseline as its essentials
+  // baseline, not a stale rolling average.
+  const inputs = await loadPaycheckInputs(env);
 
-  const period = await env.DB.prepare(
-    `SELECT paycheque_cents FROM pay_periods
-     WHERE start_date <= date('now')
-     ORDER BY start_date DESC LIMIT 1`,
-  ).first<{ paycheque_cents: number }>();
-  const paycheque_cents = period?.paycheque_cents ?? 0;
+  if (!inputs) {
+    // Pre-onboarding: no period yet. Fall back to debts + settings only.
+    const { results } = await env.DB.prepare(
+      `SELECT id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value,
+              severity, account_id_linked
+       FROM debts WHERE archived = 0 ORDER BY severity, principal_cents`,
+    ).all<DebtRow>();
+    const debt_rows = (results ?? []) as DebtRow[];
+    const debts: PlanDebtInput[] = debt_rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      principal_cents: r.principal_cents,
+      interest_rate_bps: r.interest_rate_bps,
+      min_payment_type: r.min_payment_type,
+      min_payment_value: r.min_payment_value,
+      severity: r.severity,
+    }));
+    let essentials = await readNumberSetting(env, 'essentials_monthly_cents', 0);
+    if (essentials <= 0) essentials = await readNumberSetting(env, 'essentials_monthly_cents_derived', 0);
+    const essentials_per_paycheque = Math.round((essentials * 12) / 26);
+    const indulgence_monthly = await readNumberSetting(env, 'indulgence_allowance_cents', 0);
+    const indulgence_per_paycheque = Math.round((indulgence_monthly * 12) / 26);
+    const charge_velocity_per_debt_cents = await computeChargeVelocity(env, debt_rows);
+    return {
+      debts,
+      paycheque_cents: 0,
+      essentials_per_paycheque,
+      indulgence_per_paycheque,
+      charge_velocity_per_debt_cents,
+      debt_rows,
+      commitment_lines: [],
+      bills_cents: 0,
+      savings_cents: 0,
+      lifestyle_baseline_cents: 0,
+    };
+  }
 
-  let essentials = await readNumberSetting(env, 'essentials_monthly_cents', 0);
-  if (essentials <= 0) essentials = await readNumberSetting(env, 'essentials_monthly_cents_derived', 0);
-  const essentials_per_paycheque = Math.round((essentials * 12) / 26);
+  const debts = inputs.debt_rows.map((r) => r.plan_input);
+  const debt_rows = inputs.debt_rows.map(
+    ({ id, name, principal_cents, interest_rate_bps, min_payment_type, min_payment_value, severity, account_id_linked }) => ({
+      id,
+      name,
+      principal_cents,
+      interest_rate_bps,
+      min_payment_type,
+      min_payment_value,
+      severity,
+      account_id_linked,
+    }),
+  );
 
-  const indulgence_monthly = await readNumberSetting(env, 'indulgence_allowance_cents', 0);
-  const indulgence_per_paycheque = Math.round((indulgence_monthly * 12) / 26);
+  const committed = computePaycheckCommitments({
+    bills: inputs.bills,
+    debt_mins: inputs.debt_mins,
+    savings_goals: inputs.savings_goals,
+    recurring_savings: inputs.recurring_savings,
+  });
 
-  const charge_velocity_per_debt_cents = await computeChargeVelocity(env, debt_rows);
+  const essentials_per_paycheque = essentialsBaselineForKernel({
+    bills_cents: committed.bills_cents,
+    savings_cents: committed.savings_cents,
+    lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
+  });
 
   return {
     debts,
-    paycheque_cents,
+    paycheque_cents: inputs.period.paycheque_cents,
     essentials_per_paycheque,
-    indulgence_per_paycheque,
-    charge_velocity_per_debt_cents,
+    indulgence_per_paycheque: inputs.indulgence_per_paycheque_cents,
+    charge_velocity_per_debt_cents: inputs.charge_velocity_per_debt_cents,
     debt_rows,
+    commitment_lines: committed.lines,
+    bills_cents: committed.bills_cents,
+    savings_cents: committed.savings_cents,
+    lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
   };
 }
 
@@ -233,6 +285,12 @@ planRoutes.get('/', async (c) => {
       indulgence_allowance_cents: b.indulgence_per_paycheque,
       charge_velocity_per_debt_cents: b.charge_velocity_per_debt_cents,
       debt_count: b.debts.length,
+      // Session 72: surface the breakdown so the Plan page (and future
+      // Paycheque page) can show why capacity is what it is.
+      bills_cents: b.bills_cents,
+      savings_cents: b.savings_cents,
+      lifestyle_baseline_cents: b.lifestyle_baseline_cents,
+      commitment_lines: b.commitment_lines,
     },
     rationale: cache?.rationale_text ?? null,
     observations: cache?.observations_json ? safeParseArray(cache.observations_json) : [],

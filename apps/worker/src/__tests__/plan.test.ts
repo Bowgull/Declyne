@@ -20,6 +20,10 @@ const baseBundle = {
   indulgence_per_paycheque: 0,
   charge_velocity_per_debt_cents: { d1: 50_000 },
   debt_rows: [],
+  commitment_lines: [],
+  bills_cents: 0,
+  savings_cents: 0,
+  lifestyle_baseline_cents: 0,
 };
 
 describe('hashPlanInputs', () => {

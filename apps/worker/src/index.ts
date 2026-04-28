@@ -40,6 +40,7 @@ import {
 } from './routes/paymentLinks.js';
 import { glRoutes, glAdminRoutes } from './routes/gl.js';
 import { planRoutes } from './routes/plan.js';
+import { paychequeRoutes } from './routes/paycheque.js';
 import { auth } from './middleware/auth.js';
 import { redactSensitive } from './lib/logRedact.js';
 
@@ -110,6 +111,7 @@ api.route('/payment-links', paymentLinksRoutes);
 api.route('/gl', glRoutes);
 api.route('/admin', glAdminRoutes);
 api.route('/plan', planRoutes);
+api.route('/paycheque', paychequeRoutes);
 
 app.route('/api', api);
 

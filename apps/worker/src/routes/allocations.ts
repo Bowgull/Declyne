@@ -18,6 +18,11 @@ import {
   type DebtSeverity,
   type PlanRole,
 } from '../lib/paymentPlan.js';
+import {
+  loadPaycheckInputs,
+  computePaycheckCommitments,
+  essentialsBaselineForKernel,
+} from '../lib/periodIntelligence.js';
 
 export const allocationsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -359,25 +364,49 @@ export async function draftForPeriod(env: Env, periodId: string): Promise<number
   // Fall-through: if no debts, leave debt rows empty.
   let planDebts: DraftPlanDebt[] = [];
   if (planDebtInputs.length > 0) {
-    const periodRow = await env.DB.prepare(
-      `SELECT paycheque_cents FROM pay_periods WHERE id = ?`,
-    ).bind(periodId).first<{ paycheque_cents: number }>();
-    const paycheque_cents = periodRow?.paycheque_cents ?? 0;
-    let essMonthly = await readNumberSettingFromAlloc(env, 'essentials_monthly_cents', 0);
-    if (essMonthly <= 0) essMonthly = await readNumberSettingFromAlloc(env, 'essentials_monthly_cents_derived', 0);
-    const essentials_per_paycheque = Math.round((essMonthly * 12) / 26);
-    const indMonthly = await readNumberSettingFromAlloc(env, 'indulgence_allowance_cents', 0);
-    const indulgence_per_paycheque = Math.round((indMonthly * 12) / 26);
-
-    // Charge velocity per debt (monthly) from last 90d.
-    const velocity: Record<string, number> = {};
-    for (const d of debts) {
-      if (!d.account_id_linked) { velocity[d.id] = 0; continue; }
-      const r = await env.DB.prepare(
-        `SELECT COALESCE(SUM(amount_cents), 0) AS s FROM transactions
-         WHERE account_id = ? AND amount_cents < 0 AND posted_at >= date('now','-90 days')`,
-      ).bind(d.account_id_linked).first<{ s: number }>();
-      velocity[d.id] = Math.round(Math.abs(r?.s ?? 0) / 3);
+    // Session 72: kernel now sees real upcoming bills + savings + lifestyle
+    // baseline as essentials, not a 90d rolling average. Same intelligence
+    // that powers /api/paycheque so the drafter and the plan view agree.
+    const inputs = await loadPaycheckInputs(env);
+    let paycheque_cents = 0;
+    let essentials_per_paycheque = 0;
+    let indulgence_per_paycheque = 0;
+    let velocity: Record<string, number> = {};
+    if (inputs && inputs.period.id === periodId) {
+      const committed = computePaycheckCommitments({
+        bills: inputs.bills,
+        debt_mins: inputs.debt_mins,
+        savings_goals: inputs.savings_goals,
+        recurring_savings: inputs.recurring_savings,
+      });
+      paycheque_cents = inputs.period.paycheque_cents;
+      essentials_per_paycheque = essentialsBaselineForKernel({
+        bills_cents: committed.bills_cents,
+        savings_cents: committed.savings_cents,
+        lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
+      });
+      indulgence_per_paycheque = inputs.indulgence_per_paycheque_cents;
+      velocity = inputs.charge_velocity_per_debt_cents;
+    } else {
+      // Drafting for a non-current period (rare): fall back to the legacy
+      // settings-based essentials so the kernel still has plausible inputs.
+      const periodRow = await env.DB.prepare(
+        `SELECT paycheque_cents FROM pay_periods WHERE id = ?`,
+      ).bind(periodId).first<{ paycheque_cents: number }>();
+      paycheque_cents = periodRow?.paycheque_cents ?? 0;
+      let essMonthly = await readNumberSettingFromAlloc(env, 'essentials_monthly_cents', 0);
+      if (essMonthly <= 0) essMonthly = await readNumberSettingFromAlloc(env, 'essentials_monthly_cents_derived', 0);
+      essentials_per_paycheque = Math.round((essMonthly * 12) / 26);
+      const indMonthly = await readNumberSettingFromAlloc(env, 'indulgence_allowance_cents', 0);
+      indulgence_per_paycheque = Math.round((indMonthly * 12) / 26);
+      for (const d of debts) {
+        if (!d.account_id_linked) { velocity[d.id] = 0; continue; }
+        const r = await env.DB.prepare(
+          `SELECT COALESCE(SUM(amount_cents), 0) AS s FROM transactions
+           WHERE account_id = ? AND amount_cents < 0 AND posted_at >= date('now','-90 days')`,
+        ).bind(d.account_id_linked).first<{ s: number }>();
+        velocity[d.id] = Math.round(Math.abs(r?.s ?? 0) / 3);
+      }
     }
 
     const out = computePlan({
