@@ -34,3 +34,4 @@ drizzle/meta/
 coverage/
 .vitest/
 apps/client/tsconfig.tsbuildinfo
+.vercel
