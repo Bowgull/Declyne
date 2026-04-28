@@ -422,7 +422,7 @@
   }
   .tab-bar-inner {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     height: 56px;
   }
 
@@ -1218,6 +1218,80 @@
     border-top: 1.5px dashed var(--color-ink-muted);
     margin: 0 6px;
     opacity: 0.6;
+  }
+
+  /* Draft stamp: compact rubber ink stamp. */
+  .draft-stamp {
+    appearance: none;
+    background: var(--color-paper-shade);
+    color: var(--color-ink);
+    border: 2px double var(--color-ink);
+    border-radius: 3px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 600;
+    transform: rotate(-2deg);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .draft-stamp:active {
+    transform: rotate(-2deg) translateY(2px) scale(0.98);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+  }
+  .draft-stamp:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Chit pad: stacked paper button. Tap the top sheet. */
+  .chit-pad {
+    position: relative;
+    width: 180px;
+    height: 48px;
+    margin: 12px auto 4px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    display: block;
+  }
+  .chit-pad-layer {
+    position: absolute;
+    inset: 0;
+    background: var(--color-paper);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  .chit-pad-layer.l3 {
+    background: var(--color-paper-shade);
+    transform: translate(4px, 5px) rotate(1.4deg);
+  }
+  .chit-pad-layer.l2 {
+    background: #ebe4d4;
+    transform: translate(2px, 2px) rotate(-0.8deg);
+  }
+  .chit-pad-top {
+    position: absolute;
+    inset: 0;
+    background: var(--color-paper);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
+    transform: rotate(-1.2deg);
+    transform-origin: top left;
+    transition: transform 200ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+  }
+  .chit-pad:active .chit-pad-top {
+    transform: rotate(-3deg) translate(-3px, -2px);
   }
 
   /* Postage stamp: ceremonial action button.
