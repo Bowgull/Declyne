@@ -6,6 +6,7 @@ import type { CsvFormat } from '@declyne/shared';
 import type { WorkerIn, WorkerOut } from '../csv/parser.worker';
 import { api } from '../lib/api';
 import type { Account } from '../pages/Accounts';
+import { showVocabularyToast } from '../lib/vocabularyToast';
 
 const FORMATS: CsvFormat[] = ['td_chequing', 'td_savings', 'td_visa', 'capital_one'];
 
@@ -51,10 +52,12 @@ export default function ImportCsvButton() {
         skipped_dedup: number;
         new_merchants: number;
         flagged_for_review: number;
+        vocabulary_unlock?: { level: number; message: string };
       }>('/api/import/transactions', {
         rows: result.rows,
         merchant_norm_version: result.merchant_norm_version,
       });
+      if (resp.vocabulary_unlock) showVocabularyToast(resp.vocabulary_unlock.message);
       const parts = [
         `${resp.inserted} inserted`,
         `${resp.skipped_dedup} dupes`,

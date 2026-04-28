@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { glyphForCategory } from '../lib/rowGlyph';
+import { showVocabularyToast } from '../lib/vocabularyToast';
 
 export type AllocationRow = {
   id: string;
@@ -40,8 +41,14 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
   const [amount, setAmount] = useState('');
 
   const stamp = useMutation({
-    mutationFn: (id: string) => api.post(`/api/allocations/${id}/stamp`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['allocations'] }),
+    mutationFn: (id: string) =>
+      api.post<{ ok: boolean; vocabulary_unlock?: { level: number; message: string } }>(
+        `/api/allocations/${id}/stamp`,
+      ),
+    onSuccess: (data) => {
+      if (data.vocabulary_unlock) showVocabularyToast(data.vocabulary_unlock.message);
+      qc.invalidateQueries({ queryKey: ['allocations'] });
+    },
   });
   const unstamp = useMutation({
     mutationFn: (id: string) => api.post(`/api/allocations/${id}/unstamp`),

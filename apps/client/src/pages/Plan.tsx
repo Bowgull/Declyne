@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { SeedArt } from '../components/PostageArt';
+import { showVocabularyToast } from '../lib/vocabularyToast';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
@@ -98,11 +99,14 @@ export default function Plan() {
 
   const accept = useMutation({
     mutationFn: () =>
-      api.post<{ plan_id: string; committed_at: string; installments_committed: number }>(
-        '/api/plan/accept',
-        {},
-      ),
+      api.post<{
+        plan_id: string;
+        committed_at: string;
+        installments_committed: number;
+        vocabulary_unlock?: { level: number; message: string };
+      }>('/api/plan/accept', {}),
     onSuccess: (r) => {
+      if (r.vocabulary_unlock) showVocabularyToast(r.vocabulary_unlock.message);
       setCommitMsg(`accepted · ${r.installments_committed} installments`);
       qc.invalidateQueries({ queryKey: ['plan'] });
       qc.invalidateQueries({ queryKey: ['today'] });

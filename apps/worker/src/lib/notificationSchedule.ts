@@ -55,6 +55,7 @@ export interface ScheduleInput {
   debts: DebtInput[];
   payday: PaydayInput;
   tank: TankInput | null;
+  userName?: string;
 }
 
 function daysBetween(a: string, b: string): number {
@@ -102,6 +103,8 @@ export function isTankLow(tank: TankInput): boolean {
 
 export function buildNotificationSchedule(input: ScheduleInput, today: string): NotificationRow[] {
   const out: NotificationRow[] = [];
+  const name = input.userName?.trim() || '';
+  const greet = name ? `${name}, ` : '';
 
   // Bills: notify the day before due, capped at 50 entries.
   input.bills.slice(0, 50).forEach((bill, i) => {
@@ -112,7 +115,7 @@ export function buildNotificationSchedule(input: ScheduleInput, today: string): 
     out.push({
       id: BILL_BASE + i,
       kind: 'bill_due_tomorrow',
-      title: `${bill.merchant_name} hits tomorrow.`,
+      title: `${greet}${bill.merchant_name} hits tomorrow.`,
       body: `$${dollars}. Make sure it's there.`,
       fire_date,
     });
@@ -136,7 +139,7 @@ export function buildNotificationSchedule(input: ScheduleInput, today: string): 
     out.push({
       id: DEBT_BASE + i,
       kind: 'debt_min_due',
-      title: `${debt.name} minimum due in 3 days.`,
+      title: `${greet}${debt.name} minimum due in 3 days.`,
       body: `At least $${dollars}. Don't let it slip.`,
       fire_date,
     });
@@ -149,7 +152,7 @@ export function buildNotificationSchedule(input: ScheduleInput, today: string): 
       out.push({
         id: PAYCHEQUE_ID,
         kind: 'paycheque_landed',
-        title: 'Paycheque should be in.',
+        title: name ? `Paycheque is in, ${name}.` : 'Paycheque should be in.',
         body: 'Open the app, draft the period.',
         fire_date: today,
       });
@@ -161,7 +164,7 @@ export function buildNotificationSchedule(input: ScheduleInput, today: string): 
     out.push({
       id: TANK_LOW_ID,
       kind: 'tank_low',
-      title: 'The tank is running thin.',
+      title: `${greet}the tank is running thin.`,
       body: 'You have more days left than dollars per day.',
       fire_date: today,
     });

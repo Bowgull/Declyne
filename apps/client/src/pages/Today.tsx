@@ -46,6 +46,12 @@ const LONG_PRESS_MS = 450;
 export default function Today() {
   const qc = useQueryClient();
   const [heroIdx, setHeroIdx] = useState(0);
+  const settings = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<{ settings: Record<string, string> }>('/api/settings'),
+  });
+  const vocabLevel = parseInt(settings.data?.settings.vocabulary_level ?? '0', 10);
+  const footerCopy = vocabLevel >= 2 ? '* still printing *' : '* still counting *';
 
   // Chit state. `prefilledFor` is the counterparty id when tearing from a row;
   // null means "tear from scratch".
@@ -107,6 +113,7 @@ export default function Today() {
     .toUpperCase();
 
   const rcpt = todayExtras.data?.rcpt_days ?? 0;
+  const userName = settings.data?.settings?.user_display_name ?? '';
   const reviewCount = review.data?.items.length ?? 0;
   const streak = reconciliation.data?.reconciliation_streak ?? 0;
   const remaining = tank.data?.remaining_cents ?? 0;
@@ -251,7 +258,7 @@ export default function Today() {
               color: 'var(--color-ink-muted)',
             }}
           >
-            {dateLabel} &nbsp;&middot;&nbsp; RCPT {pad(rcpt, 4)} &nbsp;&middot;&nbsp; WK {pad(isoWeek(now), 2)}
+            {dateLabel} &nbsp;&middot;&nbsp; {userName || `RCPT ${pad(rcpt, 4)}`} &nbsp;&middot;&nbsp; WK {pad(isoWeek(now), 2)}
           </div>
         </header>
 
@@ -449,7 +456,7 @@ export default function Today() {
         </div>
 
         <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
-          * still printing *
+          {footerCopy}
         </div>
       </section>
     </div>

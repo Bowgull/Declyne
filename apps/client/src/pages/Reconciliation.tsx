@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { dismissFollowUpThisWeek } from '../native/notifications';
+import { showVocabularyToast } from '../lib/vocabularyToast';
 import { SealArt } from '../components/PostageArt';
 import { glyphForCategory } from '../lib/rowGlyph';
 
@@ -175,11 +176,14 @@ export default function Reconciliation() {
 
   const complete = useMutation({
     mutationFn: (acknowledge_outstanding: boolean) =>
-      api.post<{ ok: true; reconciliation_streak: number; acknowledged_outstanding?: boolean }>(
-        '/api/reconciliation/complete',
-        { acknowledge_outstanding },
-      ),
-    onSuccess: async () => {
+      api.post<{
+        ok: true;
+        reconciliation_streak: number;
+        acknowledged_outstanding?: boolean;
+        vocabulary_unlock?: { level: number; message: string };
+      }>('/api/reconciliation/complete', { acknowledge_outstanding }),
+    onSuccess: async (data) => {
+      if (data.vocabulary_unlock) showVocabularyToast(data.vocabulary_unlock.message);
       await dismissFollowUpThisWeek().catch(() => {});
       qc.invalidateQueries({ queryKey: ['reconciliation-week'] });
       qc.invalidateQueries({ queryKey: ['reconciliation-status'] });

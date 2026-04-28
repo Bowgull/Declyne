@@ -74,7 +74,10 @@ app.get('/pay/:token', async (c) => {
   if (status === 'active' && !row.viewed_at) {
     await markViewed(c.env, row.id);
   }
-  return c.html(renderPublicLinkHtml(row, status));
+  const nameRow = await c.env.DB.prepare(
+    `SELECT value FROM settings WHERE key = 'user_display_name' LIMIT 1`,
+  ).first<{ value: string }>();
+  return c.html(renderPublicLinkHtml(row, status, nameRow?.value));
 });
 
 app.use('/api/*', auth);

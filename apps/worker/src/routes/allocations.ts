@@ -23,6 +23,7 @@ import {
   computePaycheckCommitments,
   essentialsBaselineForKernel,
 } from '../lib/periodIntelligence.js';
+import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
 
 export const allocationsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -250,7 +251,11 @@ allocationsRoutes.post('/:id/stamp', async (c) => {
       reason: 'allocation_stamp',
     },
   ]);
-  return c.json({ ok: true });
+  const vocabularyUnlock =
+    existing.category_group === 'debt'
+      ? await maybeUnlockVocabulary(c.env, 3).catch(() => null)
+      : null;
+  return c.json({ ok: true, ...(vocabularyUnlock ? { vocabulary_unlock: vocabularyUnlock } : {}) });
 });
 
 // Unstamp (mistake recovery).

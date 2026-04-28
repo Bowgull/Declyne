@@ -27,6 +27,7 @@ export default function Onboarding() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>(0);
+  const [displayName, setDisplayName] = useState('');
 
   const accounts = useQuery({
     queryKey: ['accounts'],
@@ -41,7 +42,11 @@ export default function Onboarding() {
     },
   });
 
-  function next() {
+  async function next() {
+    if (step === 0 && displayName.trim()) {
+      await api.post('/api/settings/user_display_name', { value: displayName.trim() });
+      await qc.invalidateQueries({ queryKey: ['settings'] });
+    }
     setStep((s) => Math.min(4, (s + 1) as Step) as Step);
   }
   function back() {
@@ -79,7 +84,7 @@ export default function Onboarding() {
         ))}
       </div>
 
-      {step === 0 && <StepWelcome />}
+      {step === 0 && <StepWelcome displayName={displayName} setDisplayName={setDisplayName} />}
       {step === 1 && <StepAccount accounts={accounts.data?.accounts ?? []} />}
       {step === 2 && <StepPaycheque accounts={accounts.data?.accounts ?? []} />}
       {step === 3 && <StepEssentials />}
@@ -109,7 +114,7 @@ export default function Onboarding() {
   );
 }
 
-function StepWelcome() {
+function StepWelcome({ displayName, setDisplayName }: { displayName: string; setDisplayName: (v: string) => void }) {
   return (
     <section className="card flex flex-col gap-3">
       <p className="text-sm">
@@ -119,6 +124,15 @@ function StepWelcome() {
         Phase is computed from your real numbers, not how the week felt. Every step here is
         optional. You can fill anything in later from Settings.
       </p>
+      <label className="field-label">Your name</label>
+      <input
+        className="field"
+        value={displayName}
+        onChange={(e) => setDisplayName(e.target.value)}
+        placeholder="Shows on payment requests and notifications"
+        autoComplete="name"
+        autoFocus
+      />
     </section>
   );
 }

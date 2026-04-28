@@ -15,6 +15,7 @@ import {
   essentialsBaselineForKernel,
   type CommittedLine,
 } from '../lib/periodIntelligence.js';
+import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
 
 export const planRoutes = new Hono<{ Bindings: Env }>();
 
@@ -495,11 +496,14 @@ planRoutes.post('/accept', async (c) => {
     })),
   );
 
+  const vocabularyUnlock = await maybeUnlockVocabulary(c.env, 4).catch(() => null);
+
   return c.json({
     plan_id: cache.id,
     committed_at: now,
     pay_period_id: period.id,
     installments_committed: rows.length,
+    ...(vocabularyUnlock ? { vocabulary_unlock: vocabularyUnlock } : {}),
   });
 });
 

@@ -7,6 +7,7 @@ import { runCcStatementDerivation } from './ccStatements.js';
 import { draftForPeriod, autoMatchAllocations } from './allocations.js';
 import { disableLinksForSplit } from './paymentLinks.js';
 import { postSplitEventJe } from '../lib/glCounterparty.js';
+import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
 
 interface ImportRow {
   posted_at: string;
@@ -130,6 +131,10 @@ importRoutes.post('/transactions', async (c) => {
   // Splits: auto-match open tabs by amount + ±3d window.
   const splitsSettled = await autoMatchSplits(c.env).catch(() => 0);
 
+  const vocabularyUnlock = inserted > 0
+    ? await maybeUnlockVocabulary(c.env, 1).catch(() => null)
+    : null;
+
   return c.json({
     inserted,
     skipped_dedup: skipped,
@@ -140,6 +145,7 @@ importRoutes.post('/transactions', async (c) => {
     allocations_drafted: allocationsDrafted,
     allocations_matched: allocationsMatched,
     splits_settled: splitsSettled,
+    ...(vocabularyUnlock ? { vocabulary_unlock: vocabularyUnlock } : {}),
   });
 });
 
