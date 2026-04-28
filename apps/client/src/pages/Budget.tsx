@@ -470,6 +470,13 @@ export default function Budget() {
           </div>
           <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
+        <Link to="/paycheque/forecast" className="ledger-row tap">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Next 30 days</span>
+            <span className="ledger-row-hint">Cash forecast · running balance</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </Link>
       </section>
 
       {(weeks.length > 0 || historyRows.length > 0) && (
