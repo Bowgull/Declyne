@@ -108,6 +108,22 @@ type MissedResponse = {
   installments: MissedInstallment[];
 };
 
+type PlanInstallmentRow = {
+  allocation_id: string;
+  debt_name: string;
+  amount_cents: number;
+  due_date: string;
+  status: 'paid' | 'pending';
+};
+
+type PlanSummaryResponse = {
+  installments: PlanInstallmentRow[];
+  total_cents: number;
+  paid_count: number;
+  pending_count: number;
+  is_active_plan: boolean;
+};
+
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function dayLabel(iso: string): string {
@@ -146,6 +162,11 @@ export default function Reconciliation() {
   const missed = useQuery({
     queryKey: ['reconciliation-missed-installments'],
     queryFn: () => api.get<MissedResponse>('/api/reconciliation/missed-installments'),
+  });
+
+  const planSummary = useQuery({
+    queryKey: ['reconciliation-plan-summary'],
+    queryFn: () => api.get<PlanSummaryResponse>('/api/reconciliation/plan-summary'),
   });
 
   const clearLine = useMutation({
@@ -284,6 +305,34 @@ export default function Reconciliation() {
             </span>
           </div>
         </div>
+
+        {planSummary.data?.is_active_plan && (
+          <div className="pt-3 flex flex-col gap-2" style={perforation}>
+            <div className="flex justify-between text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+              <span>This week&#39;s plan</span>
+              <span className="font-mono">{planSummary.data.paid_count}/{planSummary.data.installments.length} paid</span>
+            </div>
+            {planSummary.data.installments.map((inst) => (
+              <div key={inst.allocation_id} className="flex justify-between items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="cat-dot debt" />
+                  <span className="text-sm">{inst.debt_name}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-mono text-sm">{formatCents(inst.amount_cents)}</span>
+                  {inst.status === 'paid' ? (
+                    <span className="stamp-paid-badge">Paid</span>
+                  ) : (
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">Pending</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
+              {planSummary.data.paid_count} of {planSummary.data.installments.length} plan payments confirmed this period.
+            </div>
+          </div>
+        )}
 
         {missed.data && missed.data.count > 0 && (
           <div className="pt-3" style={perforation}>
