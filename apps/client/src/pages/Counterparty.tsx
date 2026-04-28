@@ -39,6 +39,17 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function daysSince(iso: string): number {
+  const ms = Date.now() - Date.parse(iso);
+  return Math.max(0, Math.floor(ms / 86_400_000));
+}
+
+function ageColor(days: number): string {
+  if (days > 30) return 'var(--cat-indulgence)';
+  if (days >= 14) return 'var(--color-accent-gold)';
+  return 'var(--color-ink-muted)';
+}
+
 export default function CounterpartyPage() {
   const { id } = useParams();
   const qc = useQueryClient();
@@ -157,6 +168,15 @@ export default function CounterpartyPage() {
                         <div className="text-sm" style={{ color: 'var(--color-ink)' }}>{s.reason}</div>
                         <div className="label-tag mt-0.5">
                           {dirLabel} &middot; {fmtDate(s.created_at)}
+                          {!s.closed_at && (() => {
+                            const d = daysSince(s.created_at);
+                            return (
+                              <>
+                                {' '}&middot;{' '}
+                                <span style={{ color: ageColor(d) }}>{d}d open</span>
+                              </>
+                            );
+                          })()}
                           {s.closed_at && <> &middot; settled {fmtDate(s.closed_at)}</>}
                         </div>
                       </div>

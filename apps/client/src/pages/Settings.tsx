@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { setToken, clearToken } from '../lib/tokenStore';
 import { scheduleAllNotifications } from '../native/notifications';
 import LedgerHeader from '../components/LedgerHeader';
+import SearchSheet from '../components/SearchSheet';
 
 type Account = {
   id: string;
@@ -66,6 +67,7 @@ export default function Settings() {
   const [interacSaving, setInteracSaving] = useState(false);
   const [interacSavedAt, setInteracSavedAt] = useState<string | null>(null);
 
+  const [searchOpen, setSearchOpen] = useState(false);
   const [tokenSheetOpen, setTokenSheetOpen] = useState(false);
   const [newToken, setNewToken] = useState('');
   const [tokenSaving, setTokenSaving] = useState(false);
@@ -171,6 +173,13 @@ export default function Settings() {
 
       <section className="ledger-section">
         <span className="ledger-section-kicker"><span className="num">02</span>Data</span>
+        <button onClick={() => setSearchOpen(true)} className="ledger-row tap text-left">
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Search transactions</span>
+            <span className="ledger-row-hint">find any line, any account, any date</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </button>
         {NAV_ITEMS.map((it) => (
           <Link key={it.to} to={it.to} className="ledger-row tap">
             <div className="ledger-row-main">
@@ -399,6 +408,8 @@ export default function Settings() {
           <p className="text-xs text-[color:var(--color-text-muted)] pb-2">{tokenMsg}</p>
         )}
       </section>
+
+      {searchOpen && <SearchSheet onClose={() => setSearchOpen(false)} />}
 
       {tokenSheetOpen && (
         <div

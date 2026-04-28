@@ -4,23 +4,39 @@ import type { Env } from '../env.js';
 export const budgetRoutes = new Hono<{ Bindings: Env }>();
 
 budgetRoutes.get('/variance', async (c) => {
-  // Current pay period variance by category.
+  // Per-category-group variance for the current pay period. Pulls planned from
+  // period_allocations (the only source of truth since session 41) and spent
+  // from transactions joined to category group. Delta is signed: positive =
+  // under, negative = over.
   const period = await c.env.DB.prepare(
     `SELECT id, start_date, end_date FROM pay_periods WHERE start_date <= date('now') ORDER BY start_date DESC LIMIT 1`,
   ).first<{ id: string; start_date: string; end_date: string }>();
   if (!period) return c.json({ period: null, rows: [] });
 
-  const { results } = await c.env.DB.prepare(
-    `SELECT c.id as category_id, c.name, c."group" as "group",
-            COALESCE(b.allocation_cents, 0) as allocation_cents,
-            COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) as spent_cents
-     FROM categories c
-     LEFT JOIN budgets b ON b.category_id = c.id AND b.period_id = ?
-     LEFT JOIN transactions t ON t.category_id = c.id AND t.posted_at BETWEEN ? AND ?
-     GROUP BY c.id`,
-  ).bind(period.id, period.start_date, period.end_date).all();
+  const planned = await c.env.DB.prepare(
+    `SELECT category_group AS g, COALESCE(SUM(planned_cents), 0) AS cents
+     FROM period_allocations WHERE pay_period_id = ? GROUP BY category_group`,
+  ).bind(period.id).all<{ g: string; cents: number }>();
 
-  return c.json({ period, rows: results });
+  const spent = await c.env.DB.prepare(
+    `SELECT COALESCE(c."group", 'uncategorized') AS g,
+            COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS cents
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE t.posted_at BETWEEN ? AND ?
+     GROUP BY g`,
+  ).bind(period.start_date, period.end_date).all<{ g: string; cents: number }>();
+
+  const groups = ['essentials', 'lifestyle', 'debt', 'savings', 'indulgence'] as const;
+  const planMap = new Map(planned.results.map((r) => [r.g, r.cents]));
+  const spendMap = new Map(spent.results.map((r) => [r.g, r.cents]));
+  const rows = groups.map((g) => {
+    const planned_cents = planMap.get(g) ?? 0;
+    const spent_cents = spendMap.get(g) ?? 0;
+    return { group: g, planned_cents, spent_cents, delta_cents: planned_cents - spent_cents };
+  });
+
+  return c.json({ period, rows });
 });
 
 budgetRoutes.get('/indulgence/trend', async (c) => {
