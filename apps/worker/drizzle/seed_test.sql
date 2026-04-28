@@ -23,6 +23,10 @@ DELETE FROM journal_entries;
 DELETE FROM period_close;
 DELETE FROM transactions;
 DELETE FROM debts;
+-- Wipe counterparty GL accounts so backfill recreates them with current names.
+-- Must null the FK first or D1 rejects the delete.
+UPDATE counterparties SET account_id = NULL;
+DELETE FROM gl_accounts WHERE id LIKE 'gla_cp_%';
 
 -- Accounts
 INSERT OR REPLACE INTO accounts (id, name, institution, type, currency, last_import_at, archived) VALUES
@@ -412,18 +416,6 @@ INSERT OR REPLACE INTO goals (id, name, target_cents, target_date, linked_accoun
   ('goal_emerg',   'Emergency fund (1 month rent)',  165000,'2026-12-01','acc_td_sav', 38000, 0),
   ('goal_camping', 'Summer camping trip',             80000,'2026-08-01','acc_td_sav', 12000, 0);
 
--- ===== Period closes: 11 weekly Sunday→Saturday closes, Feb 8 → Apr 25 =====
--- TB values are 0/0 because the seed wipes journal_entries; run /api/admin/gl-backfill
--- after seeding to populate the GL and recompute net-worth history.
-INSERT OR REPLACE INTO period_close (id, period_start, period_end, closed_at, closed_by, trial_balance_debits_cents, trial_balance_credits_cents) VALUES
-  ('pc_2026_02_14','2026-02-08','2026-02-14','2026-02-15T10:30:00Z','user',0,0),
-  ('pc_2026_02_21','2026-02-15','2026-02-21','2026-02-22T10:15:00Z','user',0,0),
-  ('pc_2026_02_28','2026-02-22','2026-02-28','2026-03-01T09:45:00Z','user',0,0),
-  ('pc_2026_03_07','2026-03-01','2026-03-07','2026-03-08T10:20:00Z','user',0,0),
-  ('pc_2026_03_14','2026-03-08','2026-03-14','2026-03-15T10:00:00Z','user',0,0),
-  ('pc_2026_03_21','2026-03-15','2026-03-21','2026-03-22T11:10:00Z','user',0,0),
-  ('pc_2026_03_28','2026-03-22','2026-03-28','2026-03-29T09:30:00Z','user',0,0),
-  ('pc_2026_04_04','2026-03-29','2026-04-04','2026-04-05T10:25:00Z','user',0,0),
-  ('pc_2026_04_11','2026-04-05','2026-04-11','2026-04-12T10:40:00Z','user',0,0),
-  ('pc_2026_04_18','2026-04-12','2026-04-18','2026-04-19T09:55:00Z','user',0,0),
-  ('pc_2026_04_25','2026-04-19','2026-04-25','2026-04-26T10:30:00Z','user',0,0);
+-- Period closes are inserted by scripts/db-reseed.sh AFTER gl-backfill runs.
+-- postJournalEntry rejects writes into locked periods, so backfill must complete
+-- before period_close rows exist.
