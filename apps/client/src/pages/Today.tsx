@@ -564,16 +564,13 @@ export default function Today() {
           <button
             type="button"
             onClick={() => setChitOpen({ prefilledFor: null })}
-            className="tear-tab tear-tab-motion"
+            className="chit-pad"
+            aria-label="Open a new tab"
           >
-            <span className="cut-line" aria-hidden />
-            <span className="tear-arrow" aria-hidden>↓</span>
-            <span>Tear new chit</span>
-            <span className="cut-line" aria-hidden />
+            <span className="chit-pad-layer l3" aria-hidden />
+            <span className="chit-pad-layer l2" aria-hidden />
+            <span className="chit-pad-top">+ new tab</span>
           </button>
-          <div className="label-tag mt-2 text-center" style={{ color: 'var(--color-ink-muted)', opacity: 0.6 }}>
-            long-press a name above to prefill
-          </div>
         </div>
 
         <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
