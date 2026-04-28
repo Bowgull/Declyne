@@ -27,6 +27,8 @@ import Subscriptions from './pages/Subscriptions';
 import TaxYear from './pages/TaxYear';
 import ButtonsMockup from './pages/ButtonsMockup';
 import PaymentLinkMockup from './pages/PaymentLinkMockup';
+import DraftChitMockup from './pages/DraftChitMockup';
+import PaychequeTankMockup from './pages/PaychequeTankMockup';
 import VocabularyToast from './components/VocabularyToast';
 import { api } from './lib/api';
 
@@ -88,6 +90,8 @@ export default function App() {
           <Route path="/budget/tabs/:id" element={<RedirectTabs />} />
           <Route path="/mockup/buttons" element={<ButtonsMockup />} />
           <Route path="/mockup/payment-link" element={<PaymentLinkMockup />} />
+          <Route path="/mockup/draft-chit" element={<DraftChitMockup />} />
+          <Route path="/mockup/paycheque-tank" element={<PaychequeTankMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>
