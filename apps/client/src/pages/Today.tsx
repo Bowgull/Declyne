@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { DeclyneWordmark } from '../components/DeclyneWordmark';
+import { CounterpartyReceipt } from './Counterparty';
 
 type TankResp = {
   period: { start_date: string; end_date: string } | null;
@@ -311,6 +312,7 @@ export default function Today() {
   // Long-press detection.
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
+  const [liftedCpId, setLiftedCpId] = useState<string | null>(null);
 
   function startPress(prefilledFor: string | null, idForVisual: string) {
     setPressingId(idForVisual);
@@ -355,7 +357,31 @@ export default function Today() {
     chitOpen?.prefilledFor ? allCps.find((c) => c.id === chitOpen.prefilledFor) ?? null : null;
 
   return (
-    <div className="px-3 pt-4 pb-6">
+    <>
+    {liftedCpId && (
+      <div
+        onClick={() => setLiftedCpId(null)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 150,
+          background: 'rgba(26,20,29,0.72)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          padding: '24px 12px 32px',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ width: '100%', maxWidth: 420 }}
+        >
+          <CounterpartyReceipt id={liftedCpId} onClose={() => setLiftedCpId(null)} />
+        </div>
+      </div>
+    )}
+    <div className="ledger-page">
       <section className="receipt paper-in flex flex-col gap-5">
         <header className="flex flex-col" style={{ marginBottom: 4 }}>
           <div style={{ height: 3, background: 'var(--color-ink)' }} />
@@ -579,9 +605,14 @@ export default function Today() {
                       style={{ gap: 12 }}
                     >
                       <div className="flex flex-col" style={{ minWidth: 0 }}>
-                        <Link to={`/paycheque/tabs/${cp.id}`} style={{ color: 'var(--color-ink)' }} className="text-sm">
+                        <button
+                          type="button"
+                          onClick={() => setLiftedCpId(cp.id)}
+                          style={{ color: 'var(--color-ink)', background: 'transparent', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer' }}
+                          className="text-sm"
+                        >
                           {cp.name}
-                        </Link>
+                        </button>
                         <div className="label-tag mt-0.5">
                           {dirLabel} &middot; {cp.open_tab_count} {cp.open_tab_count === 1 ? 'chit' : 'chits'}
                         </div>
@@ -623,16 +654,13 @@ export default function Today() {
           <button
             type="button"
             onClick={() => setChitOpen({ prefilledFor: null })}
-            className="tear-tab tear-tab-motion"
+            className="chit-pad"
+            aria-label="Open a new tab"
           >
-            <span className="cut-line" aria-hidden />
-            <span className="tear-arrow" aria-hidden>↓</span>
-            <span>Tear new chit</span>
-            <span className="cut-line" aria-hidden />
+            <span className="chit-pad-layer l3" aria-hidden />
+            <span className="chit-pad-layer l2" aria-hidden />
+            <span className="chit-pad-top">+ new tab</span>
           </button>
-          <div className="label-tag mt-2 text-center" style={{ color: 'var(--color-ink-muted)', opacity: 0.6 }}>
-            long-press a name above to prefill
-          </div>
         </div>
 
         <div className="perf pt-4 text-center label-tag" style={{ letterSpacing: '0.32em' }}>
@@ -640,6 +668,7 @@ export default function Today() {
         </div>
       </section>
     </div>
+    </>
   );
 }
 
