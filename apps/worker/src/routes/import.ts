@@ -8,6 +8,7 @@ import { draftForPeriod, autoMatchAllocations } from './allocations.js';
 import { disableLinksForSplit } from './paymentLinks.js';
 import { postSplitEventJe } from '../lib/glCounterparty.js';
 import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
+import { detectSubCategory } from '../lib/subCategoryDetect.js';
 
 interface ImportRow {
   posted_at: string;
@@ -41,7 +42,7 @@ importRoutes.post('/transactions', async (c) => {
   );
   const getMerchant = c.env.DB.prepare(`SELECT id, category_default_id FROM merchants WHERE normalized_key = ?`);
   const insertMerchant = c.env.DB.prepare(
-    `INSERT INTO merchants (id, display_name, normalized_key, verified) VALUES (?,?,?,0)`,
+    `INSERT INTO merchants (id, display_name, normalized_key, verified, sub_category) VALUES (?,?,?,0,?)`,
   );
   const insertReview = c.env.DB.prepare(
     `INSERT INTO review_queue (id, transaction_id, reason, resolved_at) VALUES (?,?,?,NULL)`,
@@ -60,7 +61,10 @@ importRoutes.post('/transactions', async (c) => {
         categoryId = existing.category_default_id;
       } else {
         merchantId = newId('mer');
-        await insertMerchant.bind(merchantId, r.description_raw.slice(0, 80), key).run();
+        const guessed = detectSubCategory(r.description_raw);
+        await insertMerchant
+          .bind(merchantId, r.description_raw.slice(0, 80), key, guessed)
+          .run();
         isNewMerchant = true;
         newMerchants++;
       }

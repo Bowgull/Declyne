@@ -1,6 +1,11 @@
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { writeEditLog } from '../lib/editlog.js';
+import {
+  detectSubCategory,
+  isSubCategory,
+  type SubCategory,
+} from '../lib/subCategoryDetect.js';
 
 export const merchantsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -10,6 +15,8 @@ type MerchantRow = {
   normalized_key: string;
   category_default_id: string | null;
   verified: number;
+  sub_category: string | null;
+  sub_category_confirmed: number;
 };
 
 type MerchantListRow = MerchantRow & {
@@ -29,6 +36,8 @@ export type MerchantPatch = {
   category_default_id?: string | null;
   verified?: 0 | 1 | boolean;
   apply_to_uncategorized?: boolean;
+  sub_category?: SubCategory | null;
+  sub_category_confirmed?: 0 | 1 | boolean;
 };
 
 export function parseMerchantPatch(raw: unknown): MerchantPatch {
@@ -48,6 +57,15 @@ export function parseMerchantPatch(raw: unknown): MerchantPatch {
     out.verified = b.verified === true || b.verified === 1 ? 1 : 0;
   }
   if (b.apply_to_uncategorized === true) out.apply_to_uncategorized = true;
+  if ('sub_category' in b) {
+    const v = b.sub_category;
+    if (v === null || v === '') out.sub_category = null;
+    else if (isSubCategory(v)) out.sub_category = v;
+  }
+  if ('sub_category_confirmed' in b) {
+    out.sub_category_confirmed =
+      b.sub_category_confirmed === true || b.sub_category_confirmed === 1 ? 1 : 0;
+  }
   return out;
 }
 
@@ -67,6 +85,7 @@ merchantsRoutes.get('/', async (c) => {
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   const sql = `SELECT m.id, m.display_name, m.normalized_key, m.category_default_id, m.verified,
+                      m.sub_category, m.sub_category_confirmed,
                       c.name AS category_name,
                       c.\`group\` AS category_group,
                       COUNT(t.id) AS txn_count,
@@ -92,7 +111,7 @@ merchantsRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id');
   const patch = parseMerchantPatch(await c.req.json().catch(() => ({})));
   const existing = await c.env.DB.prepare(
-    `SELECT id, display_name, normalized_key, category_default_id, verified FROM merchants WHERE id = ?`,
+    `SELECT id, display_name, normalized_key, category_default_id, verified, sub_category, sub_category_confirmed FROM merchants WHERE id = ?`,
   )
     .bind(id)
     .first<MerchantRow>();
@@ -145,6 +164,36 @@ merchantsRoutes.patch('/:id', async (c) => {
     }
   }
 
+  if (patch.sub_category !== undefined && patch.sub_category !== existing.sub_category) {
+    updates.push('sub_category = ?');
+    values.push(patch.sub_category);
+    logs.push({
+      entity_type: 'merchant_sub_category',
+      entity_id: id,
+      field: 'sub_category',
+      old_value: existing.sub_category,
+      new_value: patch.sub_category,
+      actor: 'user',
+      reason: 'sub_category_set',
+    });
+  }
+  if (patch.sub_category_confirmed !== undefined) {
+    const next = patch.sub_category_confirmed ? 1 : 0;
+    if (next !== existing.sub_category_confirmed) {
+      updates.push('sub_category_confirmed = ?');
+      values.push(next);
+      logs.push({
+        entity_type: 'merchant_sub_category',
+        entity_id: id,
+        field: 'sub_category_confirmed',
+        old_value: String(existing.sub_category_confirmed),
+        new_value: String(next),
+        actor: 'user',
+        reason: 'sub_category_confirm',
+      });
+    }
+  }
+
   let backfilled = 0;
   if (updates.length) {
     await c.env.DB.prepare(`UPDATE merchants SET ${updates.join(', ')} WHERE id = ?`)
@@ -181,4 +230,75 @@ merchantsRoutes.patch('/:id', async (c) => {
 
   await writeEditLog(c.env, logs);
   return c.json({ ok: true, backfilled });
+});
+
+/**
+ * GET /sub-categories/queue — discretionary merchants where the user hasn't
+ * confirmed a sub-category yet. Sorted by 90d spend so the loudest habits
+ * surface first.
+ *
+ * Surfaces both unguessed (sub_category IS NULL) and detector-guessed-but-
+ * not-confirmed merchants. The Habits queue UI shows the guess in the
+ * approve sheet so the user can accept-with-one-tap or override.
+ */
+merchantsRoutes.get('/sub-categories/queue', async (c) => {
+  const limit = Math.min(Number(c.req.query('limit') ?? '50') || 50, 200);
+  const sql = `SELECT m.id, m.display_name, m.normalized_key, m.sub_category,
+                      c.\`group\` AS category_group,
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_90d_cents,
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') THEN 1 ELSE 0 END), 0) AS txn_count_90d
+               FROM merchants m
+               LEFT JOIN transactions t ON t.merchant_id = m.id
+               LEFT JOIN categories c ON c.id = m.category_default_id
+               WHERE m.sub_category_confirmed = 0
+                 AND c.\`group\` IN ('lifestyle', 'indulgence')
+               GROUP BY m.id
+               HAVING spend_90d_cents > 0
+               ORDER BY spend_90d_cents DESC
+               LIMIT ?`;
+  const { results } = await c.env.DB.prepare(sql).bind(limit).all<{
+    id: string;
+    display_name: string;
+    normalized_key: string;
+    sub_category: string | null;
+    category_group: string | null;
+    spend_90d_cents: number;
+    txn_count_90d: number;
+  }>();
+  return c.json({ merchants: results });
+});
+
+/**
+ * POST /sub-categories/backfill — runs the detector against every
+ * unconfirmed discretionary merchant. Used once after the migration to
+ * seed guesses; harmless to re-run (only writes when the detector returns
+ * a non-null guess that differs from current).
+ */
+merchantsRoutes.post('/sub-categories/backfill', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT m.id, m.display_name, m.sub_category, c.\`group\` AS category_group
+     FROM merchants m
+     LEFT JOIN categories c ON c.id = m.category_default_id
+     WHERE m.sub_category_confirmed = 0
+       AND c.\`group\` IN ('lifestyle', 'indulgence')`,
+  ).all<{
+    id: string;
+    display_name: string;
+    sub_category: string | null;
+    category_group: 'lifestyle' | 'indulgence';
+  }>();
+
+  let updated = 0;
+  for (const m of results) {
+    const guess = detectSubCategory(m.display_name, m.category_group);
+    if (guess && guess !== m.sub_category) {
+      await c.env.DB.prepare(
+        `UPDATE merchants SET sub_category = ? WHERE id = ?`,
+      )
+        .bind(guess, m.id)
+        .run();
+      updated++;
+    }
+  }
+  return c.json({ scanned: results.length, updated });
 });
