@@ -412,40 +412,55 @@ export default function Today() {
     )}
     <div className="ledger-page">
       <section className="receipt paper-in flex flex-col gap-5">
-        <header className="flex flex-col" style={{ marginBottom: 4 }}>
+        <header className="flex flex-col" style={{ marginBottom: 4, position: 'relative' }}>
+          {/* Edition plate above the double rule — split left/right */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              letterSpacing: '0.20em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-muted)',
+              padding: '4px 0 10px',
+            }}
+          >
+            <span>{dateLabel}</span>
+            <span>{userName || `RCPT ${pad(rcpt, 4)}`} &nbsp;&middot;&nbsp; WK {pad(isoWeek(now), 2)}</span>
+          </div>
+
+          {/* Double rule — newspaper masthead convention */}
           <div style={{ height: 3, background: 'var(--color-ink)' }} />
-          <div className="flex items-center justify-between" style={{ padding: '14px 0 12px' }}>
+          <div style={{ height: 3, marginTop: 2, background: 'var(--color-ink)' }} />
+
+          {/* Masthead: mascot left · wordmark center · settings right */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '40px 1fr 40px',
+            alignItems: 'center',
+            padding: '10px 0 8px',
+          }}>
             <span
               className="mascot-sigil"
               aria-hidden="true"
-              style={{ width: 64, height: 64, flexShrink: 0 }}
+              style={{ width: 36, height: 36 }}
             />
-            <DeclyneWordmark fontSize={28} />
+            <DeclyneWordmark fontSize={30} />
             <Link
               to="/settings"
               aria-label="Settings"
-              style={{ color: 'var(--color-ink-muted)' }}
+              style={{ display: 'flex', justifyContent: 'flex-end', color: 'var(--color-ink-muted)', opacity: 0.40 }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </Link>
           </div>
-          <div style={{ height: 1, background: 'rgba(26,20,29,0.25)' }} />
-          <div
-            style={{
-              padding: '10px 0 0',
-              textAlign: 'center',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: 'var(--color-ink-muted)',
-            }}
-          >
-            {dateLabel} &nbsp;&middot;&nbsp; {userName || `RCPT ${pad(rcpt, 4)}`} &nbsp;&middot;&nbsp; WK {pad(isoWeek(now), 2)}
-          </div>
+
+          {/* Dashed perf — where the receipt content begins */}
+          <div style={{ borderTop: '1px dashed rgba(26,20,29,0.28)' }} />
         </header>
 
         <button
