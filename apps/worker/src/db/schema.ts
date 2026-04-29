@@ -33,6 +33,8 @@ export const merchants = sqliteTable('merchants', {
   normalized_key: text('normalized_key').notNull().unique(),
   category_default_id: text('category_default_id').references(() => categories.id),
   verified: integer('verified').notNull().default(0),
+  sub_category: text('sub_category'),
+  sub_category_confirmed: integer('sub_category_confirmed').notNull().default(0),
 });
 
 export const categories = sqliteTable('categories', {

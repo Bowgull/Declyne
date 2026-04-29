@@ -8,6 +8,7 @@ import LedgerHeader from '../components/LedgerHeader';
 import NetworkMap from '../components/NetworkMap';
 import { buildMoneyNetwork, buildHabitsNetwork } from '../lib/networkData';
 import SubscriptionVerdictLedger, { type SubscriptionRow } from '../components/SubscriptionVerdictLedger';
+import SubCategoryQueue from '../components/SubCategoryQueue';
 import BooksLegend from '../components/BooksLegend';
 
 type CommittedSource = 'bill' | 'debt_min' | 'savings_goal' | 'savings_recurring';
@@ -56,6 +57,8 @@ interface MerchantRow {
   spend_prior_30d_cents?: number;
   txn_count: number;
   txn_count_90d?: number;
+  sub_category?: string | null;
+  sub_category_confirmed?: number;
 }
 
 interface Subscription {
@@ -438,9 +441,11 @@ function PatternsView({
 
   return (
     <div className="flex flex-col gap-5">
+      <SubCategoryQueue />
+
       <section className="ledger-section pt-2">
         <span className="ledger-section-kicker">
-          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>01</span> Habits
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Habits
         </span>
         <span className="ledger-section-meta">{habitsMerchants.length} merchants</span>
 
@@ -465,7 +470,7 @@ function PatternsView({
 
       <section className="ledger-section pt-3">
         <span className="ledger-section-kicker">
-          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Standing orders
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Standing orders
         </span>
         <span className="ledger-section-meta">
           {subRunningCount} {subRunningCount === 1 ? 'hand' : 'hands'} in your wallet
@@ -480,7 +485,7 @@ function PatternsView({
       {spendHistoryRows.length > 0 && (
         <section className="ledger-section pt-3">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Spending history
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>04</span> Spending history
           </span>
           <span className="ledger-section-meta">{spendHistoryRows.length} periods</span>
           <SpendHistoryTable rows={spendHistoryRows} />
@@ -490,7 +495,7 @@ function PatternsView({
       {periodHistoryRows.length > 0 && (
         <section className="ledger-section pt-3">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>04</span> Period surplus
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>05</span> Period surplus
           </span>
           <div className="flex flex-col">
             {periodHistoryRows.map((r) => {

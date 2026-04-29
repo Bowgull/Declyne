@@ -50,11 +50,40 @@ export interface MerchantShape {
   spend_30d_cents?: number;
   txn_count: number;
   txn_count_90d?: number;
+  sub_category?: string | null;
+  sub_category_confirmed?: number;
 }
 
 export interface SubscriptionShape {
   merchant_id: string;
 }
+
+const SUB_LABEL: Record<string, string> = {
+  food: 'FOOD',
+  transit: 'TRANSIT',
+  shopping: 'SHOPPING',
+  home: 'HOME',
+  personal_care: 'PERSONAL CARE',
+  entertainment: 'ENTERTAINMENT',
+  health: 'HEALTH',
+  bars: 'BARS',
+  takeout: 'TAKEOUT',
+  fast_food: 'FAST FOOD',
+  weed: 'WEED',
+  streaming: 'STREAMING',
+  gaming: 'GAMING',
+  treats: 'TREATS',
+};
+
+const LIFESTYLE_SUBS = new Set([
+  'food',
+  'transit',
+  'shopping',
+  'home',
+  'personal_care',
+  'entertainment',
+  'health',
+]);
 
 // ---------- helpers ----------
 
@@ -253,8 +282,11 @@ export interface HabitsNetwork {
 
 export function buildHabitsNetwork(
   merchants: MerchantShape[],
-  subscriptions: SubscriptionShape[],
+  _subscriptions: SubscriptionShape[],
 ): HabitsNetwork {
+  // Subscriptions live on Books → Standing orders; the Habits map no longer
+  // duplicates that signal. The argument is kept for callsite stability.
+  void _subscriptions;
   const nodes: NetworkNode[] = [];
   const edges: NetworkEdge[] = [];
 
@@ -268,26 +300,48 @@ export function buildHabitsNetwork(
 
   if (habitMerchants.length === 0) return { nodes, edges };
 
-  const subIds = new Set(subscriptions.map((s) => s.merchant_id));
+  // Each merchant's destination hub is its sub_category, when present and
+  // valid for the merchant's group. Unconfirmed merchants (or merchants
+  // whose sub_category was set on the wrong group) cluster under a single
+  // UNCONFIRMED hub — visually telling the user "open the queue."
+  const usedSubs = new Set<string>();
+  let unconfirmedCount = 0;
 
-  // Hubs: only emit category hubs that have ≥1 merchant. AUTOPILOT only if any
-  // merchant is detected as recurring.
-  const groups = new Set<string>();
-  let anyAutopilot = false;
   for (const m of habitMerchants) {
-    if (m.category_group === 'lifestyle') groups.add('lifestyle');
-    if (m.category_group === 'indulgence') groups.add('indulgence');
-    if (subIds.has(m.id)) anyAutopilot = true;
+    const sub = m.sub_category ?? null;
+    if (!sub || !(sub in SUB_LABEL)) {
+      unconfirmedCount++;
+      continue;
+    }
+    // Group/sub mismatch: e.g. an indulgence brand mistakenly stamped lifestyle
+    if (m.category_group === 'lifestyle' && !LIFESTYLE_SUBS.has(sub)) {
+      unconfirmedCount++;
+      continue;
+    }
+    if (m.category_group === 'indulgence' && LIFESTYLE_SUBS.has(sub)) {
+      unconfirmedCount++;
+      continue;
+    }
+    usedSubs.add(sub);
   }
 
-  if (groups.has('lifestyle')) {
-    nodes.push({ id: 'hub_lifestyle', label: 'LIFESTYLE', kind: 'hub', hubKind: 'lifestyle' });
+  for (const sub of usedSubs) {
+    const isLifestyle = LIFESTYLE_SUBS.has(sub);
+    nodes.push({
+      id: `hub_sub_${sub}`,
+      label: SUB_LABEL[sub] ?? sub.toUpperCase(),
+      kind: 'hub',
+      hubKind: isLifestyle ? 'lifestyle' : 'indulgence',
+    });
   }
-  if (groups.has('indulgence')) {
-    nodes.push({ id: 'hub_indulgence', label: 'INDULGENCE', kind: 'hub', hubKind: 'indulgence' });
-  }
-  if (anyAutopilot) {
-    nodes.push({ id: 'hub_autopilot', label: 'AUTOPILOT', kind: 'hub', hubKind: 'autopilot' });
+  if (unconfirmedCount > 0) {
+    nodes.push({
+      id: 'hub_unconfirmed',
+      label: 'UNCONFIRMED',
+      kind: 'hub',
+      hubKind: 'bills',
+      obs: `${unconfirmedCount} merchant${unconfirmedCount === 1 ? '' : 's'} need a sub-category`,
+    });
   }
 
   for (const m of habitMerchants) {
@@ -300,15 +354,19 @@ export function buildHabitsNetwork(
       cat: categoryFromGroup(m.category_group),
       obs: `${m.txn_count_90d ?? m.txn_count} charges in 90 days · $${(m.spend_90d_cents / 100).toFixed(0)} total`,
     });
-    if (m.category_group === 'lifestyle' && groups.has('lifestyle')) {
-      edges.push({ a: id, b: 'hub_lifestyle' });
+    const sub = m.sub_category ?? null;
+    let destHub: string | null = null;
+    if (sub && sub in SUB_LABEL) {
+      const lifestyleSub = LIFESTYLE_SUBS.has(sub);
+      if (
+        (m.category_group === 'lifestyle' && lifestyleSub) ||
+        (m.category_group === 'indulgence' && !lifestyleSub)
+      ) {
+        destHub = `hub_sub_${sub}`;
+      }
     }
-    if (m.category_group === 'indulgence' && groups.has('indulgence')) {
-      edges.push({ a: id, b: 'hub_indulgence' });
-    }
-    if (subIds.has(m.id) && anyAutopilot) {
-      edges.push({ a: id, b: 'hub_autopilot', weight: 'primary' });
-    }
+    if (!destHub) destHub = 'hub_unconfirmed';
+    edges.push({ a: id, b: destHub, weight: 'primary' });
   }
 
   return { nodes, edges };

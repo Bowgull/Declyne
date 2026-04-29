@@ -24,6 +24,7 @@ const ALLOWED_ENTITY_TYPES = new Set([
   'journal_entry',
   'period_close',
   'subscription_verdict',
+  'merchant_sub_category',
 ]);
 
 export function clampLimit(raw: string | undefined, fallback = 50, max = 500): number {
