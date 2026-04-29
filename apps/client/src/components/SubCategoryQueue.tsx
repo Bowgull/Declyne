@@ -88,7 +88,15 @@ export default function SubCategoryQueue() {
   // Tap empty space (or the release button) to clear the stack and exit.
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const pressTimer = useRef<number | null>(null);
-  const pressStartedOn = useRef<string | null>(null);
+  // When the long-press fires, the user is still holding the button. The
+  // pointerup that follows will trigger a `click`, which would then run
+  // handleRowClick and *toggle off* the row we just picked. This ref lets
+  // the click handler suppress that one trailing click.
+  const longPressFiredFor = useRef<string | null>(null);
+  // The document-level tap-empty-desk listener releases the stack on the
+  // very tap that opens the next editor. This ref lets us swallow the click
+  // that follows that release-tap.
+  const releasedAt = useRef<number>(0);
 
   const queue = useQuery({
     queryKey: ['sub-category-queue'],
@@ -142,6 +150,7 @@ export default function SubCategoryQueue() {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       if (target.closest('[data-stack-row]') || target.closest('[data-stack-strip]')) return;
+      releasedAt.current = Date.now();
       setPicked(new Set());
     }
     document.addEventListener('pointerdown', onTap);
@@ -154,16 +163,18 @@ export default function SubCategoryQueue() {
   const stackedRows = rows.filter((r) => picked.has(r.id));
 
   function startPress(id: string) {
-    pressStartedOn.current = id;
     if (pressTimer.current) window.clearTimeout(pressTimer.current);
     pressTimer.current = window.setTimeout(() => {
-      // Long-press fires: enter stack mode with this row picked.
+      // Long-press fires: enter stack mode with this row picked. Mark the
+      // row so the trailing click (after pointerup) is swallowed instead of
+      // toggling it back off.
+      longPressFiredFor.current = id;
       setPicked((prev) => {
         const n = new Set(prev);
         n.add(id);
         return n;
       });
-      pressStartedOn.current = null;
+      pressTimer.current = null;
     }, 450);
   }
 
@@ -172,12 +183,24 @@ export default function SubCategoryQueue() {
       window.clearTimeout(pressTimer.current);
       pressTimer.current = null;
     }
-    pressStartedOn.current = null;
   }
 
   function handleRowClick(id: string) {
+    // 1. Click that immediately follows a long-press trigger: the row is
+    //    already in `picked`. Swallow this click so we don't toggle it off.
+    if (longPressFiredFor.current === id) {
+      longPressFiredFor.current = null;
+      return;
+    }
+    // 2. Click on a row immediately after a tap-empty-desk release. The
+    //    pointerdown released the stack; this click would now open the
+    //    inline editor — which feels like the row "ate" the release. Eat
+    //    the click for ~250ms instead.
+    if (Date.now() - releasedAt.current < 250) {
+      return;
+    }
+    // 3. Already in stack mode — tap toggles membership.
     if (picked.size > 0) {
-      // Already in stack mode — tap toggles membership. Don't open the editor.
       setPicked((prev) => {
         const n = new Set(prev);
         if (n.has(id)) n.delete(id);
@@ -186,6 +209,7 @@ export default function SubCategoryQueue() {
       });
       return;
     }
+    // 4. Default: tap opens the inline editor.
     setOpen((cur) => (cur === id ? null : id));
   }
 
