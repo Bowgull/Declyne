@@ -256,6 +256,9 @@ export const goals = sqliteTable('goals', {
   linked_account_id: text('linked_account_id').references(() => accounts.id),
   progress_cents: integer('progress_cents').notNull().default(0),
   archived: integer('archived').notNull().default(0),
+  goal_type: text('goal_type', { enum: ['emergency', 'vacation', 'rrsp', 'tfsa', 'fhsa', 'car', 'other'] })
+    .notNull()
+    .default('other'),
 });
 
 export const cron_runs = sqliteTable('cron_runs', {

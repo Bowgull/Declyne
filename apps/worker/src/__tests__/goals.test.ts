@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseGoalInput, parseGoalPatch } from '../routes/goals.js';
+import { parseGoalInput, parseGoalPatch, computeGoalSuggestion } from '../routes/goals.js';
 
 describe('parseGoalInput', () => {
   it('accepts a valid input', () => {
@@ -16,7 +16,28 @@ describe('parseGoalInput', () => {
       target_date: '2026-09-01',
       linked_account_id: 'acc_td_sav',
       progress_cents: 75000,
+      goal_type: 'other',
     });
+  });
+
+  it('accepts goal_type and validates the enum', () => {
+    const ok = parseGoalInput({
+      name: 'Emergency Fund',
+      target_cents: 546000,
+      target_date: '2027-01-01',
+      goal_type: 'emergency',
+    });
+    if ('error' in ok) throw new Error(ok.error);
+    expect(ok.goal_type).toBe('emergency');
+
+    const bad = parseGoalInput({
+      name: 'Bogus',
+      target_cents: 100,
+      target_date: '2026-09-01',
+      goal_type: 'mansion',
+    });
+    if ('error' in bad) throw new Error('expected fall-through to other');
+    expect(bad.goal_type).toBe('other');
   });
 
   it('defaults progress to 0 and linked_account to null', () => {
@@ -80,5 +101,67 @@ describe('parseGoalPatch', () => {
     expect('error' in parseGoalPatch({ target_cents: 0 })).toBe(true);
     expect('error' in parseGoalPatch({ target_date: 'whenever' })).toBe(true);
     expect('error' in parseGoalPatch({ progress_cents: -1 })).toBe(true);
+    expect('error' in parseGoalPatch({ goal_type: 'mansion' })).toBe(true);
+  });
+
+  it('accepts goal_type when valid', () => {
+    expect(parseGoalPatch({ goal_type: 'tfsa' })).toEqual({ goal_type: 'tfsa' });
+  });
+});
+
+describe('computeGoalSuggestion', () => {
+  const baseInputs = {
+    paycheque_cents: 425000,
+    essentials_monthly_cents: 182000,
+    tfsa_room_cents: 700000,
+    fhsa_room_cents: 800000,
+    rrsp_room_cents: null,
+  };
+
+  it('emergency = 3 months essentials, 5% paycheque', () => {
+    const s = computeGoalSuggestion('emergency', baseInputs);
+    expect(s.target_cents).toBe(546000);
+    expect(s.per_paycheque_cents).toBe(21250);
+    expect(s.why_target).toContain('three months');
+  });
+
+  it('rrsp scales with paycheque, defaults rationale when room unknown', () => {
+    const s = computeGoalSuggestion('rrsp', baseInputs);
+    expect(s.target_cents).toBeGreaterThan(0);
+    expect(s.why_target).toContain('starter contribution');
+  });
+
+  it('rrsp surfaces room when provided', () => {
+    const s = computeGoalSuggestion('rrsp', { ...baseInputs, rrsp_room_cents: 1500000 });
+    expect(s.why_target).toContain("last year's T4");
+  });
+
+  it('tfsa caps target at remaining room', () => {
+    const s = computeGoalSuggestion('tfsa', { ...baseInputs, tfsa_room_cents: 200000 });
+    expect(s.target_cents).toBe(200000);
+  });
+
+  it('fhsa fills entire room when provided', () => {
+    const s = computeGoalSuggestion('fhsa', baseInputs);
+    expect(s.target_cents).toBe(800000);
+  });
+
+  it('vacation/car/other return fixed defaults', () => {
+    expect(computeGoalSuggestion('vacation', baseInputs).target_cents).toBe(300000);
+    expect(computeGoalSuggestion('car', baseInputs).target_cents).toBe(800000);
+    expect(computeGoalSuggestion('other', baseInputs).target_cents).toBe(100000);
+  });
+
+  it('handles zero paycheque/essentials gracefully', () => {
+    const s = computeGoalSuggestion('emergency', {
+      paycheque_cents: 0,
+      essentials_monthly_cents: 0,
+      tfsa_room_cents: 0,
+      fhsa_room_cents: 0,
+      rrsp_room_cents: null,
+    });
+    expect(s.target_cents).toBeGreaterThanOrEqual(100000);
+    expect(s.per_paycheque_cents).toBeGreaterThanOrEqual(1000);
+    expect(s.why_target).not.toContain('NaN');
   });
 });

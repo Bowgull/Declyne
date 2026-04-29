@@ -8,6 +8,27 @@ const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
 };
 
+type GoalType = 'emergency' | 'vacation' | 'rrsp' | 'tfsa' | 'fhsa' | 'car' | 'other';
+
+const GOAL_TYPES: { id: GoalType; label: string }[] = [
+  { id: 'emergency', label: 'Emergency Fund' },
+  { id: 'vacation', label: 'Vacation' },
+  { id: 'rrsp', label: 'Retirement (RRSP)' },
+  { id: 'tfsa', label: 'Tax-Free Savings (TFSA)' },
+  { id: 'fhsa', label: 'First Home (FHSA)' },
+  { id: 'car', label: 'Car' },
+  { id: 'other', label: 'Other' },
+];
+
+interface Suggestion {
+  goal_type: GoalType;
+  name: string;
+  target_cents: number;
+  per_paycheque_cents: number;
+  why_target: string;
+  why_paycheque: string;
+}
+
 type Goal = {
   id: string;
   name: string;
@@ -16,6 +37,7 @@ type Goal = {
   linked_account_id: string | null;
   progress_cents: number;
   archived: number;
+  goal_type?: GoalType;
   per_paycheque_cents?: number;
   projected_complete_date?: string | null;
 };
@@ -178,6 +200,7 @@ function GoalSheet({
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
+  const [goalType, setGoalType] = useState<GoalType>(goal?.goal_type ?? 'emergency');
   const [name, setName] = useState(goal?.name ?? '');
   const [targetDollars, setTargetDollars] = useState(
     goal ? (goal.target_cents / 100).toFixed(2) : '',
@@ -188,9 +211,13 @@ function GoalSheet({
   const [targetDate, setTargetDate] = useState(goal?.target_date ?? today());
   const [linkedAccountId, setLinkedAccountId] = useState(goal?.linked_account_id ?? '');
   const [archived, setArchived] = useState(goal?.archived === 1);
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [userEditedTarget, setUserEditedTarget] = useState(mode === 'edit');
+  const [userEditedName, setUserEditedName] = useState(mode === 'edit');
 
   useEffect(() => {
     if (goal) {
+      setGoalType(goal.goal_type ?? 'other');
       setName(goal.name);
       setTargetDollars((goal.target_cents / 100).toFixed(2));
       setProgressDollars((goal.progress_cents / 100).toFixed(2));
@@ -199,6 +226,28 @@ function GoalSheet({
       setArchived(goal.archived === 1);
     }
   }, [goal]);
+
+  // Fetch a suggestion every time goalType changes (add-mode only).
+  useEffect(() => {
+    if (mode !== 'add') return;
+    let cancelled = false;
+    api
+      .get<{ suggestion: Suggestion }>(`/api/goals/suggest?type=${goalType}`)
+      .then((r) => {
+        if (cancelled) return;
+        setSuggestion(r.suggestion);
+        if (!userEditedTarget) {
+          setTargetDollars((r.suggestion.target_cents / 100).toFixed(2));
+        }
+        if (!userEditedName) {
+          setName(r.suggestion.name);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [goalType, mode, userEditedTarget, userEditedName]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -211,6 +260,7 @@ function GoalSheet({
           target_date: targetDate,
           linked_account_id: linkedAccountId || null,
           progress_cents,
+          goal_type: goalType,
         });
       } else if (goal) {
         await api.patch(`/api/goals/${goal.id}`, {
@@ -220,6 +270,7 @@ function GoalSheet({
           linked_account_id: linkedAccountId || null,
           progress_cents,
           archived: archived ? 1 : 0,
+          goal_type: goalType,
         });
       }
     },
@@ -240,21 +291,52 @@ function GoalSheet({
       >
         <h2 className="text-sm font-semibold">{mode === 'add' ? 'Add goal' : 'Edit goal'}</h2>
 
-        <label className="field-label">Name</label>
+        <label className="field-label">Type</label>
+        <select
+          className="field"
+          value={goalType}
+          onChange={(e) => setGoalType(e.target.value as GoalType)}
+        >
+          {GOAL_TYPES.map((g) => (
+            <option key={g.id} value={g.id}>{g.label}</option>
+          ))}
+        </select>
+
+        <div className="flex items-baseline justify-between">
+          <label className="field-label">Name</label>
+        </div>
         <input
           className="field"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setUserEditedName(true);
+          }}
           placeholder="Cash buffer"
         />
 
-        <label className="field-label">Target ($)</label>
+        <div className="flex items-baseline justify-between">
+          <label className="field-label">Target ($)</label>
+          {mode === 'add' && suggestion && !userEditedTarget && (
+            <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent-gold)' }}>
+              ✦ suggested
+            </span>
+          )}
+        </div>
         <input
           className="field num"
           inputMode="decimal"
           value={targetDollars}
-          onChange={(e) => setTargetDollars(e.target.value)}
+          onChange={(e) => {
+            setTargetDollars(e.target.value);
+            setUserEditedTarget(true);
+          }}
         />
+        {mode === 'add' && suggestion && (
+          <p className="text-[11px] italic leading-snug" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+            based on {suggestion.why_target}
+          </p>
+        )}
 
         <label className="field-label">Progress so far ($)</label>
         <input
@@ -263,6 +345,12 @@ function GoalSheet({
           value={progressDollars}
           onChange={(e) => setProgressDollars(e.target.value)}
         />
+
+        {mode === 'add' && suggestion && (
+          <p className="text-[11px] italic leading-snug pt-1" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+            ~{formatCents(suggestion.per_paycheque_cents)}/paycheque · {suggestion.why_paycheque}
+          </p>
+        )}
 
         <label className="field-label">Target date</label>
         <input
