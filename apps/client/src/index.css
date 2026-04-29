@@ -27,6 +27,13 @@
   --cat-debt: #c8a96a;               /* gold, paying down is a win */
   --cat-uncategorized: rgba(255, 255, 255, 0.22); /* dashed only */
 
+  /* Hub palette — index-card stripe colors for network maps. New additions
+     teach a vocabulary distinct from the category groups: who/what kind of
+     destination this is, not what the spend is about. */
+  --hub-personal: #bf8a8a;           /* dusty rose, money owed to people not banks */
+  --hub-autopilot: #5a9b8e;          /* deep teal, recurring/scheduled flows */
+  --hub-time: #2d3a52;               /* midnight navy, temporal patterns */
+
   --cat-income-soft: color-mix(in oklab, var(--cat-income) 55%, transparent);
   --cat-indulgence-soft: color-mix(in oklab, var(--cat-indulgence) 55%, transparent);
   --cat-essentials-soft: color-mix(in oklab, var(--cat-essentials) 55%, transparent);
