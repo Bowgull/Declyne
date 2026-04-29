@@ -30,6 +30,8 @@ import PaymentLinkMockup from './pages/PaymentLinkMockup';
 import DraftChitMockup from './pages/DraftChitMockup';
 import PaychequeTankMockup from './pages/PaychequeTankMockup';
 import TodayConstellationMockup from './pages/TodayConstellationMockup';
+import BooksMockup from './pages/BooksMockup';
+import BubbleMapsMockup from './pages/BubbleMapsMockup';
 import VocabularyToast from './components/VocabularyToast';
 import { api } from './lib/api';
 
@@ -95,6 +97,8 @@ export default function App() {
           <Route path="/mockup/draft-chit" element={<DraftChitMockup />} />
           <Route path="/mockup/paycheque-tank" element={<PaychequeTankMockup />} />
           <Route path="/mockup/today-constellation" element={<TodayConstellationMockup />} />
+          <Route path="/mockup/books" element={<BooksMockup />} />
+          <Route path="/mockup/bubblemaps" element={<BubbleMapsMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>
