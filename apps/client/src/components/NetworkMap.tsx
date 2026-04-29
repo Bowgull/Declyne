@@ -29,6 +29,8 @@ export type HubKind =
   | 'lifestyle'
   | 'indulgence';
 
+export type PayRole = 'bill' | 'debt_min' | 'debt_extra' | 'goal';
+
 export interface NetworkNode {
   id: string;
   label: string;
@@ -39,6 +41,14 @@ export interface NetworkNode {
   cat?: NetworkCat;
   /** Hub only — stripe color. */
   hubKind?: HubKind;
+  /** Habits map: sub-category id (food, takeout, weed, etc.). When present
+   *  it overrides the merchant fill and the hub stripe so each sub gets its
+   *  own readable color. */
+  subCategory?: string;
+  /** Money map: distinguishes a paycheque commit's role. Overrides cat for
+   *  fill so users see bill / debt-min / debt-extra / goal as 4 distinct
+   *  hues, not all collapsed under "essentials" or "debt". */
+  payRole?: PayRole;
   /** Audit-tape observation revealed when this node is pinned. */
   obs?: string;
   /** Core only — overrides the default "$amount" display in the PAY SLIP. */
@@ -83,6 +93,45 @@ const HUB_STRIPE: Record<HubKind, string> = {
   lifestyle: 'var(--cat-lifestyle)',
   indulgence: 'var(--cat-indulgence)',
 };
+
+// 14 sub-category hues. Keep the IDs aligned with the worker vocab in
+// subCategoryDetect.ts. Underscores in source → hyphens in CSS-var names.
+const SUB_COLOR: Record<string, string> = {
+  food: 'var(--sub-food)',
+  transit: 'var(--sub-transit)',
+  shopping: 'var(--sub-shopping)',
+  home: 'var(--sub-home)',
+  personal_care: 'var(--sub-personal-care)',
+  entertainment: 'var(--sub-entertainment)',
+  health: 'var(--sub-health)',
+  bars: 'var(--sub-bars)',
+  takeout: 'var(--sub-takeout)',
+  fast_food: 'var(--sub-fast-food)',
+  weed: 'var(--sub-weed)',
+  streaming: 'var(--sub-streaming)',
+  gaming: 'var(--sub-gaming)',
+  treats: 'var(--sub-treats)',
+};
+
+const PAY_ROLE_COLOR: Record<PayRole, string> = {
+  bill: 'var(--pay-bills)',
+  debt_min: 'var(--pay-debt-min)',
+  debt_extra: 'var(--pay-debt-extra)',
+  goal: 'var(--pay-goal)',
+};
+
+function merchantFill(n: NetworkNode): string {
+  if (n.subCategory && SUB_COLOR[n.subCategory]) return SUB_COLOR[n.subCategory]!;
+  if (n.payRole) return PAY_ROLE_COLOR[n.payRole];
+  return n.cat ? `var(--cat-${n.cat})` : 'rgba(255,255,255,0.12)';
+}
+
+function hubStripe(n: NetworkNode): string {
+  if (n.subCategory && SUB_COLOR[n.subCategory]) return SUB_COLOR[n.subCategory]!;
+  return n.hubKind ? HUB_STRIPE[n.hubKind] : 'var(--cat-debt)';
+}
+
+export { SUB_COLOR, PAY_ROLE_COLOR };
 
 interface Placed extends NetworkNode {
   x: number;
@@ -456,7 +505,7 @@ export default function NetworkMap(props: NetworkMapProps) {
             if (n.kind === 'hub') {
               const w = n.cardW!;
               const h = n.cardH!;
-              const stripe = n.hubKind ? HUB_STRIPE[n.hubKind] : 'var(--cat-debt)';
+              const stripe = hubStripe(n);
               return (
                 <g
                   key={n.id}
@@ -516,7 +565,7 @@ export default function NetworkMap(props: NetworkMapProps) {
             }
 
             // merchant — coin (label rendered in second pass)
-            const fill = n.cat ? `var(--cat-${n.cat})` : 'rgba(255,255,255,0.12)';
+            const fill = merchantFill(n);
             return (
               <g
                 key={n.id}

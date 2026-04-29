@@ -211,14 +211,18 @@ export function buildMoneyNetwork(
   const hasBills = snapshot.committed.lines.some((l) => l.source === 'bill');
   if (hasBills) ensureHub('hub_bills', 'BILLS', 'bills');
 
-  // Commit nodes — one per snapshot line
+  // Commit nodes — one per snapshot line. payRole carries the 4-color
+  // distinction (bill/debt_min/debt_extra/goal) so the user reads role at a
+  // glance, not just category group.
   for (const line of snapshot.committed.lines) {
     const id = `c-${line.source}-${line.ref_id ?? line.label}`;
     let cat: NetworkCat = 'lifestyle';
     let destId: string;
+    let payRole: 'bill' | 'debt_min' | 'goal' = 'bill';
     if (line.source === 'bill') {
       cat = 'essentials';
       destId = 'hub_bills';
+      payRole = 'bill';
     } else if (line.source === 'debt_min') {
       cat = 'debt';
       const root = extractDestRoot(line.label);
@@ -229,11 +233,20 @@ export function buildMoneyNetwork(
         isInstitution(root) ? 'institution' : 'personal',
       );
       destId = hubId;
+      payRole = 'debt_min';
     } else {
       cat = 'savings';
       destId = 'hub_goals';
+      payRole = 'goal';
     }
-    nodes.push({ id, label: line.label, kind: 'merchant', cents: line.amount_cents, cat });
+    nodes.push({
+      id,
+      label: line.label,
+      kind: 'merchant',
+      cents: line.amount_cents,
+      cat,
+      payRole,
+    });
     edges.push({ a: 'core', b: id, weight: 'primary' });
     edges.push({ a: id, b: destId });
     destOf[id] = destId;
@@ -263,6 +276,7 @@ export function buildMoneyNetwork(
         kind: 'merchant',
         cents: v.cents,
         cat: 'debt',
+        payRole: 'debt_extra',
       });
       edges.push({ a: 'core', b: id, weight: 'primary' });
       edges.push({ a: id, b: hubId });
@@ -332,6 +346,7 @@ export function buildHabitsNetwork(
       label: SUB_LABEL[sub] ?? sub.toUpperCase(),
       kind: 'hub',
       hubKind: isLifestyle ? 'lifestyle' : 'indulgence',
+      subCategory: sub,
     });
   }
   if (unconfirmedCount > 0) {
@@ -346,26 +361,23 @@ export function buildHabitsNetwork(
 
   for (const m of habitMerchants) {
     const id = `m-${m.id}`;
-    nodes.push({
+    const sub = m.sub_category ?? null;
+    const validSub =
+      sub && sub in SUB_LABEL
+        ? (m.category_group === 'lifestyle' && LIFESTYLE_SUBS.has(sub)) ||
+          (m.category_group === 'indulgence' && !LIFESTYLE_SUBS.has(sub))
+        : false;
+    const node: NetworkNode = {
       id,
       label: m.display_name,
       kind: 'merchant',
       cents: m.spend_90d_cents,
       cat: categoryFromGroup(m.category_group),
       obs: `${m.txn_count_90d ?? m.txn_count} charges in 90 days · $${(m.spend_90d_cents / 100).toFixed(0)} total`,
-    });
-    const sub = m.sub_category ?? null;
-    let destHub: string | null = null;
-    if (sub && sub in SUB_LABEL) {
-      const lifestyleSub = LIFESTYLE_SUBS.has(sub);
-      if (
-        (m.category_group === 'lifestyle' && lifestyleSub) ||
-        (m.category_group === 'indulgence' && !lifestyleSub)
-      ) {
-        destHub = `hub_sub_${sub}`;
-      }
-    }
-    if (!destHub) destHub = 'hub_unconfirmed';
+    };
+    if (validSub && sub) node.subCategory = sub;
+    nodes.push(node);
+    const destHub = validSub && sub ? `hub_sub_${sub}` : 'hub_unconfirmed';
     edges.push({ a: id, b: destHub, weight: 'primary' });
   }
 

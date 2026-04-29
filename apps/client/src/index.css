@@ -34,6 +34,32 @@
   --hub-autopilot: #5a9b8e;          /* deep teal, recurring/scheduled flows */
   --hub-time: #2d3a52;               /* midnight navy, temporal patterns */
 
+  /* Sub-category palette. 14 earthy paper-pigment hues. Lifestyle family
+     stays warm-muted (clay/slate/rose/olive/peach/lavender/sage). Indulgence
+     family goes hotter (deep sienna/sienna/amber/moss/petrol/purple/pink). */
+  --sub-food:           #b88e7a;     /* clay */
+  --sub-transit:        #7b8e9c;     /* slate-warm */
+  --sub-shopping:       #bf8a8a;     /* dusty rose */
+  --sub-home:           #9c8a6a;     /* olive */
+  --sub-personal-care:  #c9a896;     /* peach */
+  --sub-entertainment:  #a890b0;     /* muted lavender */
+  --sub-health:         #94a888;     /* sage */
+  --sub-bars:           #a85c4a;     /* deep sienna */
+  --sub-takeout:        #c97a4a;     /* sienna */
+  --sub-fast-food:      #d99a5a;     /* warm amber */
+  --sub-weed:           #7a9c6a;     /* moss green */
+  --sub-streaming:      #5a7a9c;     /* petrol blue */
+  --sub-gaming:         #7c5aa8;     /* purple */
+  --sub-treats:         #d4a4b8;     /* pink-rose */
+
+  /* Paycheque-map roles. Four distinct tones so the user reads the map at a
+     glance: bills (slate), debt minimums (the floor), debt extras (the push),
+     goal contributions (growing). Income tone stays --cat-income. */
+  --pay-bills:          #7a8595;     /* slate, foundational */
+  --pay-debt-min:       #c8a96a;     /* muted gold, the floor */
+  --pay-debt-extra:     #e0b860;     /* brighter amber, the push */
+  --pay-goal:           #94a888;     /* sage, growing */
+
   --cat-income-soft: color-mix(in oklab, var(--cat-income) 55%, transparent);
   --cat-indulgence-soft: color-mix(in oklab, var(--cat-indulgence) 55%, transparent);
   --cat-essentials-soft: color-mix(in oklab, var(--cat-essentials) 55%, transparent);
