@@ -14,6 +14,7 @@ type MerchantRow = {
 
 type MerchantListRow = MerchantRow & {
   category_name: string | null;
+  category_group: string | null;
   txn_count: number;
   last_seen_at: string | null;
   uncategorized_txn_count: number;
@@ -64,6 +65,7 @@ merchantsRoutes.get('/', async (c) => {
 
   const sql = `SELECT m.id, m.display_name, m.normalized_key, m.category_default_id, m.verified,
                       c.name AS category_name,
+                      c.\`group\` AS category_group,
                       COUNT(t.id) AS txn_count,
                       MAX(t.posted_at) AS last_seen_at,
                       SUM(CASE WHEN t.category_id IS NULL THEN 1 ELSE 0 END) AS uncategorized_txn_count,
