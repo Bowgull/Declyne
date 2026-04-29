@@ -1,12 +1,8 @@
 import type * as React from 'react';
 
-/**
- * Sticky visual key for the Books page.
- *
- * One legend, applied to every constellation across the page. Read once, applies forever.
- * Teaches the visual grammar so the user can decode any bubble at a glance.
- */
-export default function BooksLegend() {
+type Subview = 'paycheque' | 'patterns';
+
+export default function BooksLegend({ view }: { view: Subview }) {
   return (
     <div
       style={{
@@ -37,20 +33,19 @@ export default function BooksLegend() {
       >
         <LegendItem>
           <SizeSwatch />
-          <span>size = amount</span>
+          <span>size = {view === 'paycheque' ? 'amount' : '90d spend'}</span>
         </LegendItem>
-        <LegendItem>
-          <ColorSwatch />
-          <span>color = category</span>
-        </LegendItem>
-        <LegendItem>
-          <SolidDot />
-          <span>solid = paid</span>
-        </LegendItem>
-        <LegendItem>
-          <RingDot />
-          <span>ring = autopilot</span>
-        </LegendItem>
+        {view === 'paycheque' ? (
+          <LegendItem>
+            <PayRoleSwatch />
+            <span>color = role</span>
+          </LegendItem>
+        ) : (
+          <LegendItem>
+            <SubCatSwatch />
+            <span>color = sub-category</span>
+          </LegendItem>
+        )}
       </div>
     </div>
   );
@@ -74,38 +69,27 @@ function SizeSwatch() {
   );
 }
 
-function ColorSwatch() {
+// 4-dot swatch showing the pay-role hierarchy: bills (slate) · mins (muted gold) · extras (amber) · goals (sage)
+function PayRoleSwatch() {
   return (
-    <svg width="38" height="10" viewBox="0 0 38 10" aria-hidden="true">
-      <circle cx="4" cy="5" r="3.5" fill="var(--cat-essentials)" />
-      <circle cx="12" cy="5" r="3.5" fill="var(--cat-debt)" />
-      <circle cx="20" cy="5" r="3.5" fill="var(--cat-savings)" />
-      <circle cx="28" cy="5" r="3.5" fill="var(--cat-lifestyle)" />
-      <circle cx="36" cy="5" r="3.5" fill="var(--cat-indulgence)" />
+    <svg width="44" height="10" viewBox="0 0 44 10" aria-hidden="true">
+      <circle cx="4"  cy="5" r="3.5" fill="var(--pay-bills)" />
+      <circle cx="16" cy="5" r="3.5" fill="var(--pay-debt-min)" />
+      <circle cx="28" cy="5" r="3.5" fill="var(--pay-debt-extra)" />
+      <circle cx="40" cy="5" r="3.5" fill="var(--pay-goal)" />
     </svg>
   );
 }
 
-function SolidDot() {
+// 5-dot swatch showing a sample of the 14 sub-category hues
+function SubCatSwatch() {
   return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <circle cx="5" cy="5" r="4" fill="var(--cat-savings)" />
-    </svg>
-  );
-}
-
-function RingDot() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <circle
-        cx="5"
-        cy="5"
-        r="3.4"
-        fill="rgba(255,255,255,0.02)"
-        stroke="var(--cat-savings)"
-        strokeWidth="1.2"
-        strokeDasharray="2 2"
-      />
+    <svg width="52" height="10" viewBox="0 0 52 10" aria-hidden="true">
+      <circle cx="4"  cy="5" r="3.5" fill="var(--sub-food)" />
+      <circle cx="16" cy="5" r="3.5" fill="var(--sub-shopping)" />
+      <circle cx="28" cy="5" r="3.5" fill="var(--sub-bars)" />
+      <circle cx="40" cy="5" r="3.5" fill="var(--sub-streaming)" />
+      <circle cx="52" cy="5" r="3.5" fill="var(--sub-weed)" />
     </svg>
   );
 }
