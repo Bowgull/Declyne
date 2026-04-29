@@ -352,3 +352,9 @@ export const plan_cache = sqliteTable('plan_cache', {
   observations_json: text('observations_json'),
   source: text('source', { enum: ['ai', 'manual', 'pending'] }).notNull(),
 });
+
+export const subscription_verdicts = sqliteTable('subscription_verdicts', {
+  merchant_id: text('merchant_id').primaryKey().references(() => merchants.id),
+  verdict: text('verdict', { enum: ['keep', 'kill', 'not_a_sub'] }).notNull(),
+  set_at: text('set_at').notNull(),
+});

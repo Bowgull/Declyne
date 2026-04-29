@@ -1,6 +1,27 @@
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { detectSubscriptions, type RecurringTxn } from '../lib/recurring.js';
+import { writeEditLog } from '../lib/editlog.js';
+import { nowIso } from '../lib/ids.js';
+
+export type SubscriptionVerdict = 'keep' | 'kill' | 'not_a_sub';
+
+export function isVerdict(raw: unknown): raw is SubscriptionVerdict {
+  return raw === 'keep' || raw === 'kill' || raw === 'not_a_sub';
+}
+
+export function parseVerdictBody(raw: unknown):
+  | { merchant_id: string; verdict: SubscriptionVerdict | null }
+  | { error: string } {
+  if (!raw || typeof raw !== 'object') return { error: 'invalid_body' };
+  const o = raw as Record<string, unknown>;
+  const merchant_id = typeof o.merchant_id === 'string' ? o.merchant_id.trim() : '';
+  if (!merchant_id) return { error: 'merchant_id_required' };
+  if (o.verdict === null) return { merchant_id, verdict: null };
+  if (typeof o.verdict !== 'string') return { error: 'verdict_required' };
+  if (!isVerdict(o.verdict)) return { error: 'invalid_verdict' };
+  return { merchant_id, verdict: o.verdict };
+}
 
 export const budgetRoutes = new Hono<{ Bindings: Env }>();
 
@@ -258,16 +279,106 @@ budgetRoutes.get('/history', async (c) => {
 // categories. These are the subscriptions the user might have forgotten about.
 // Sorted by monthly cost descending. Uses 180 days of history for detection.
 budgetRoutes.get('/subscriptions', async (c) => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT t.posted_at, t.amount_cents, t.merchant_id,
-            m.display_name AS merchant_name,
-            c."group" AS "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now', '-180 days')
-       AND t.merchant_id IS NOT NULL`,
-  ).all<RecurringTxn>();
-  const subscriptions = detectSubscriptions(results);
+  const [{ results: txnRows }, { results: verdictRows }] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT t.posted_at, t.amount_cents, t.merchant_id,
+              m.display_name AS merchant_name,
+              c."group" AS "group"
+       FROM transactions t
+       LEFT JOIN merchants m ON m.id = t.merchant_id
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.posted_at >= date('now', '-180 days')
+         AND t.merchant_id IS NOT NULL`,
+    ).all<RecurringTxn>(),
+    c.env.DB.prepare(
+      `SELECT merchant_id, verdict, set_at FROM subscription_verdicts`,
+    ).all<{ merchant_id: string; verdict: SubscriptionVerdict; set_at: string }>(),
+  ]);
+
+  const verdictMap = new Map<string, { verdict: SubscriptionVerdict; set_at: string }>();
+  for (const v of verdictRows) {
+    verdictMap.set(v.merchant_id, { verdict: v.verdict, set_at: v.set_at });
+  }
+
+  const detected = detectSubscriptions(txnRows);
+  // Drop merchants the user has marked NOT_A_SUB. They stay categorised
+  // everywhere else; they just stop appearing on the standing-orders surface.
+  const subscriptions = detected
+    .filter((s) => verdictMap.get(s.merchant_id)?.verdict !== 'not_a_sub')
+    .map((s) => {
+      const v = verdictMap.get(s.merchant_id);
+      return {
+        ...s,
+        verdict: (v?.verdict ?? null) as SubscriptionVerdict | null,
+        verdict_set_at: v?.set_at ?? null,
+      };
+    });
+
   return c.json({ subscriptions });
+});
+
+budgetRoutes.post('/subscriptions/verdict', async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const parsed = parseVerdictBody(body);
+  if ('error' in parsed) return c.json({ error: parsed.error }, 400);
+
+  // Confirm merchant exists; surface a clean 404 instead of a FK constraint error.
+  const merchant = await c.env.DB.prepare(`SELECT id FROM merchants WHERE id = ?`)
+    .bind(parsed.merchant_id)
+    .first<{ id: string }>();
+  if (!merchant) return c.json({ error: 'merchant_not_found' }, 404);
+
+  const prior = await c.env.DB.prepare(
+    `SELECT verdict FROM subscription_verdicts WHERE merchant_id = ?`,
+  )
+    .bind(parsed.merchant_id)
+    .first<{ verdict: SubscriptionVerdict }>();
+
+  if (parsed.verdict === null) {
+    // Clear the verdict.
+    if (!prior) return c.json({ ok: true, verdict: null });
+    await c.env.DB.prepare(`DELETE FROM subscription_verdicts WHERE merchant_id = ?`)
+      .bind(parsed.merchant_id)
+      .run();
+    await writeEditLog(c.env, [
+      {
+        entity_type: 'subscription_verdict',
+        entity_id: parsed.merchant_id,
+        field: 'verdict',
+        old_value: prior.verdict,
+        new_value: null,
+        actor: 'user',
+        reason: 'subscription_verdict_clear',
+      },
+    ]);
+    return c.json({ ok: true, verdict: null });
+  }
+
+  // Idempotent on no-change.
+  if (prior?.verdict === parsed.verdict) {
+    return c.json({ ok: true, verdict: parsed.verdict, unchanged: true });
+  }
+
+  const now = nowIso();
+  await c.env.DB.prepare(
+    `INSERT INTO subscription_verdicts (merchant_id, verdict, set_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(merchant_id) DO UPDATE SET verdict = excluded.verdict, set_at = excluded.set_at`,
+  )
+    .bind(parsed.merchant_id, parsed.verdict, now)
+    .run();
+
+  await writeEditLog(c.env, [
+    {
+      entity_type: 'subscription_verdict',
+      entity_id: parsed.merchant_id,
+      field: 'verdict',
+      old_value: prior?.verdict ?? null,
+      new_value: parsed.verdict,
+      actor: 'user',
+      reason: 'subscription_verdict_set',
+    },
+  ]);
+
+  return c.json({ ok: true, verdict: parsed.verdict, set_at: now });
 });

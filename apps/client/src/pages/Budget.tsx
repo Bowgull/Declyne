@@ -6,7 +6,7 @@ import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
 import Constellation, { type ConstellationBubble, type ConstellationCategory, type Velocity } from '../components/Constellation';
-import SubscriptionRibbon, { subscriptionTotals, type RibbonSubscription } from '../components/SubscriptionRibbon';
+import SubscriptionVerdictLedger, { type SubscriptionRow } from '../components/SubscriptionVerdictLedger';
 import BooksLegend from '../components/BooksLegend';
 
 type CommittedSource = 'bill' | 'debt_min' | 'savings_goal' | 'savings_recurring';
@@ -64,6 +64,7 @@ interface Subscription {
   category_group: string;
   cadence_days: number;
   months_running: number;
+  verdict?: 'keep' | 'kill' | 'not_a_sub' | null;
 }
 
 interface Counterparty {
@@ -526,23 +527,8 @@ function PatternsView({
   const habitsTotal90 = habitsMerchants.reduce((s, m) => s + m.spend_90d_cents, 0);
   const habitsTotal30 = habitsMerchants.reduce((s, m) => s + (m.spend_30d_cents ?? 0), 0);
 
-  const ribbonSubs: RibbonSubscription[] = subs.map((s) => ({
-    id: s.merchant_id,
-    name: s.merchant_name,
-    amount_cents: s.amount_cents,
-    cadence_days: s.cadence_days,
-    months_running: s.months_running,
-    category:
-      s.category_group === 'lifestyle' ||
-      s.category_group === 'indulgence' ||
-      s.category_group === 'essentials' ||
-      s.category_group === 'debt' ||
-      s.category_group === 'savings' ||
-      s.category_group === 'income'
-        ? s.category_group
-        : 'lifestyle',
-  }));
-  const subTotals = subscriptionTotals(ribbonSubs);
+  const subRows: SubscriptionRow[] = subs.filter((s) => s.verdict !== 'not_a_sub');
+  const subRunningCount = subRows.filter((s) => s.verdict !== 'kill').length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -571,26 +557,16 @@ function PatternsView({
 
       <section className="ledger-section pt-3">
         <span className="ledger-section-kicker">
-          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Subscriptions
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Standing orders
         </span>
-        <Link to="/paycheque/subscriptions" className="ledger-section-meta hover:underline">
-          open &rsaquo;
-        </Link>
+        <span className="ledger-section-meta">
+          {subRunningCount} {subRunningCount === 1 ? 'hand' : 'hands'} in your wallet
+        </span>
 
-        <HeroNumber
-          kicker="Subscriptions / month"
-          primary={fmtCompact(subTotals.monthly_cents)}
-          tone="ink"
-          caption={`${fmtCompact(subTotals.annual_cents)}/yr · ${ribbonSubs.length} running`}
+        <SubscriptionVerdictLedger
+          subs={subRows}
+          emptyHint="Nothing detected · need 6 months of activity"
         />
-
-        <div className="pt-2">
-          <SubscriptionRibbon
-            subs={ribbonSubs}
-            to="/paycheque/subscriptions"
-            emptyHint="Nothing detected · need 6 months of activity"
-          />
-        </div>
       </section>
 
       {spendHistoryRows.length > 0 && (
