@@ -381,6 +381,35 @@ export default function Today() {
         </div>
       </div>
     )}
+    {chitOpen && (
+      <div
+        onClick={discardChit}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 150,
+          background: 'rgba(26,20,29,0.72)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          padding: '24px 12px 32px',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ width: '100%', maxWidth: 420 }}
+        >
+          <ChitForm
+            prefilledCounterparty={prefilledCp}
+            crumpling={chitCrumpling}
+            onDiscard={discardChit}
+            onSubmit={(payload) => createSplit.mutate(payload)}
+            submitting={createSplit.isPending}
+          />
+        </div>
+      </div>
+    )}
     <div className="ledger-page">
       <section className="receipt paper-in flex flex-col gap-5">
         <header className="flex flex-col" style={{ marginBottom: 4 }}>
@@ -607,7 +636,13 @@ export default function Today() {
                       <div className="flex flex-col" style={{ minWidth: 0 }}>
                         <button
                           type="button"
-                          onClick={() => setLiftedCpId(cp.id)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelPress();
+                            setChitOpen(null);
+                            setLiftedCpId(cp.id);
+                          }}
                           style={{ color: 'var(--color-ink)', background: 'transparent', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer' }}
                           className="text-sm"
                         >
@@ -622,33 +657,10 @@ export default function Today() {
                         {formatCents(Math.abs(cp.net_cents))}
                       </div>
                     </div>
-                    {chitOpen?.prefilledFor === cp.id && (
-                      <div className="pt-2 pb-1">
-                        <ChitForm
-                          prefilledCounterparty={prefilledCp}
-                          crumpling={chitCrumpling}
-                          onDiscard={discardChit}
-                          onSubmit={(payload) => createSplit.mutate(payload)}
-                          submitting={createSplit.isPending}
-                        />
-                      </div>
-                    )}
                   </li>
                 );
               })}
             </ul>
-          )}
-
-          {chitOpen && chitOpen.prefilledFor === null && (
-            <div className="pt-3">
-              <ChitForm
-                prefilledCounterparty={null}
-                crumpling={chitCrumpling}
-                onDiscard={discardChit}
-                onSubmit={(payload) => createSplit.mutate(payload)}
-                submitting={createSplit.isPending}
-              />
-            </div>
           )}
 
           <button
