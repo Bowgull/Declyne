@@ -522,16 +522,17 @@ export default function Budget() {
       )}
 
       {period && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 16px' }}>
-          <button
-            type="button"
-            className="draft-stamp"
-            onClick={() => draft.mutate()}
-            disabled={draft.isPending}
-          >
-            {draft.isPending ? 'drafting…' : 'draft paycheque'}
-          </button>
-        </div>
+        <button
+          className="tear-tab tear-tab-motion"
+          onClick={() => draft.mutate()}
+          disabled={draft.isPending}
+          style={{ opacity: draft.isPending ? 0.5 : 1 }}
+        >
+          <span className="cut-line" aria-hidden />
+          <span className="tear-arrow" aria-hidden>↓</span>
+          <span>{draft.isPending ? 'Drafting.' : 'Draft this paycheque'}</span>
+          <span className="cut-line" aria-hidden />
+        </button>
       )}
 
       <section className="ledger-section pt-4">
