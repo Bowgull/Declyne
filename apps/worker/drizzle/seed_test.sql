@@ -411,10 +411,13 @@ INSERT INTO phase_log (id, phase, entered_at, trigger_rule, metrics_json) VALUES
 
 -- Goals: early stage, small progress
 -- Emergency fund = 1 month rent ($1,650). Barely started.
--- Summer camping trip. Just beginning to save.
-INSERT OR REPLACE INTO goals (id, name, target_cents, target_date, linked_account_id, progress_cents, archived) VALUES
-  ('goal_emerg',   'Emergency fund (1 month rent)',  165000,'2026-12-01','acc_td_sav', 38000, 0),
-  ('goal_camping', 'Summer camping trip',             80000,'2026-08-01','acc_td_sav', 12000, 0);
+-- Goals — mix of types to show the semantic color palette on the money map.
+INSERT OR REPLACE INTO goals (id, name, target_cents, target_date, linked_account_id, progress_cents, archived, goal_type) VALUES
+  ('goal_emerg',            'Emergency fund (1 month rent)',   165000,'2026-12-01','acc_td_sav', 38000, 0, 'emergency'),
+  ('goal_buffer',           'Cash buffer (1 month essentials)',300000,'2026-10-01','acc_td_sav', 105000,0, 'emergency'),
+  ('goal_camping',          'Summer camping trip',              80000,'2026-08-01','acc_td_sav', 12000, 0, 'vacation'),
+  ('goal_vacation',         'Vacation fund',                   150000,'2026-12-15','acc_td_sav', 25000, 0, 'vacation'),
+  ('goal_806e5822d8054cce', 'Vacation fund',                   150000,'2027-06-15','acc_td_sav', 25000, 0, 'tfsa');
 
 -- Period closes are inserted by scripts/db-reseed.sh AFTER gl-backfill runs.
 -- postJournalEntry rejects writes into locked periods, so backfill must complete

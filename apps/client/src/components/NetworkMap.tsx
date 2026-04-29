@@ -49,6 +49,9 @@ export interface NetworkNode {
    *  fill so users see bill / debt-min / debt-extra / goal as 4 distinct
    *  hues, not all collapsed under "essentials" or "debt". */
   payRole?: PayRole;
+  /** Explicit fill color — overrides subCategory / payRole / cat when set.
+   *  Used by buildMoneyNetwork for per-goal-type and per-creditor colors. */
+  color?: string;
   /** Audit-tape observation revealed when this node is pinned. */
   obs?: string;
   /** Core only — overrides the default "$amount" display in the PAY SLIP. */
@@ -121,6 +124,7 @@ const PAY_ROLE_COLOR: Record<PayRole, string> = {
 };
 
 function merchantFill(n: NetworkNode): string {
+  if (n.color) return n.color;
   if (n.subCategory && SUB_COLOR[n.subCategory]) return SUB_COLOR[n.subCategory]!;
   if (n.payRole) return PAY_ROLE_COLOR[n.payRole];
   return n.cat ? `var(--cat-${n.cat})` : 'rgba(255,255,255,0.12)';

@@ -85,6 +85,37 @@ const LIFESTYLE_SUBS = new Set([
   'health',
 ]);
 
+// ---------- money-map color helpers ----------
+
+// Semantic color per goal type — teaches the user what kind of savings each circle is.
+const GOAL_TYPE_COLOR: Record<string, string> = {
+  emergency: '#c97a4a', // sienna — safety net, urgency
+  vacation:  '#5a9b8e', // teal — travel, refresh
+  rrsp:      '#5a8a6a', // forest — long-term, roots
+  tfsa:      '#c8a96a', // gold — liquid, valuable
+  fhsa:      '#d99a5a', // amber — home, hearth
+  car:       '#7a9aaa', // steel blue — practical
+  other:     '#a890b0', // lavender — open
+};
+
+// Per-creditor palette: min = muted, extra = brighter. Cycle by hash of debt ref_id.
+const CREDITOR_PAIRS: Array<{ min: string; extra: string }> = [
+  { min: '#b89060', extra: '#e8c478' }, // warm gold
+  { min: '#8a6aaa', extra: '#b090d8' }, // purple
+  { min: '#6a8aaa', extra: '#90b4d0' }, // steel blue
+  { min: '#aa8a6a', extra: '#c8a882' }, // bronze
+];
+
+function hashRef(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function creditorColors(refId: string): { min: string; extra: string } {
+  return CREDITOR_PAIRS[hashRef(refId) % CREDITOR_PAIRS.length]!;
+}
+
 // ---------- helpers ----------
 
 const INSTITUTION_PATTERNS = [
@@ -165,6 +196,7 @@ export function buildMoneyNetwork(
   snapshot: PaycheckSnapshotShape | null,
   plan: PlanShape | null,
   paychequeCents: number,
+  goalTypeMap: Record<string, string> = {},
 ): MoneyNetwork {
   const nodes: NetworkNode[] = [];
   const edges: NetworkEdge[] = [];
@@ -219,6 +251,7 @@ export function buildMoneyNetwork(
     let cat: NetworkCat = 'lifestyle';
     let destId: string;
     let payRole: 'bill' | 'debt_min' | 'goal' = 'bill';
+    let color: string | undefined;
     if (line.source === 'bill') {
       cat = 'essentials';
       destId = 'hub_bills';
@@ -234,19 +267,24 @@ export function buildMoneyNetwork(
       );
       destId = hubId;
       payRole = 'debt_min';
+      color = creditorColors(line.ref_id ?? line.label).min;
     } else {
       cat = 'savings';
       destId = 'hub_goals';
       payRole = 'goal';
+      const goalType = line.ref_id ? goalTypeMap[line.ref_id] : undefined;
+      color = goalType ? GOAL_TYPE_COLOR[goalType] : undefined;
     }
-    nodes.push({
+    const node: NetworkNode = {
       id,
       label: line.label,
       kind: 'merchant',
       cents: line.amount_cents,
       cat,
       payRole,
-    });
+    };
+    if (color) node.color = color;
+    nodes.push(node);
     edges.push({ a: 'core', b: id, weight: 'primary' });
     edges.push({ a: id, b: destId });
     destOf[id] = destId;
@@ -277,6 +315,7 @@ export function buildMoneyNetwork(
         cents: v.cents,
         cat: 'debt',
         payRole: 'debt_extra',
+        color: creditorColors(debtId).extra,
       });
       edges.push({ a: 'core', b: id, weight: 'primary' });
       edges.push({ a: id, b: hubId });

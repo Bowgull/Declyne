@@ -153,6 +153,11 @@ export default function Budget() {
     queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
     enabled: view === 'paycheque',
   });
+  const goals = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => api.get<{ goals: Array<{ id: string; goal_type: string }> }>('/api/goals'),
+    enabled: view === 'paycheque',
+  });
   const spendHistory = useQuery({
     queryKey: ['budget-spend-history'],
     queryFn: () => api.get<{ rows: SpendHistoryRow[] }>('/api/budget/history?periods=6'),
@@ -189,6 +194,11 @@ export default function Budget() {
   const subtitle = period ? fmtRange(period.start_date, period.end_date) : 'No paycheque yet';
   const daysLeft = period ? daysUntil(period.end_date) : 0;
 
+  const goalTypeMap: Record<string, string> = {};
+  for (const g of goals.data?.goals ?? []) {
+    goalTypeMap[g.id] = g.goal_type;
+  }
+
   return (
     <div className="ledger-page flex flex-col gap-5 pb-8">
       <LedgerHeader
@@ -211,6 +221,7 @@ export default function Budget() {
           totalPlanned={totalPlanned}
           free={free}
           daysLeft={daysLeft}
+          goalTypeMap={goalTypeMap}
           onDraft={() => draft.mutate()}
           drafting={draft.isPending}
           counterparties={counterparties.data?.counterparties ?? []}
@@ -275,6 +286,7 @@ interface PaychequeViewProps {
   totalPlanned: number;
   free: number;
   daysLeft: number;
+  goalTypeMap: Record<string, string>;
   onDraft: () => void;
   drafting: boolean;
   counterparties: Counterparty[];
@@ -288,11 +300,12 @@ function PaychequeView({
   totalPlanned,
   free,
   daysLeft,
+  goalTypeMap,
   onDraft,
   drafting,
   counterparties,
 }: PaychequeViewProps) {
-  const moneyNet = buildMoneyNetwork(snapshot, planData, paychequeCents);
+  const moneyNet = buildMoneyNetwork(snapshot, planData, paychequeCents, goalTypeMap);
   const openTabs = counterparties.filter((c) => c.direction !== 'settled');
 
   return (
