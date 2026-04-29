@@ -229,9 +229,11 @@
     color: var(--color-paper);
     box-shadow: inset 0 0 0 2px var(--color-accent-purple);
   }
-  /* Stamps inside cream receipts: invert frame color so it reads on paper */
+  /* Stamps inside cream receipts and chits: invert frame color so it reads on paper */
   .receipt .stamp,
-  .receipt .btn-outline {
+  .receipt .btn-outline,
+  .chit .stamp,
+  .chit .btn-outline {
     box-shadow:
       inset 0 0 0 1px var(--color-hairline-ink),
       inset 0 0 0 3px var(--color-paper),
@@ -239,11 +241,25 @@
     color: var(--color-ink);
   }
   .receipt .stamp:active,
-  .receipt .btn-outline:active {
+  .receipt .btn-outline:active,
+  .chit .stamp:active,
+  .chit .btn-outline:active {
     box-shadow:
       inset 0 0 0 1px var(--color-ink),
       inset 0 0 0 3px var(--color-paper),
       inset 0 0 0 4px var(--color-ink);
+  }
+  .chit .stamp.stamp-filled {
+    background: var(--color-accent-purple);
+    color: var(--color-paper);
+    box-shadow: inset 0 0 0 2px var(--color-accent-purple);
+  }
+  .chit .stamp.stamp-purple {
+    color: var(--color-accent-purple);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--color-accent-purple) 70%, transparent),
+      inset 0 0 0 3px var(--color-paper),
+      inset 0 0 0 4px color-mix(in oklab, var(--color-accent-purple) 70%, transparent);
   }
 
   /* Ledger Desk — page chrome on dark */

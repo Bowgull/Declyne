@@ -743,7 +743,7 @@ function ChitForm({
       <button type="button" onClick={onDiscard} className="chit-discard" aria-label="Discard chit">×</button>
       <div className="flex items-baseline justify-between">
         <div className="label-tag">New chit</div>
-        <div className="label-tag">{direction === 'they_owe' ? 'owes you' : 'you owe'}</div>
+        <div className="label-tag">{direction === 'they_owe' ? 'they owe me' : 'i owe them'}</div>
       </div>
 
       {prefilledCounterparty ? (
@@ -765,18 +765,18 @@ function ChitForm({
         <button
           type="button"
           onClick={() => setDirection('they_owe')}
-          className={`stamp ${direction === 'they_owe' ? 'stamp-filled' : ''}`}
+          className={`stamp stamp-square ${direction === 'they_owe' ? 'stamp-filled' : ''}`}
           style={{ flex: 1 }}
         >
-          owes you
+          They owe me
         </button>
         <button
           type="button"
           onClick={() => setDirection('i_owe')}
-          className={`stamp ${direction === 'i_owe' ? 'stamp-filled' : ''}`}
+          className={`stamp stamp-square ${direction === 'i_owe' ? 'stamp-filled' : ''}`}
           style={{ flex: 1 }}
         >
-          you owe
+          I owe them
         </button>
       </div>
 
@@ -807,13 +807,10 @@ function ChitForm({
       <button
         type="submit"
         disabled={submitting}
-        className="tear-tab tear-tab-motion"
-        style={{ opacity: submitting ? 0.5 : 1 }}
+        className="stamp stamp-purple"
+        style={{ alignSelf: 'center', minWidth: 160 }}
       >
-        <span className="cut-line" aria-hidden />
-        <span className="tear-arrow" aria-hidden>↓</span>
-        <span>{submitting ? 'tearing.' : 'Tear it'}</span>
-        <span className="cut-line" aria-hidden />
+        {submitting ? 'opening' : 'Open tab'}
       </button>
     </form>
   );
