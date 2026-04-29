@@ -60,8 +60,9 @@ export default function App() {
             path="/today"
             element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Today />}
           />
-          <Route path="/paycheque" element={<Budget />} />
-          <Route path="/budget" element={<Navigate to="/paycheque" replace />} />
+          <Route path="/books" element={<Budget />} />
+          <Route path="/paycheque" element={<Navigate to="/books" replace />} />
+          <Route path="/budget" element={<Navigate to="/books" replace />} />
           <Route path="/debts" element={<Debts />} />
           <Route path="/yield" element={<Grow unlocked={growUnlocked} />} />
           <Route path="/grow" element={<Navigate to="/yield" replace />} />
@@ -102,7 +103,7 @@ export default function App() {
       <nav className="tab-bar" aria-label="Primary">
         <div className="tab-bar-inner">
           <TabLink to="/today" label="Today" icon={<TodayIcon />} />
-          <TabLink to="/paycheque" label="Paycheque" icon={<PaychequeIcon />} />
+          <TabLink to="/books" label="Books" icon={<BooksIcon />} />
           <TabLink to="/yield" label="Yield" icon={<YieldIcon />} muted={!growUnlocked} />
         </div>
       </nav>
@@ -152,12 +153,17 @@ function TodayIcon() {
   );
 }
 
-function PaychequeIcon() {
-  // Envelope: a paycheque arrives in the mail.
+function BooksIcon() {
+  // Open ledger book: spine center, two facing pages with hairlines.
   return (
     <svg {...STROKE}>
-      <rect x="3" y="6" width="18" height="13" rx="1.5" />
-      <path d="M3.5 7.5L12 13.5L20.5 7.5" />
+      <path d="M12 6v14" />
+      <path d="M3.5 6h6c1.4 0 2.5 1 2.5 2.4V20H5.5C4.4 20 3.5 19.1 3.5 18z" />
+      <path d="M20.5 6h-6c-1.4 0-2.5 1-2.5 2.4V20h6.5c1.1 0 2-.9 2-2z" />
+      <path d="M6 10h3.6" />
+      <path d="M6 13h3.6" />
+      <path d="M14.4 10H18" />
+      <path d="M14.4 13H18" />
     </svg>
   );
 }

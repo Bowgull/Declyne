@@ -19,6 +19,9 @@ type MerchantListRow = MerchantRow & {
   last_seen_at: string | null;
   uncategorized_txn_count: number;
   spend_90d_cents: number;
+  spend_30d_cents: number;
+  spend_prior_30d_cents: number;
+  txn_count_90d: number;
 };
 
 export type MerchantPatch = {
@@ -69,7 +72,10 @@ merchantsRoutes.get('/', async (c) => {
                       COUNT(t.id) AS txn_count,
                       MAX(t.posted_at) AS last_seen_at,
                       SUM(CASE WHEN t.category_id IS NULL THEN 1 ELSE 0 END) AS uncategorized_txn_count,
-                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_90d_cents
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_90d_cents,
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-30 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_30d_cents,
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-60 days') AND t.posted_at < date('now', '-30 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_prior_30d_cents,
+                      COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') THEN 1 ELSE 0 END), 0) AS txn_count_90d
                FROM merchants m
                LEFT JOIN transactions t ON t.merchant_id = m.id
                LEFT JOIN categories c ON c.id = m.category_default_id

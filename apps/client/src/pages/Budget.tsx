@@ -1,10 +1,13 @@
-import { Link } from 'react-router-dom';
+import type * as React from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
-import Constellation, { type ConstellationBubble, type ConstellationCategory } from '../components/Constellation';
+import Constellation, { type ConstellationBubble, type ConstellationCategory, type Velocity } from '../components/Constellation';
+import SubscriptionRibbon, { subscriptionTotals, type RibbonSubscription } from '../components/SubscriptionRibbon';
+import BooksLegend from '../components/BooksLegend';
 
 type CommittedSource = 'bill' | 'debt_min' | 'savings_goal' | 'savings_recurring';
 interface CommittedLine {
@@ -48,7 +51,10 @@ interface MerchantRow {
   display_name: string;
   category_group: string | null;
   spend_90d_cents: number;
+  spend_30d_cents?: number;
+  spend_prior_30d_cents?: number;
   txn_count: number;
+  txn_count_90d?: number;
 }
 
 interface Subscription {
@@ -84,6 +90,8 @@ interface PeriodSurplusRow {
   surplus_cents: number;
 }
 
+type Subview = 'paycheque' | 'patterns';
+
 function fmtRange(start: string, end: string) {
   const s = new Date(start);
   const e = new Date(end);
@@ -110,28 +118,46 @@ function categoryFromGroup(group: string | null | undefined): ConstellationCateg
   return 'lifestyle';
 }
 
-function moneyMapBubbles(snapshot: PaycheckSnapshot | null, plan: PlanResp['plan'] | null): ConstellationBubble[] {
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function moneyMapBubbles(
+  snapshot: PaycheckSnapshot | null,
+  plan: PlanResp['plan'] | null,
+  periodEnd: string | null,
+): ConstellationBubble[] {
   const out: ConstellationBubble[] = [];
+  const payday = periodEnd ? Math.max(1, daysUntil(periodEnd)) : 14;
   if (snapshot) {
     for (const line of snapshot.committed.lines) {
       let category: ConstellationCategory;
       let to: string | undefined;
+      let fallback: number;
       if (line.source === 'bill') {
         category = 'essentials';
         to = '/paycheque/forecast';
+        const span = Math.max(1, payday - 1);
+        fallback = 1 + (hashStr(line.label) % span);
       } else if (line.source === 'debt_min') {
         category = 'debt';
         to = '/paycheque/plan';
+        fallback = Math.max(2, payday - (hashStr(line.label) % 3));
       } else {
         category = 'savings';
         to = '/goals';
+        fallback = payday;
       }
+      const days = line.due_date ? daysUntil(line.due_date) : fallback;
       out.push({
         id: `${line.source}-${line.ref_id ?? line.label}`,
         label: line.label,
         amount_cents: line.amount_cents,
         category,
         to,
+        days_until: days,
       });
     }
   }
@@ -152,14 +178,36 @@ function moneyMapBubbles(snapshot: PaycheckSnapshot | null, plan: PlanResp['plan
         category: 'debt',
         to: '/paycheque/plan',
         hint: 'recommended',
+        days_until: payday,
       });
     }
   }
   return out;
 }
 
+function velocityFor(m: MerchantRow): Velocity | undefined {
+  const cur = m.spend_30d_cents ?? 0;
+  const prior = m.spend_prior_30d_cents ?? 0;
+  if (cur === 0 && prior === 0) return undefined;
+  if (prior === 0) return 'up';
+  const ratio = cur / prior;
+  if (ratio > 1.2) return 'up';
+  if (ratio < 0.8) return 'down';
+  return 'flat';
+}
+
 export default function Budget() {
   const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const view: Subview = params.get('view') === 'patterns' ? 'patterns' : 'paycheque';
+  const setView = (v: Subview) => {
+    if (v === 'paycheque') {
+      params.delete('view');
+    } else {
+      params.set('view', v);
+    }
+    setParams(params, { replace: true });
+  };
 
   const paycheque = useQuery({
     queryKey: ['paycheque-snapshot'],
@@ -172,22 +220,27 @@ export default function Budget() {
   const merchants = useQuery({
     queryKey: ['merchants', 'habits'],
     queryFn: () => api.get<{ merchants: MerchantRow[] }>('/api/merchants?limit=200'),
+    enabled: view === 'patterns',
   });
   const subscriptions = useQuery({
     queryKey: ['subscriptions'],
     queryFn: () => api.get<{ subscriptions: Subscription[] }>('/api/budget/subscriptions'),
+    enabled: view === 'patterns',
   });
   const counterparties = useQuery({
     queryKey: ['counterparties'],
     queryFn: () => api.get<{ counterparties: Counterparty[] }>('/api/counterparties'),
+    enabled: view === 'paycheque',
   });
   const spendHistory = useQuery({
     queryKey: ['budget-spend-history'],
     queryFn: () => api.get<{ rows: SpendHistoryRow[] }>('/api/budget/history?periods=6'),
+    enabled: view === 'patterns',
   });
   const periodHistory = useQuery({
     queryKey: ['periods-history'],
     queryFn: () => api.get<{ rows: PeriodSurplusRow[] }>('/api/periods/history?limit=8'),
+    enabled: view === 'patterns',
   });
 
   const draft = useMutation({
@@ -212,51 +265,117 @@ export default function Budget() {
   const totalPlanned = committedTotal + planExtras;
   const free = Math.max(0, paychequeCents - totalPlanned);
 
-  const moneyBubbles = moneyMapBubbles(snapshot, planData);
-
-  const habitsMerchants = (merchants.data?.merchants ?? [])
-    .filter((m) => m.spend_90d_cents > 0)
-    .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence')
-    .slice(0, 8);
-  const habitsBubbles: ConstellationBubble[] = habitsMerchants.map((m) => ({
-    id: `m-${m.id}`,
-    label: m.display_name,
-    amount_cents: m.spend_90d_cents,
-    category: categoryFromGroup(m.category_group),
-    to: '/settings/merchants',
-    hint: '90d',
-  }));
-  const habitsTotal = habitsMerchants.reduce((s, m) => s + m.spend_90d_cents, 0);
-
-  const subs = subscriptions.data?.subscriptions ?? [];
-  const subsBubbles: ConstellationBubble[] = subs.slice(0, 12).map((s) => ({
-    id: `s-${s.merchant_id}`,
-    label: s.merchant_name,
-    amount_cents: s.amount_cents,
-    category: categoryFromGroup(s.category_group),
-    to: '/paycheque/subscriptions',
-  }));
-  const subsMonthly = subs.reduce(
-    (acc, s) => acc + Math.round((s.amount_cents * 30) / Math.max(1, s.cadence_days)),
-    0,
-  );
-
-  const openTabs = (counterparties.data?.counterparties ?? []).filter((c) => c.direction !== 'settled');
-  const spendHistoryRows = spendHistory.data?.rows ?? [];
-  const periodHistoryRows = periodHistory.data?.rows ?? [];
-
   const subtitle = period ? fmtRange(period.start_date, period.end_date) : 'No paycheque yet';
   const daysLeft = period ? daysUntil(period.end_date) : 0;
 
   return (
-    <div className="ledger-page flex flex-col gap-6 pb-8">
+    <div className="ledger-page flex flex-col gap-5 pb-8">
       <LedgerHeader
-        kicker="This paycheque"
+        kicker="Books"
         title={subtitle}
         subtitle={period ? `${daysLeft}d left · ${fmtCompact(free)} free` : undefined}
         action={<ImportCsvButton />}
       />
 
+      <BooksLegend />
+
+      <SubNav view={view} setView={setView} />
+
+      {view === 'paycheque' ? (
+        <PaychequeView
+          snapshot={snapshot}
+          planData={planData}
+          period={period}
+          paychequeCents={paychequeCents}
+          totalPlanned={totalPlanned}
+          free={free}
+          daysLeft={daysLeft}
+          onDraft={() => draft.mutate()}
+          drafting={draft.isPending}
+          counterparties={counterparties.data?.counterparties ?? []}
+        />
+      ) : (
+        <PatternsView
+          merchants={merchants.data?.merchants ?? []}
+          subs={subscriptions.data?.subscriptions ?? []}
+          spendHistoryRows={spendHistory.data?.rows ?? []}
+          periodHistoryRows={periodHistory.data?.rows ?? []}
+        />
+      )}
+    </div>
+  );
+}
+
+function SubNav({ view, setView }: { view: Subview; setView: (v: Subview) => void }) {
+  const item = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    padding: '10px 12px',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 11,
+    letterSpacing: '0.18em',
+    textTransform: 'uppercase',
+    background: 'transparent',
+    border: 'none',
+    color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+    borderBottom: active ? '2px solid var(--color-accent-purple)' : '2px solid transparent',
+    cursor: 'pointer',
+  });
+  return (
+    <nav
+      style={{
+        display: 'flex',
+        borderBottom: '1px solid var(--rule-ink)',
+      }}
+      aria-label="Books sections"
+    >
+      <button
+        type="button"
+        style={item(view === 'paycheque')}
+        onClick={() => setView('paycheque')}
+      >
+        This paycheque
+      </button>
+      <button
+        type="button"
+        style={item(view === 'patterns')}
+        onClick={() => setView('patterns')}
+      >
+        Patterns
+      </button>
+    </nav>
+  );
+}
+
+interface PaychequeViewProps {
+  snapshot: PaycheckSnapshot | null;
+  planData: PlanResp['plan'] | null;
+  period: { id: string; start_date: string; end_date: string } | null;
+  paychequeCents: number;
+  totalPlanned: number;
+  free: number;
+  daysLeft: number;
+  onDraft: () => void;
+  drafting: boolean;
+  counterparties: Counterparty[];
+}
+
+function PaychequeView({
+  snapshot,
+  planData,
+  period,
+  paychequeCents,
+  totalPlanned,
+  free,
+  daysLeft,
+  onDraft,
+  drafting,
+  counterparties,
+}: PaychequeViewProps) {
+  const moneyBubbles = moneyMapBubbles(snapshot, planData, period?.end_date ?? null);
+  const openTabs = counterparties.filter((c) => c.direction !== 'settled');
+
+  return (
+    <div className="flex flex-col gap-5">
       {!period && (
         <section className="card">
           <p className="text-sm text-[color:var(--color-text-muted)]">
@@ -268,37 +387,41 @@ export default function Budget() {
       {period && (
         <section className="ledger-section pt-2">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>01</span> Where it goes
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>01</span> Money map
           </span>
-          <span className="ledger-section-meta">tap a bubble &rsaquo;</span>
-          <div className="pt-3">
+          <span className="ledger-section-meta">{daysLeft}d to payday</span>
+
+          <HeroNumber
+            kicker="Free to spend"
+            primary={fmtCompact(free)}
+            tone={free > 0 ? 'ink' : 'sienna'}
+            caption={`of ${fmtCompact(paychequeCents)} · ${fmtCompact(totalPlanned)} committed`}
+          />
+
+          <div className="pt-2">
             <Constellation
-              mode="centered"
+              mode="clock"
               bubbles={moneyBubbles}
-              center={{
-                primary: fmtCompact(paychequeCents),
-                secondary: 'PAYCHEQUE',
-              }}
               empty="Nothing committed yet · draft below"
-              footerLeft={`COMMITTED ${fmtCompact(totalPlanned)}`}
-              footerRight={`FREE ${fmtCompact(free)}`}
-              height={400}
+              height={420}
+              horizon={Math.max(7, daysLeft)}
             />
           </div>
+
           <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
             <button
               type="button"
               className="draft-stamp"
-              onClick={() => draft.mutate()}
-              disabled={draft.isPending}
+              onClick={onDraft}
+              disabled={drafting}
             >
-              {draft.isPending ? 'drafting…' : 'draft paycheque'}
+              {drafting ? 'drafting…' : 'draft paycheque'}
             </button>
           </div>
         </section>
       )}
 
-      <section className="ledger-section pt-4">
+      <section className="ledger-section pt-3">
         <span className="ledger-section-kicker">
           <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Books
         </span>
@@ -325,47 +448,10 @@ export default function Budget() {
         </Link>
       </section>
 
-      <section className="ledger-section pt-4">
-        <span className="ledger-section-kicker">
-          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Habits
-        </span>
-        <span className="ledger-section-meta">last 90 days</span>
-        <div className="pt-3">
-          <Constellation
-            mode="cluster"
-            bubbles={habitsBubbles}
-            empty="Spend a couple weeks to populate"
-            footerLeft={habitsBubbles.length > 0 ? `${habitsBubbles.length} merchants` : ''}
-            footerRight={habitsTotal > 0 ? `${fmtCompact(habitsTotal)} spent` : ''}
-            height={280}
-          />
-        </div>
-      </section>
-
-      <section className="ledger-section pt-4">
-        <span className="ledger-section-kicker">
-          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>04</span> Subscriptions
-        </span>
-        <Link to="/paycheque/subscriptions" className="ledger-section-meta hover:underline">
-          open &rsaquo;
-        </Link>
-        <div className="pt-3">
-          <Constellation
-            mode="cluster"
-            outlined
-            bubbles={subsBubbles}
-            empty="Nothing detected · need 6 months of activity"
-            footerLeft={subs.length > 0 ? `${subs.length} running` : ''}
-            footerRight={subsMonthly > 0 ? `~${fmtCompact(subsMonthly)}/mo` : ''}
-            height={260}
-          />
-        </div>
-      </section>
-
       {openTabs.length > 0 && (
-        <section className="ledger-section pt-4">
+        <section className="ledger-section pt-3">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>05</span> Open tabs
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Open tabs
           </span>
           <div className="flex flex-col">
             {openTabs.slice(0, 4).map((c) => (
@@ -401,11 +487,116 @@ export default function Budget() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+interface PatternsViewProps {
+  merchants: MerchantRow[];
+  subs: Subscription[];
+  spendHistoryRows: SpendHistoryRow[];
+  periodHistoryRows: PeriodSurplusRow[];
+}
+
+function PatternsView({
+  merchants,
+  subs,
+  spendHistoryRows,
+  periodHistoryRows,
+}: PatternsViewProps) {
+  const habitsMerchants = merchants
+    .filter((m) => m.spend_90d_cents > 0)
+    .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence')
+    .sort((a, b) => (b.txn_count_90d ?? b.txn_count) - (a.txn_count_90d ?? a.txn_count))
+    .slice(0, 9);
+  const habitsBubbles: ConstellationBubble[] = habitsMerchants.map((m) => {
+    const v = velocityFor(m);
+    const b: ConstellationBubble = {
+      id: `m-${m.id}`,
+      label: m.display_name,
+      amount_cents: m.spend_90d_cents,
+      category: categoryFromGroup(m.category_group),
+      to: '/settings/merchants',
+      hint: '90d',
+      txn_count: m.txn_count_90d ?? m.txn_count,
+    };
+    if (v) b.velocity = v;
+    return b;
+  });
+  const habitsTotal90 = habitsMerchants.reduce((s, m) => s + m.spend_90d_cents, 0);
+  const habitsTotal30 = habitsMerchants.reduce((s, m) => s + (m.spend_30d_cents ?? 0), 0);
+
+  const ribbonSubs: RibbonSubscription[] = subs.map((s) => ({
+    id: s.merchant_id,
+    name: s.merchant_name,
+    amount_cents: s.amount_cents,
+    cadence_days: s.cadence_days,
+    months_running: s.months_running,
+    category:
+      s.category_group === 'lifestyle' ||
+      s.category_group === 'indulgence' ||
+      s.category_group === 'essentials' ||
+      s.category_group === 'debt' ||
+      s.category_group === 'savings' ||
+      s.category_group === 'income'
+        ? s.category_group
+        : 'lifestyle',
+  }));
+  const subTotals = subscriptionTotals(ribbonSubs);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="ledger-section pt-2">
+        <span className="ledger-section-kicker">
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>01</span> Habits
+        </span>
+        <span className="ledger-section-meta">{habitsBubbles.length} merchants</span>
+
+        <HeroNumber
+          kicker="Spent · last 90d"
+          primary={fmtCompact(habitsTotal90)}
+          tone="sienna"
+          caption={`${fmtCompact(habitsTotal30)} in last 30d`}
+        />
+
+        <div className="pt-2">
+          <Constellation
+            mode="frequency"
+            bubbles={habitsBubbles}
+            empty="Spend a couple weeks to populate"
+            height={340}
+          />
+        </div>
+      </section>
+
+      <section className="ledger-section pt-3">
+        <span className="ledger-section-kicker">
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>02</span> Subscriptions
+        </span>
+        <Link to="/paycheque/subscriptions" className="ledger-section-meta hover:underline">
+          open &rsaquo;
+        </Link>
+
+        <HeroNumber
+          kicker="Subscriptions / month"
+          primary={fmtCompact(subTotals.monthly_cents)}
+          tone="ink"
+          caption={`${fmtCompact(subTotals.annual_cents)}/yr · ${ribbonSubs.length} running`}
+        />
+
+        <div className="pt-2">
+          <SubscriptionRibbon
+            subs={ribbonSubs}
+            to="/paycheque/subscriptions"
+            emptyHint="Nothing detected · need 6 months of activity"
+          />
+        </div>
+      </section>
 
       {spendHistoryRows.length > 0 && (
-        <section className="ledger-section pt-4">
+        <section className="ledger-section pt-3">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>06</span> Spending history
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Spending history
           </span>
           <span className="ledger-section-meta">{spendHistoryRows.length} periods</span>
           <SpendHistoryTable rows={spendHistoryRows} />
@@ -413,9 +604,9 @@ export default function Budget() {
       )}
 
       {periodHistoryRows.length > 0 && (
-        <section className="ledger-section pt-4">
+        <section className="ledger-section pt-3">
           <span className="ledger-section-kicker">
-            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>07</span> Period surplus
+            <span className="num" style={{ color: 'var(--color-accent-gold)' }}>04</span> Period surplus
           </span>
           <div className="flex flex-col">
             {periodHistoryRows.map((r) => {
@@ -437,6 +628,74 @@ export default function Budget() {
             })}
           </div>
         </section>
+      )}
+    </div>
+  );
+}
+
+const TONE_COLOR: Record<'ink' | 'gold' | 'purple' | 'sienna' | 'sage', string> = {
+  ink: 'var(--color-text-primary)',
+  gold: 'var(--color-accent-gold)',
+  purple: 'var(--color-accent-purple)',
+  sienna: 'var(--cat-indulgence)',
+  sage: 'var(--cat-savings)',
+};
+
+function HeroNumber({
+  kicker,
+  primary,
+  caption,
+  tone = 'ink',
+}: {
+  kicker: string;
+  primary: string;
+  caption?: string;
+  tone?: 'ink' | 'gold' | 'purple' | 'sienna' | 'sage';
+}) {
+  return (
+    <div
+      style={{
+        padding: '14px 0 10px',
+        textAlign: 'left',
+        fontFamily: 'var(--font-mono)',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.28em',
+          textTransform: 'uppercase',
+          color: 'var(--color-text-muted)',
+        }}
+      >
+        {kicker}
+      </div>
+      <div
+        style={{
+          fontFamily: 'Fraunces, ui-serif, Georgia',
+          fontWeight: 600,
+          fontSize: 44,
+          lineHeight: 1.05,
+          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
+          color: TONE_COLOR[tone],
+          marginTop: 2,
+        }}
+      >
+        {primary}
+      </div>
+      {caption && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 10,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          {caption}
+        </div>
       )}
     </div>
   );
