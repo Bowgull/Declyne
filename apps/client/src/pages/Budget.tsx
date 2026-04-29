@@ -5,7 +5,8 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
-import Constellation, { type ConstellationBubble, type ConstellationCategory, type Velocity } from '../components/Constellation';
+import NetworkMap from '../components/NetworkMap';
+import { buildMoneyNetwork, buildHabitsNetwork } from '../lib/networkData';
 import SubscriptionVerdictLedger, { type SubscriptionRow } from '../components/SubscriptionVerdictLedger';
 import BooksLegend from '../components/BooksLegend';
 
@@ -112,90 +113,6 @@ function fmtCompact(cents: number): string {
   return `$${(a / 100).toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-function categoryFromGroup(group: string | null | undefined): ConstellationCategory {
-  if (group === 'lifestyle' || group === 'indulgence' || group === 'essentials' || group === 'debt' || group === 'savings' || group === 'income') {
-    return group;
-  }
-  return 'lifestyle';
-}
-
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function moneyMapBubbles(
-  snapshot: PaycheckSnapshot | null,
-  plan: PlanResp['plan'] | null,
-  periodEnd: string | null,
-): ConstellationBubble[] {
-  const out: ConstellationBubble[] = [];
-  const payday = periodEnd ? Math.max(1, daysUntil(periodEnd)) : 14;
-  if (snapshot) {
-    for (const line of snapshot.committed.lines) {
-      let category: ConstellationCategory;
-      let to: string | undefined;
-      let fallback: number;
-      if (line.source === 'bill') {
-        category = 'essentials';
-        to = '/paycheque/forecast';
-        const span = Math.max(1, payday - 1);
-        fallback = 1 + (hashStr(line.label) % span);
-      } else if (line.source === 'debt_min') {
-        category = 'debt';
-        to = '/paycheque/plan';
-        fallback = Math.max(2, payday - (hashStr(line.label) % 3));
-      } else {
-        category = 'savings';
-        to = '/goals';
-        fallback = payday;
-      }
-      const days = line.due_date ? daysUntil(line.due_date) : fallback;
-      out.push({
-        id: `${line.source}-${line.ref_id ?? line.label}`,
-        label: line.label,
-        amount_cents: line.amount_cents,
-        category,
-        to,
-        days_until: days,
-      });
-    }
-  }
-  if (plan) {
-    const extras = plan.next_paycheque_allocations.filter((a) => a.role !== 'min');
-    const byDebt = new Map<string, { name: string; cents: number }>();
-    for (const a of extras) {
-      const cur = byDebt.get(a.debt_id) ?? { name: a.debt_name, cents: 0 };
-      cur.cents += a.amount_cents;
-      byDebt.set(a.debt_id, cur);
-    }
-    for (const [id, v] of byDebt) {
-      if (v.cents <= 0) continue;
-      out.push({
-        id: `extra-${id}`,
-        label: `→ ${v.name}`,
-        amount_cents: v.cents,
-        category: 'debt',
-        to: '/paycheque/plan',
-        hint: 'recommended',
-        days_until: payday,
-      });
-    }
-  }
-  return out;
-}
-
-function velocityFor(m: MerchantRow): Velocity | undefined {
-  const cur = m.spend_30d_cents ?? 0;
-  const prior = m.spend_prior_30d_cents ?? 0;
-  if (cur === 0 && prior === 0) return undefined;
-  if (prior === 0) return 'up';
-  const ratio = cur / prior;
-  if (ratio > 1.2) return 'up';
-  if (ratio < 0.8) return 'down';
-  return 'flat';
-}
 
 export default function Budget() {
   const qc = useQueryClient();
@@ -372,7 +289,7 @@ function PaychequeView({
   drafting,
   counterparties,
 }: PaychequeViewProps) {
-  const moneyBubbles = moneyMapBubbles(snapshot, planData, period?.end_date ?? null);
+  const moneyNet = buildMoneyNetwork(snapshot, planData, paychequeCents);
   const openTabs = counterparties.filter((c) => c.direction !== 'settled');
 
   return (
@@ -400,12 +317,14 @@ function PaychequeView({
           />
 
           <div className="pt-2">
-            <Constellation
-              mode="clock"
-              bubbles={moneyBubbles}
-              empty="Nothing committed yet · draft below"
+            <NetworkMap
+              mode="money"
+              nodes={moneyNet.nodes}
+              edges={moneyNet.edges}
+              destOf={moneyNet.destOf}
               height={420}
-              horizon={Math.max(7, daysLeft)}
+              showAmount
+              empty="Nothing committed yet · draft below"
             />
           </div>
 
@@ -508,22 +427,9 @@ function PatternsView({
   const habitsMerchants = merchants
     .filter((m) => m.spend_90d_cents > 0)
     .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence')
-    .sort((a, b) => (b.txn_count_90d ?? b.txn_count) - (a.txn_count_90d ?? a.txn_count))
+    .sort((a, b) => b.spend_90d_cents - a.spend_90d_cents)
     .slice(0, 9);
-  const habitsBubbles: ConstellationBubble[] = habitsMerchants.map((m) => {
-    const v = velocityFor(m);
-    const b: ConstellationBubble = {
-      id: `m-${m.id}`,
-      label: m.display_name,
-      amount_cents: m.spend_90d_cents,
-      category: categoryFromGroup(m.category_group),
-      to: '/settings/merchants',
-      hint: '90d',
-      txn_count: m.txn_count_90d ?? m.txn_count,
-    };
-    if (v) b.velocity = v;
-    return b;
-  });
+  const habitsNet = buildHabitsNetwork(habitsMerchants, subs);
   const habitsTotal90 = habitsMerchants.reduce((s, m) => s + m.spend_90d_cents, 0);
   const habitsTotal30 = habitsMerchants.reduce((s, m) => s + (m.spend_30d_cents ?? 0), 0);
 
@@ -536,7 +442,7 @@ function PatternsView({
         <span className="ledger-section-kicker">
           <span className="num" style={{ color: 'var(--color-accent-gold)' }}>01</span> Habits
         </span>
-        <span className="ledger-section-meta">{habitsBubbles.length} merchants</span>
+        <span className="ledger-section-meta">{habitsMerchants.length} merchants</span>
 
         <HeroNumber
           kicker="Spent · last 90d"
@@ -546,11 +452,13 @@ function PatternsView({
         />
 
         <div className="pt-2">
-          <Constellation
-            mode="frequency"
-            bubbles={habitsBubbles}
+          <NetworkMap
+            mode="habits"
+            nodes={habitsNet.nodes}
+            edges={habitsNet.edges}
+            height={400}
+            showAmount
             empty="Spend a couple weeks to populate"
-            height={340}
           />
         </div>
       </section>
