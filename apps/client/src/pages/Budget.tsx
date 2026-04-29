@@ -198,7 +198,7 @@ export default function Budget() {
         action={<ImportCsvButton />}
       />
 
-      <BooksLegend />
+      <BooksLegend view={view} />
 
       <SubNav view={view} setView={setView} />
 
