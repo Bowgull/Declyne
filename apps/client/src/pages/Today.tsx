@@ -309,24 +309,37 @@ export default function Today() {
       ? '* still printing *'
       : '* still counting *';
 
-  // Long-press detection.
+  // Long-press detection with scroll-intent cancellation.
+  // If the pointer moves more than SCROLL_THRESHOLD px from the down position
+  // before the timer fires, we treat it as a scroll and abort — this prevents
+  // the chit form from opening when a user begins a scroll gesture on a row.
+  const SCROLL_THRESHOLD = 8;
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressOrigin = useRef<{ x: number; y: number } | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [liftedCpId, setLiftedCpId] = useState<string | null>(null);
 
-  function startPress(prefilledFor: string | null, idForVisual: string) {
+  function startPress(prefilledFor: string | null, idForVisual: string, e: React.PointerEvent) {
+    pressOrigin.current = { x: e.clientX, y: e.clientY };
     setPressingId(idForVisual);
     pressTimer.current = setTimeout(() => {
+      pressOrigin.current = null;
       setPressingId(null);
       setChitOpen({ prefilledFor });
-      // Soft haptic if available.
       if ('vibrate' in navigator) navigator.vibrate?.(8);
     }, LONG_PRESS_MS);
   }
   function cancelPress() {
     if (pressTimer.current) clearTimeout(pressTimer.current);
     pressTimer.current = null;
+    pressOrigin.current = null;
     setPressingId(null);
+  }
+  function handlePressMove(e: React.PointerEvent) {
+    if (!pressOrigin.current) return;
+    const dx = e.clientX - pressOrigin.current.x;
+    const dy = e.clientY - pressOrigin.current.y;
+    if (Math.sqrt(dx * dx + dy * dy) > SCROLL_THRESHOLD) cancelPress();
   }
   useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
 
@@ -649,7 +662,8 @@ export default function Today() {
                   >
                     <div
                       className="flex items-center justify-between py-2 px-1"
-                      onPointerDown={() => startPress(cp.id, cp.id)}
+                      onPointerDown={(e) => startPress(cp.id, cp.id, e)}
+                      onPointerMove={handlePressMove}
                       onPointerUp={cancelPress}
                       onPointerLeave={cancelPress}
                       onPointerCancel={cancelPress}
