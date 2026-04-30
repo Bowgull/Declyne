@@ -472,7 +472,7 @@ export default function BubbleDrillMap({
           borderRadius: 6,
           overflow: 'hidden',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 16px 32px -16px rgba(0,0,0,0.7)',
-          animation: `${sceneAnim} 340ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards`,
+          animation: `${sceneAnim} 460ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards`,
         }}
       >
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
@@ -517,7 +517,7 @@ export default function BubbleDrillMap({
             <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
               style={{
                 stroke: l.color,
-                animation: `bubble-spoke-fade 220ms ease ${180 + i * 30}ms both`,
+                animation: `bubble-spoke-fade 300ms ease ${240 + i * 40}ms both`,
               }}
               strokeOpacity={0.18} strokeWidth={1} strokeDasharray="3 4" />
           ))}
@@ -531,7 +531,7 @@ export default function BubbleDrillMap({
               '--origin-dx': tapOrigin ? `${tapOrigin.x - CX}px` : '0px',
               '--origin-dy': tapOrigin ? `${tapOrigin.y - CY}px` : '0px',
               animation: tapOrigin
-                ? 'bubble-center-arrive 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both'
+                ? 'bubble-center-arrive 560ms cubic-bezier(0.34, 1.56, 0.64, 1) both'
                 : undefined,
             } as React.CSSProperties}>
               <HubCenterBubble
@@ -547,7 +547,7 @@ export default function BubbleDrillMap({
             <g key={laid.src.id} style={{
               transformOrigin: `${laid.x}px ${laid.y}px`,
               animation: transDir === 'in'
-                ? `bubble-node-appear 260ms cubic-bezier(0.34, 1.56, 0.64, 1) ${80 + idx * 65}ms both`
+                ? `bubble-node-appear 350ms cubic-bezier(0.34, 1.56, 0.64, 1) ${110 + idx * 90}ms both`
                 : undefined,
             }}>
               {laid.drillable ? (
