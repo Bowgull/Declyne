@@ -30,6 +30,10 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `ef31edee-ff80-4a4e-865f-03f53643058d` (session 93 — essentials sub-bucket + variable baseline + velocity habits)
 
+## Repo state (2026-04-30 handoff, end of session 95)
+
+**Session 95** — Drill-down bubble map shipped to production on `/books`. Pure client. No schema, no worker, no migrations. Replaces both NetworkMap (Money) and HabitsBuckets (Habits) with a single interactive drill-down `BubbleDrillMap` component. iPhone-first canvas (W=380, H=540) fills the viewport above the tab bar. FREE THIS PAY cream center bubble carries the hero amount on the money map; pay roles (Bills slate, Debt gold, Goals sage) collapse into 3 hubs that drill into individual allocations. Habits drills 3 levels deep: category → sub-category → merchant, with velocity (▲N% / ▼N% / →) shown at every level via the 30d-vs-90d/3 ratio. Velocity contextual: down on outflow = good (sage), up = bad (sienna). Commit `ce355b2` on main, Vercel auto-deploying.
+
 ## Repo state (2026-04-30 handoff, end of session 94)
 
 **Session 94** — iOS/PWA audit + full fix pass. Pure client. No schema, no worker, no migrations. Three commits on branch `claude/ios-pwa-audit-VZ6gV`.
