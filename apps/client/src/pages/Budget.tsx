@@ -1,4 +1,4 @@
-import type * as React from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
@@ -6,7 +6,7 @@ import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
 import NetworkMap from '../components/NetworkMap';
-import { buildMoneyNetwork, buildHabitsNetwork } from '../lib/networkData';
+import { buildMoneyNetwork } from '../lib/networkData';
 import SubscriptionVerdictLedger, { type SubscriptionRow } from '../components/SubscriptionVerdictLedger';
 import SubCategoryQueue from '../components/SubCategoryQueue';
 import BooksLegend from '../components/BooksLegend';
@@ -427,6 +427,227 @@ function PaychequeView({
   );
 }
 
+// ---------- sub-category color map ----------
+const SUB_COLOR: Record<string, string> = {
+  food: 'var(--sub-food)',
+  transit: 'var(--sub-transit)',
+  shopping: 'var(--sub-shopping)',
+  home: 'var(--sub-home)',
+  personal_care: 'var(--sub-personal-care)',
+  entertainment: 'var(--sub-entertainment)',
+  health: 'var(--sub-health)',
+  bars: 'var(--sub-bars)',
+  takeout: 'var(--sub-takeout)',
+  fast_food: 'var(--sub-fast-food)',
+  weed: 'var(--sub-weed)',
+  streaming: 'var(--sub-streaming)',
+  gaming: 'var(--sub-gaming)',
+  treats: 'var(--sub-treats)',
+};
+const SUB_LABEL: Record<string, string> = {
+  food: 'food', transit: 'transit', shopping: 'shopping', home: 'home',
+  personal_care: 'personal care', entertainment: 'entertainment', health: 'health',
+  bars: 'bars', takeout: 'takeout', fast_food: 'fast food', weed: 'weed',
+  streaming: 'streaming', gaming: 'gaming', treats: 'treats',
+};
+
+interface HabitsBucket {
+  sub: string;
+  label: string;
+  color: string;
+  total90: number;
+  total30: number;
+  merchants: MerchantRow[];
+}
+
+function buildBuckets(merchants: MerchantRow[]): { buckets: HabitsBucket[]; unconfirmed: MerchantRow[] } {
+  const map = new Map<string, HabitsBucket>();
+  const unconfirmed: MerchantRow[] = [];
+
+  for (const m of merchants) {
+    const sub = m.sub_category_confirmed === 1 ? (m.sub_category ?? null) : null;
+    if (sub && SUB_LABEL[sub]) {
+      let b = map.get(sub);
+      if (!b) {
+        b = { sub, label: SUB_LABEL[sub]!, color: SUB_COLOR[sub] ?? 'var(--color-text-muted)', total90: 0, total30: 0, merchants: [] };
+        map.set(sub, b);
+      }
+      b.total90 += m.spend_90d_cents;
+      b.total30 += m.spend_30d_cents ?? 0;
+      b.merchants.push(m);
+    } else {
+      unconfirmed.push(m);
+    }
+  }
+
+  const buckets = [...map.values()].sort((a, b) => b.total90 - a.total90);
+  for (const b of buckets) b.merchants.sort((a, c) => c.spend_90d_cents - a.spend_90d_cents);
+  return { buckets, unconfirmed };
+}
+
+function HabitsBuckets({ merchants }: { merchants: MerchantRow[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [mapMode, setMapMode] = useState(false);
+  const { buckets, unconfirmed } = buildBuckets(merchants);
+
+  const toggle = (sub: string) =>
+    setExpanded((prev) => { const n = new Set(prev); n.has(sub) ? n.delete(sub) : n.add(sub); return n; });
+
+  const all90 = merchants.reduce((s, m) => s + m.spend_90d_cents, 0);
+  const maxBubble = Math.max(...buckets.map((b) => b.total90), 1);
+
+  if (mapMode) {
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button
+            type="button"
+            onClick={() => setMapMode(false)}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em',
+              textTransform: 'uppercase', color: 'var(--color-text-muted)', background: 'transparent',
+              border: 'none', cursor: 'pointer', padding: '4px 0' }}
+          >
+            ← list
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, padding: '8px 0', alignItems: 'flex-end', minHeight: 180 }}>
+          {buckets.map((b) => {
+            const r = Math.round(20 + Math.sqrt(b.total90 / maxBubble) * 54);
+            return (
+              <button
+                key={b.sub}
+                type="button"
+                onClick={() => { setMapMode(false); setExpanded(new Set([b.sub])); }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <div style={{ width: r * 2, height: r * 2, borderRadius: '50%', background: b.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: Math.max(8, Math.round(r * 0.22)),
+                    color: '#1a141d', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em',
+                    lineHeight: 1.1, textAlign: 'center', padding: '0 4px' }}>
+                    {b.label}
+                  </span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-muted)',
+                  letterSpacing: '0.1em' }}>
+                  {fmtCompact(b.total90)}
+                </span>
+              </button>
+            );
+          })}
+          {unconfirmed.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--rule-ink-strong)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-muted)',
+                  textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center' }}>
+                  ?
+                </span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-muted)',
+                letterSpacing: '0.1em' }}>
+                {unconfirmed.length} unlabeled
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => setMapMode(true)}
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em',
+            textTransform: 'uppercase', color: 'var(--color-text-muted)', background: 'transparent',
+            border: 'none', cursor: 'pointer', padding: '4px 0' }}
+        >
+          view map →
+        </button>
+      </div>
+
+      {buckets.length === 0 && unconfirmed.length === 0 && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-muted)',
+          letterSpacing: '0.12em', padding: '12px 0' }}>
+          Approve sub-categories above to see habits by type.
+        </p>
+      )}
+
+      <div className="flex flex-col">
+        {buckets.map((b) => {
+          const isOpen = expanded.has(b.sub);
+          const pct = all90 > 0 ? Math.round((b.total90 / all90) * 100) : 0;
+          return (
+            <div key={b.sub} style={{ borderTop: '1px solid var(--rule-ink)' }}>
+              <button
+                type="button"
+                onClick={() => toggle(b.sub)}
+                style={{ display: 'flex', alignItems: 'baseline', width: '100%', background: 'transparent',
+                  border: 'none', padding: '8px 0', cursor: 'pointer', textAlign: 'left', gap: 10 }}
+              >
+                <span style={{ width: 3, height: 14, borderRadius: 1, background: b.color,
+                  flexShrink: 0, alignSelf: 'center', marginBottom: 2 }} />
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em',
+                  textTransform: 'uppercase', color: 'var(--color-text-primary)', flex: 1 }}>
+                  {b.label}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-muted)',
+                  letterSpacing: '0.1em', marginRight: 8 }}>
+                  {pct}% · {b.merchants.length} {b.merchants.length === 1 ? 'spot' : 'spots'}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text-primary)',
+                  fontWeight: 600 }}>
+                  {fmtCompact(b.total90)}
+                </span>
+                <span style={{ color: 'var(--color-text-muted)', fontSize: 12, marginLeft: 4 }}>
+                  {isOpen ? '↑' : '›'}
+                </span>
+              </button>
+              {isOpen && (
+                <div style={{ paddingBottom: 8, paddingLeft: 13 }}>
+                  {b.merchants.map((m) => (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between',
+                      padding: '4px 0', borderTop: '1px dashed var(--rule-ink)' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                        color: 'var(--color-text-primary)' }}>
+                        {m.display_name}
+                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11,
+                          color: 'var(--color-text-primary)' }}>
+                          {fmtCompact(m.spend_90d_cents)}
+                        </span>
+                        {m.spend_30d_cents != null && m.spend_30d_cents > 0 && (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                            color: 'var(--color-text-muted)', letterSpacing: '0.1em' }}>
+                            {fmtCompact(m.spend_30d_cents)} last 30d
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {unconfirmed.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--rule-ink)', padding: '8px 0' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em',
+              textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
+              {unconfirmed.length} {unconfirmed.length === 1 ? 'merchant' : 'merchants'} unlabeled · approve above to sort
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface PatternsViewProps {
   merchants: MerchantRow[];
   subs: Subscription[];
@@ -442,10 +663,8 @@ function PatternsView({
 }: PatternsViewProps) {
   const habitsMerchants = merchants
     .filter((m) => m.spend_90d_cents > 0)
-    .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence')
-    .sort((a, b) => b.spend_90d_cents - a.spend_90d_cents)
-    .slice(0, 9);
-  const habitsNet = buildHabitsNetwork(habitsMerchants, subs);
+    .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence' || m.category_group === 'essentials')
+    .sort((a, b) => b.spend_90d_cents - a.spend_90d_cents);
   const habitsTotal90 = habitsMerchants.reduce((s, m) => s + m.spend_90d_cents, 0);
   const habitsTotal30 = habitsMerchants.reduce((s, m) => s + (m.spend_30d_cents ?? 0), 0);
 
@@ -470,14 +689,7 @@ function PatternsView({
         />
 
         <div className="pt-2">
-          <NetworkMap
-            mode="habits"
-            nodes={habitsNet.nodes}
-            edges={habitsNet.edges}
-            height={400}
-            showAmount
-            empty="Spend a couple weeks to populate"
-          />
+          <HabitsBuckets merchants={habitsMerchants} />
         </div>
       </section>
 

@@ -4,7 +4,6 @@ import { writeEditLog } from '../lib/editlog.js';
 import {
   detectSubCategory,
   isSubCategory,
-  isValidForGroup,
   type SubCategory,
 } from '../lib/subCategoryDetect.js';
 
@@ -274,20 +273,12 @@ merchantsRoutes.get('/sub-categories/queue', async (c) => {
     spend_90d_cents: number;
     txn_count_90d: number;
   }>();
-  // Filter in JS: keep unconfirmed OR confirmed-but-mismatched.
-  const filtered = results.filter((m) => {
-    if (m.sub_category_confirmed === 0) return true;
-    if (!m.sub_category) return true;
-    if (m.category_group === 'lifestyle' || m.category_group === 'indulgence') {
-      const sub = m.sub_category as SubCategory;
-      if (!isSubCategory(sub)) return true;
-      return !isValidForGroup(sub, m.category_group);
-    }
-    return false;
-  }).map((m) => ({
-    ...m,
-    mismatch: m.sub_category_confirmed === 1,
-  }));
+  // Filter in JS: only show merchants where the user hasn't confirmed yet.
+  // Once confirmed (sub_category_confirmed = 1) the merchant is done — the
+  // user's explicit choice stands regardless of category/group alignment.
+  const filtered = results
+    .filter((m) => m.sub_category_confirmed === 0)
+    .map((m) => ({ ...m, mismatch: false as const }));
   return c.json({ merchants: filtered });
 });
 

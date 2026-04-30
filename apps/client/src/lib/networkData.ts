@@ -174,6 +174,16 @@ function extractDestRoot(label: string): string {
   return s;
 }
 
+/**
+ * Shorten a label for use inside the graph. Strips parenthetical hints
+ * (e.g. "Cash buffer (1 month essentials)" → "Cash buffer") and hard-caps
+ * at 14 chars so labels don't spill past bubble edges on a phone screen.
+ */
+function graphLabel(label: string): string {
+  const stripped = label.replace(/\s*\(.*?\)\s*/, '').trim();
+  return stripped.length > 14 ? stripped.slice(0, 13) + '…' : stripped;
+}
+
 function daysUntil(iso: string): number {
   const end = new Date(iso).getTime();
   const now = Date.now();
@@ -287,7 +297,7 @@ export function buildMoneyNetwork(
     }
     const node: NetworkNode = {
       id,
-      label: line.label,
+      label: graphLabel(line.label),
       kind: 'merchant',
       cents: line.amount_cents,
       cat,
@@ -355,40 +365,53 @@ export function buildHabitsNetwork(
 
   // Take top merchants by 90d spend across lifestyle + indulgence (the discretionary
   // surface where habit observation is most useful).
+  // Cap at 7 merchants so the canvas stays readable. Hubs multiply with
+  // distinct sub-categories, so fewer merchants = fewer hubs = less chaos.
   const habitMerchants = merchants
     .filter((m) => m.spend_90d_cents > 0)
     .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence')
     .sort((a, b) => b.spend_90d_cents - a.spend_90d_cents)
-    .slice(0, 9);
+    .slice(0, 7);
 
   if (habitMerchants.length === 0) return { nodes, edges };
 
-  // Each merchant's destination hub is its sub_category, when present and
-  // valid for the merchant's group. Unconfirmed merchants (or merchants
-  // whose sub_category was set on the wrong group) cluster under a single
-  // UNCONFIRMED hub — visually telling the user "open the queue."
-  const usedSubs = new Set<string>();
+  // Determine each merchant's effective sub-category. Confirmed subs route by
+  // the sub's own group; unconfirmed must match the merchant's category group.
+  // Cap visible hubs at 4 (ranked by merchant count). Extras fold into
+  // UNCONFIRMED so the canvas stays readable.
+  const MAX_HUBS = 4;
+  const subCount = new Map<string, number>(); // sub → # of merchants that resolve there
   let unconfirmedCount = 0;
 
-  for (const m of habitMerchants) {
+  const effectiveSub = (m: MerchantShape): string | null => {
     const sub = m.sub_category ?? null;
-    if (!sub || !(sub in SUB_LABEL)) {
-      unconfirmedCount++;
-      continue;
-    }
-    // Group/sub mismatch: sub must belong to its merchant's group. Essentials
-    // subs (food/transit/health) shouldn't reach this branch — they're filtered
-    // out at the group-level filter above — but a stray essentials sub on a
-    // lifestyle/indulgence merchant counts as unconfirmed.
-    if (m.category_group === 'lifestyle' && !LIFESTYLE_SUBS.has(sub)) {
-      unconfirmedCount++;
-      continue;
-    }
-    if (m.category_group === 'indulgence' && !INDULGENCE_SUBS.has(sub)) {
-      unconfirmedCount++;
-      continue;
-    }
-    usedSubs.add(sub);
+    if (!sub || !(sub in SUB_LABEL)) return null;
+    if (
+      m.sub_category_confirmed === 1 &&
+      (LIFESTYLE_SUBS.has(sub) || INDULGENCE_SUBS.has(sub))
+    ) return sub;
+    if (m.category_group === 'lifestyle' && LIFESTYLE_SUBS.has(sub)) return sub;
+    if (m.category_group === 'indulgence' && INDULGENCE_SUBS.has(sub)) return sub;
+    return null;
+  };
+
+  for (const m of habitMerchants) {
+    const sub = effectiveSub(m);
+    if (!sub) { unconfirmedCount++; continue; }
+    subCount.set(sub, (subCount.get(sub) ?? 0) + 1);
+  }
+
+  // Pick top MAX_HUBS subs by merchant count; the rest overflow to UNCONFIRMED.
+  const usedSubs = new Set(
+    [...subCount.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, MAX_HUBS)
+      .map(([sub]) => sub),
+  );
+
+  // Merchants whose sub didn't make the hub cap count as unconfirmed visually.
+  for (const [sub, count] of subCount) {
+    if (!usedSubs.has(sub)) unconfirmedCount += count;
   }
 
   for (const sub of usedSubs) {
@@ -413,12 +436,9 @@ export function buildHabitsNetwork(
 
   for (const m of habitMerchants) {
     const id = `m-${m.id}`;
-    const sub = m.sub_category ?? null;
-    const validSub =
-      sub && sub in SUB_LABEL
-        ? (m.category_group === 'lifestyle' && LIFESTYLE_SUBS.has(sub)) ||
-          (m.category_group === 'indulgence' && INDULGENCE_SUBS.has(sub))
-        : false;
+    const resolvedSub = effectiveSub(m);
+    const validSub = resolvedSub !== null && usedSubs.has(resolvedSub);
+    const sub = resolvedSub;
     // Velocity-driven size. Pure recent monthly burn (30d × 3) when we have it,
     // so a hot merchant reads as visibly bigger and a cold one shrinks even if
     // its 90d total is large. The displayed label still shows the 90d total

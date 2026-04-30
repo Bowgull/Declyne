@@ -163,23 +163,25 @@ function effectiveR(n: Placed): number {
   if (n.cardW != null && n.cardH != null) {
     return Math.max(n.cardW, n.cardH) / 2 + 6;
   }
-  // Merchant: r + label-clearance. Labels can be ~12 chars wide; we approximate
-  // the visual envelope as the bubble plus space for the name + amount stacked
-  // beneath. Bigger bubbles already get more room from r itself.
-  return n.r + 20;
+  // Merchant: r + label-clearance. A 13-char monospace label at 9px is ~72px
+  // wide. The relax pass must keep nodes far enough apart that those labels
+  // don't visually collide on a 375px phone screen.
+  return n.r + 38;
 }
 
 function relax(placed: Placed[], padding = 6, iters = 100, bounds?: { w: number; h: number }): void {
-  const movable = (n: Placed) => n.kind === 'merchant';
+  const movable = (n: Placed) => n.kind === 'merchant' || n.kind === 'hub';
   // Edge inset accounts for the bubble radius plus a small margin so labels
   // beneath the bubble stay readable without clipping.
   const clamp = (n: Placed) => {
     if (!bounds) return;
     const margin = 4;
-    const minX = n.r + margin;
-    const maxX = bounds.w - n.r - margin;
-    const minY = n.r + margin;
-    const maxY = bounds.h - n.r - margin;
+    const halfW = n.cardW != null ? n.cardW / 2 : n.r;
+    const halfH = n.cardH != null ? n.cardH / 2 : n.r;
+    const minX = halfW + margin;
+    const maxX = bounds.w - halfW - margin;
+    const minY = halfH + margin;
+    const maxY = bounds.h - halfH - margin;
     if (n.x < minX) n.x = minX;
     if (n.x > maxX) n.x = maxX;
     if (n.y < minY) n.y = minY;
@@ -309,8 +311,8 @@ function placeHabits(nodes: NetworkNode[], height: number): Placed[] {
     const angle = -Math.PI / 2 + (i / hubs.length) * Math.PI * 2;
     placed.push({
       ...h,
-      x: cx + Math.cos(angle) * 152,
-      y: cy + Math.sin(angle) * 142,
+      x: cx + Math.cos(angle) * 118,
+      y: cy + Math.sin(angle) * 108,
       r: 0,
       cardW: HUB_W,
       cardH: HUB_H,
@@ -642,7 +644,18 @@ export default function NetworkMap(props: NetworkMapProps) {
               const lit = isLit(n.id);
               const opacity = lit ? 1 : 0.18;
               const labelText =
-                n.label.length > 18 ? `${n.label.slice(0, 17)}…` : n.label;
+                n.label.length > 14 ? `${n.label.slice(0, 13)}…` : n.label;
+              // Anchor labels inward from edges so they never spill off-canvas.
+              const anchor =
+                n.x < W * 0.22 ? 'start' : n.x > W * 0.78 ? 'end' : 'middle';
+              const lx =
+                anchor === 'start'
+                  ? n.x + n.r + 4
+                  : anchor === 'end'
+                    ? n.x - n.r - 4
+                    : n.x;
+              const ly = anchor === 'middle' ? n.y + n.r + 12 : n.y + 4;
+              const amountLy = anchor === 'middle' ? n.y + n.r + 23 : n.y + 15;
               return (
                 <g
                   key={`lbl-${n.id}`}
@@ -650,9 +663,9 @@ export default function NetworkMap(props: NetworkMapProps) {
                   opacity={opacity}
                 >
                   <text
-                    x={n.x}
-                    y={n.y + n.r + 12}
-                    textAnchor="middle"
+                    x={lx}
+                    y={ly}
+                    textAnchor={anchor}
                     fontFamily="ui-monospace, Menlo"
                     fontSize={9}
                     fill="rgba(255,255,255,0.92)"
@@ -667,9 +680,9 @@ export default function NetworkMap(props: NetworkMapProps) {
                   </text>
                   {showAmount && n.cents != null && (
                     <text
-                      x={n.x}
-                      y={n.y + n.r + 23}
-                      textAnchor="middle"
+                      x={lx}
+                      y={amountLy}
+                      textAnchor={anchor}
                       fontFamily="ui-monospace, Menlo"
                       fontSize={9}
                       fill="rgba(255,255,255,0.55)"
