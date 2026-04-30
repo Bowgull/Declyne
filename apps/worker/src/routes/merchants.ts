@@ -4,7 +4,9 @@ import { writeEditLog } from '../lib/editlog.js';
 import {
   detectSubCategory,
   isSubCategory,
+  isValidForGroup,
   type SubCategory,
+  type SubGroup,
 } from '../lib/subCategoryDetect.js';
 
 export const merchantsRoutes = new Hono<{ Bindings: Env }>();
@@ -273,12 +275,31 @@ merchantsRoutes.get('/sub-categories/queue', async (c) => {
     spend_90d_cents: number;
     txn_count_90d: number;
   }>();
-  // Filter in JS: only show merchants where the user hasn't confirmed yet.
-  // Once confirmed (sub_category_confirmed = 1) the merchant is done — the
-  // user's explicit choice stands regardless of category/group alignment.
+  // Filter in JS. Surface two states:
+  //   1. sub_category_confirmed = 0 — never confirmed; awaiting verdict.
+  //   2. sub_category_confirmed = 1 BUT the confirmed sub is no longer valid
+  //      for the merchant's category group (category was changed after
+  //      confirmation). The map already routes these to UNCONFIRMED; without
+  //      surfacing here the user has no UI path to fix them and the books
+  //      can never reconcile.
   const filtered = results
-    .filter((m) => m.sub_category_confirmed === 0)
-    .map((m) => ({ ...m, mismatch: false as const }));
+    .map((m) => {
+      if (m.sub_category_confirmed === 0) {
+        return { ...m, mismatch: false as boolean };
+      }
+      if (!m.sub_category || !isSubCategory(m.sub_category)) {
+        return { ...m, mismatch: true as boolean };
+      }
+      const group = m.category_group;
+      if (group !== 'lifestyle' && group !== 'indulgence' && group !== 'essentials') {
+        return { ...m, mismatch: true as boolean };
+      }
+      return {
+        ...m,
+        mismatch: !isValidForGroup(m.sub_category, group as SubGroup),
+      };
+    })
+    .filter((m) => m.sub_category_confirmed === 0 || m.mismatch);
   return c.json({ merchants: filtered });
 });
 
