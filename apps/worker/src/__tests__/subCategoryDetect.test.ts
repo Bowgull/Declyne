@@ -76,13 +76,13 @@ describe('detectSubCategory — indulgence', () => {
     expect(detectSubCategory('LCBO #482')).toBe('bars');
     expect(detectSubCategory('Bar Raval')).toBe('bars');
   });
-  it('fast food chains', () => {
-    expect(detectSubCategory("McDonald's #1234")).toBe('fast_food');
-    expect(detectSubCategory('Tim Hortons #4823')).toBe('fast_food');
+  it('quick-serve restaurants land in takeout', () => {
+    expect(detectSubCategory("McDonald's #1234")).toBe('takeout');
+    expect(detectSubCategory('Tim Hortons #4823')).toBe('takeout');
   });
-  it('takeout services', () => {
-    expect(detectSubCategory('Uber Eats')).toBe('takeout');
-    expect(detectSubCategory('SkipTheDishes')).toBe('takeout');
+  it('delivery apps land in delivery', () => {
+    expect(detectSubCategory('Uber Eats')).toBe('delivery');
+    expect(detectSubCategory('SkipTheDishes')).toBe('delivery');
   });
   it('coffee/treats', () => {
     expect(detectSubCategory('Starbucks Bay & College')).toBe('treats');
@@ -94,10 +94,10 @@ describe('detectSubCategory — indulgence', () => {
 });
 
 describe('detectSubCategory — essentials', () => {
-  it('grocery is food', () => {
-    expect(detectSubCategory('Loblaws #1290', 'essentials')).toBe('food');
-    expect(detectSubCategory('No Frills', 'essentials')).toBe('food');
-    expect(detectSubCategory('Costco Wholesale', 'essentials')).toBe('food');
+  it('grocery stores are groceries', () => {
+    expect(detectSubCategory('Loblaws #1290', 'essentials')).toBe('groceries');
+    expect(detectSubCategory('No Frills', 'essentials')).toBe('groceries');
+    expect(detectSubCategory('Costco Wholesale', 'essentials')).toBe('groceries');
   });
   it('transit and gas land in transit', () => {
     expect(detectSubCategory('TTC PRESTO', 'essentials')).toBe('transit');
@@ -119,7 +119,7 @@ describe('detectSubCategory — lifestyle', () => {
     expect(detectSubCategory('Amazon.ca', 'lifestyle')).toBe('shopping');
     expect(detectSubCategory('Aritzia Robson', 'lifestyle')).toBe('shopping');
   });
-  it('lifestyle no longer matches groceries (food moved to essentials)', () => {
+  it('lifestyle no longer matches groceries (groceries moved to essentials)', () => {
     expect(detectSubCategory('Loblaws #1290', 'lifestyle')).toBeNull();
   });
 });
@@ -128,8 +128,8 @@ describe('detectSubCategory — unknown group falls through indulgence then esse
   it('Netflix (indulgence) wins over any other rule set', () => {
     expect(detectSubCategory('Netflix')).toBe('streaming');
   });
-  it('Loblaws resolves to essentials food when no group hint', () => {
-    expect(detectSubCategory('Loblaws')).toBe('food');
+  it('Loblaws resolves to essentials groceries when no group hint', () => {
+    expect(detectSubCategory('Loblaws')).toBe('groceries');
   });
   it('Amazon resolves to lifestyle shopping when no group hint', () => {
     expect(detectSubCategory('Amazon.ca')).toBe('shopping');

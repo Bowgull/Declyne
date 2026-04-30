@@ -37,7 +37,7 @@
   /* Sub-category palette. 14 earthy paper-pigment hues. Lifestyle family
      stays warm-muted (clay/slate/rose/olive/peach/lavender/sage). Indulgence
      family goes hotter (deep sienna/sienna/amber/moss/petrol/purple/pink). */
-  --sub-food:           #b88e7a;     /* clay */
+  --sub-groceries:      #b88e7a;     /* clay */
   --sub-transit:        #7b8e9c;     /* slate-warm */
   --sub-shopping:       #bf8a8a;     /* dusty rose */
   --sub-home:           #9c8a6a;     /* olive */
@@ -45,8 +45,8 @@
   --sub-entertainment:  #a890b0;     /* muted lavender */
   --sub-health:         #94a888;     /* sage */
   --sub-bars:           #a85c4a;     /* deep sienna */
-  --sub-takeout:        #c97a4a;     /* sienna */
-  --sub-fast-food:      #d99a5a;     /* warm amber */
+  --sub-takeout:        #d99a5a;     /* warm amber */
+  --sub-delivery:       #c97a4a;     /* sienna */
   --sub-weed:           #7a9c6a;     /* moss green */
   --sub-streaming:      #5a7a9c;     /* petrol blue */
   --sub-gaming:         #7c5aa8;     /* purple */
@@ -355,13 +355,13 @@
   }
   .ledger-section-kicker {
     position: absolute;
-    top: -7px;
+    top: -9px;
     left: 0;
     background: var(--color-bg-primary);
     padding-right: 10px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.28em;
+    font-size: 13px;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -376,7 +376,7 @@
     background: var(--color-bg-primary);
     padding-left: 10px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 13px;
     letter-spacing: 0.18em;
     color: var(--color-text-muted);
   }

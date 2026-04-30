@@ -105,7 +105,7 @@ const HUB_STRIPE: Record<HubKind, string> = {
 // 14 sub-category hues. Keep the IDs aligned with the worker vocab in
 // subCategoryDetect.ts. Underscores in source → hyphens in CSS-var names.
 const SUB_COLOR: Record<string, string> = {
-  food: 'var(--sub-food)',
+  groceries: 'var(--sub-groceries)',
   transit: 'var(--sub-transit)',
   shopping: 'var(--sub-shopping)',
   home: 'var(--sub-home)',
@@ -114,7 +114,7 @@ const SUB_COLOR: Record<string, string> = {
   health: 'var(--sub-health)',
   bars: 'var(--sub-bars)',
   takeout: 'var(--sub-takeout)',
-  fast_food: 'var(--sub-fast-food)',
+  delivery: 'var(--sub-delivery)',
   weed: 'var(--sub-weed)',
   streaming: 'var(--sub-streaming)',
   gaming: 'var(--sub-gaming)',

@@ -59,7 +59,7 @@ export interface SubscriptionShape {
 }
 
 const SUB_LABEL: Record<string, string> = {
-  food: 'FOOD',
+  groceries: 'GROCERIES',
   transit: 'TRANSIT',
   shopping: 'SHOPPING',
   home: 'HOME',
@@ -68,7 +68,7 @@ const SUB_LABEL: Record<string, string> = {
   health: 'HEALTH',
   bars: 'BARS',
   takeout: 'TAKEOUT',
-  fast_food: 'FAST FOOD',
+  delivery: 'DELIVERY',
   weed: 'WEED',
   streaming: 'STREAMING',
   gaming: 'GAMING',
@@ -88,7 +88,7 @@ const LIFESTYLE_SUBS = new Set([
 const INDULGENCE_SUBS = new Set([
   'bars',
   'takeout',
-  'fast_food',
+  'delivery',
   'weed',
   'streaming',
   'gaming',
@@ -467,7 +467,7 @@ export interface HabitsDrillTree {
 }
 
 const SUB_COLOR_MAP: Record<string, string> = {
-  food: 'var(--sub-food)',
+  groceries: 'var(--sub-groceries)',
   transit: 'var(--sub-transit)',
   shopping: 'var(--sub-shopping)',
   home: 'var(--sub-home)',
@@ -476,7 +476,7 @@ const SUB_COLOR_MAP: Record<string, string> = {
   health: 'var(--sub-health)',
   bars: 'var(--sub-bars)',
   takeout: 'var(--sub-takeout)',
-  fast_food: 'var(--sub-fast-food)',
+  delivery: 'var(--sub-delivery)',
   weed: 'var(--sub-weed)',
   streaming: 'var(--sub-streaming)',
   gaming: 'var(--sub-gaming)',

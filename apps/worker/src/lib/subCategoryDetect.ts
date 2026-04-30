@@ -7,7 +7,7 @@
  *                  health/pharmacy. The user can flex these but cannot skip them.
  *   lifestyle    = wants you regularly choose. Shopping, home goods, personal
  *                  care, entertainment. Discretionary cadence.
- *   indulgence   = the watched bucket. Bars, takeout, fast food, weed,
+ *   indulgence   = the watched bucket. Bars, booze, takeout, delivery, weed,
  *                  streaming, gaming, treats.
  *
  * Returns null when nothing matches confidently. The Habits queue surfaces
@@ -15,7 +15,7 @@
  * pick from the dropdown.
  */
 
-export type EssentialsSub = 'food' | 'transit' | 'health';
+export type EssentialsSub = 'groceries' | 'transit' | 'health';
 
 export type LifestyleSub =
   | 'shopping'
@@ -26,7 +26,7 @@ export type LifestyleSub =
 export type IndulgenceSub =
   | 'bars'
   | 'takeout'
-  | 'fast_food'
+  | 'delivery'
   | 'weed'
   | 'streaming'
   | 'gaming'
@@ -37,7 +37,7 @@ export type SubCategory = EssentialsSub | LifestyleSub | IndulgenceSub;
 export type SubGroup = 'essentials' | 'lifestyle' | 'indulgence';
 
 export const ESSENTIALS_SUBS: readonly EssentialsSub[] = [
-  'food',
+  'groceries',
   'transit',
   'health',
 ];
@@ -52,7 +52,7 @@ export const LIFESTYLE_SUBS: readonly LifestyleSub[] = [
 export const INDULGENCE_SUBS: readonly IndulgenceSub[] = [
   'bars',
   'takeout',
-  'fast_food',
+  'delivery',
   'weed',
   'streaming',
   'gaming',
@@ -73,7 +73,7 @@ export const ALL_SUBS: readonly SubCategory[] = [
 export type Cadence = 'fixed' | 'variable' | 'discretionary';
 
 export const SUB_CADENCE: Record<SubCategory, Cadence> = {
-  food: 'variable',
+  groceries: 'variable',
   transit: 'variable',
   health: 'variable',
   shopping: 'discretionary',
@@ -82,7 +82,7 @@ export const SUB_CADENCE: Record<SubCategory, Cadence> = {
   entertainment: 'discretionary',
   bars: 'discretionary',
   takeout: 'discretionary',
-  fast_food: 'discretionary',
+  delivery: 'discretionary',
   weed: 'discretionary',
   streaming: 'discretionary',
   gaming: 'discretionary',
@@ -113,15 +113,17 @@ const INDULGENCE_RULES: readonly Rule[] = [
   { sub: 'gaming', patterns: ['steam', 'playstation', 'xbox', 'nintendo', 'epic games', 'riot games', 'blizzard', 'twitch'] },
   { sub: 'weed', patterns: ['tokyo smoke', 'ocs.ca', 'value buds', 'fire & flower', 'fire and flower', 'one plant', 'spiritleaf', 'canna cabana', 'cannabis', 'dispensary'] },
   { sub: 'bars', patterns: ['bar raval', 'pub', ' lcbo', 'lcbo ', 'beer store', 'wine rack', ' bar ', 'tavern', 'cocktail', 'brewery', 'brewing', 'distillery'] },
-  { sub: 'fast_food', patterns: ['mcdonald', 'tim hortons', 'tim horton', 'burger king', 'wendy', 'a&w', 'subway', 'kfc', 'popeyes', 'taco bell', 'pizza pizza', 'dominos', "domino's", 'little caesars'] },
-  { sub: 'takeout', patterns: ['uber eats', 'ubereats', 'doordash', 'skipthedishes', 'skip the dishes', 'foodora', 'banh mi', 'pho ', 'sushi', 'thai express', 'chipotle'] },
-  { sub: 'treats', patterns: ['starbucks', 'second cup', 'aroma', 'dq', 'dairy queen', 'baskin', 'menchie', 'mcvities', 'cinnabon', 'tim ho'] },
+  // delivery = app-based food delivery (Uber Eats, DoorDash, Skip)
+  { sub: 'delivery', patterns: ['uber eats', 'ubereats', 'doordash', 'skip the dishes', 'skipthedishes', 'foodora'] },
+  // takeout = quick-serve restaurants you go to in person
+  { sub: 'takeout', patterns: ['mcdonald', 'tim hortons', 'tim horton', 'burger king', 'wendy', 'a&w', 'subway', 'kfc', 'popeyes', 'taco bell', 'pizza pizza', 'dominos', "domino's", 'little caesars', 'banh mi', 'pho ', 'sushi', 'thai express', 'chipotle', 'pai northern'] },
+  { sub: 'treats', patterns: ['starbucks', 'second cup', 'aroma', 'dq', 'dairy queen', 'baskin', 'menchie', 'mcvities', 'cinnabon'] },
 ];
 
 const ESSENTIALS_RULES: readonly Rule[] = [
-  // food = grocery (eat-at-home, not takeout/restaurant — those land in indulgence)
-  { sub: 'food', patterns: ['loblaws', 'no frills', 'metro ', 'sobeys', 'farm boy', 'whole foods', 'longo', 'fortinos', 'food basics', 'freshco', 'rabba', 'costco wholesale', 'walmart supercentre', 'walmart supercenter', 'grocer', 'market '] },
-  // transit covers gas + transit + rideshare. They're all "I had to get somewhere."
+  // groceries = eat-at-home grocery stores
+  { sub: 'groceries', patterns: ['loblaws', 'no frills', 'metro ', 'sobeys', 'farm boy', 'whole foods', 'longo', 'fortinos', 'food basics', 'freshco', 'rabba', 'costco wholesale', 'walmart supercentre', 'walmart supercenter', 'grocer', 'market '] },
+  // transit covers gas + transit + rideshare
   { sub: 'transit', patterns: ['ttc', 'presto', 'go transit', ' uber ', 'uber*', 'lyft', 'parking', 'green p', 'shell', 'esso', 'petro-canada', 'petro canada', 'ultramar', 'husky', 'mobil', 'chevron'] },
   // health = pharmacy + dental + physio + optometry
   { sub: 'health', patterns: ['shoppers drug', 'rexall', 'pharmaprix', 'pharmacy', 'dental', 'dentist', 'physio', 'chiropractor', 'massage', 'optom', 'lenscrafters'] },
@@ -132,7 +134,7 @@ const LIFESTYLE_RULES: readonly Rule[] = [
   { sub: 'entertainment', patterns: ['cineplex', 'imax', 'tiff', 'theatre', 'theater', 'concert', 'ticketmaster', 'stubhub', 'rogers centre', 'scotiabank arena', 'museum'] },
   { sub: 'home', patterns: ['ikea', 'home depot', "lowe's", 'lowes', 'rona', 'canadian tire', 'home hardware', 'best buy', 'staples', 'wayfair', 'structube'] },
   // shopping is the catch-all — keep last, broadest
-  { sub: 'shopping', patterns: ['amazon', 'aritzia', 'zara', 'h&m', 'uniqlo', 'lululemon', 'roots', 'gap', 'old navy', 'nike', 'adidas', 'winners', 'marshalls', 'simons', 'hudson'] },
+  { sub: 'shopping', patterns: ['amazon', 'aritzia', 'zara', 'h&m', 'uniqlo', 'lululemon', 'roots', 'gap', 'old navy', 'nike', 'adidas', 'winners', 'marshalls', 'simons', 'hudson', 'value village'] },
 ];
 
 /**
@@ -167,7 +169,7 @@ export function detectSubCategory(
 }
 
 export const SUB_LABELS: Record<SubCategory, string> = {
-  food: 'food',
+  groceries: 'groceries',
   transit: 'transit',
   health: 'health',
   shopping: 'shopping',
@@ -176,7 +178,7 @@ export const SUB_LABELS: Record<SubCategory, string> = {
   entertainment: 'entertainment',
   bars: 'bars',
   takeout: 'takeout',
-  fast_food: 'fast food',
+  delivery: 'delivery',
   weed: 'weed',
   streaming: 'streaming',
   gaming: 'gaming',
