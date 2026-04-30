@@ -372,6 +372,7 @@ export default function SubCategoryQueue() {
                       type="button"
                       className="stamp stamp-purple"
                       disabled={!choice || approve.isPending}
+                      style={!choice ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}
                       onClick={() => {
                         if (!choice) return;
                         approve.mutate(
