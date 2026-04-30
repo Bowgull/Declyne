@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { toastErrorFrom, showSuccessToast, showInfoToast } from '../lib/toast';
 
 export type SubscriptionVerdict = 'keep' | 'kill' | 'not_a_sub';
 
@@ -139,7 +140,39 @@ export default function SubscriptionVerdictLedger({ subs, emptyHint }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['subscriptions'] });
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't update this verdict."),
   });
+
+  // Wrap KILL in a confirmation step so a stray tap can't permanently flag a
+  // subscription as dead. Tapping KILL on a row that is already KILL toggles
+  // off without confirm. The toggle off is the undo path.
+  function decide(merchantId: string, name: string, intent: 'keep' | 'kill' | 'not_a_sub', current?: SubscriptionVerdict | null) {
+    if (intent === 'kill' && current !== 'kill') {
+      const ok = window.confirm(
+        `Mark "${name}" as kill? It'll fade from your standing orders, and we'll show how to cancel. You can undo any time.`,
+      );
+      if (!ok) return;
+    }
+    if (intent === 'not_a_sub') {
+      const ok = window.confirm(
+        `Hide "${name}" from standing orders? It'll stay in your spending data but stop showing up here.`,
+      );
+      if (!ok) return;
+    }
+    const next: SubscriptionVerdict | null =
+      intent === 'not_a_sub' ? 'not_a_sub' : current === intent ? null : intent;
+    setVerdict.mutate(
+      { merchant_id: merchantId, verdict: next },
+      {
+        onSuccess: () => {
+          if (next === 'kill') showInfoToast(`Marked "${name}" to kill.`);
+          else if (next === 'keep') showSuccessToast(`Keeping "${name}".`);
+          else if (next === 'not_a_sub') showInfoToast(`Hidden "${name}" from standing orders.`);
+          else showInfoToast(`Cleared verdict on "${name}".`);
+        },
+      },
+    );
+  }
 
   const visible = subs.filter((s) => s.verdict !== 'not_a_sub');
 
@@ -295,24 +328,9 @@ export default function SubscriptionVerdictLedger({ subs, emptyHint }: Props) {
             onToggleMenu={() =>
               setOpenMenu((cur) => (cur === s.merchant_id ? null : s.merchant_id))
             }
-            onKeep={() =>
-              setVerdict.mutate({
-                merchant_id: s.merchant_id,
-                verdict: s.verdict === 'keep' ? null : 'keep',
-              })
-            }
-            onKill={() =>
-              setVerdict.mutate({
-                merchant_id: s.merchant_id,
-                verdict: s.verdict === 'kill' ? null : 'kill',
-              })
-            }
-            onNotASub={() =>
-              setVerdict.mutate({
-                merchant_id: s.merchant_id,
-                verdict: 'not_a_sub',
-              })
-            }
+            onKeep={() => decide(s.merchant_id, s.merchant_name, 'keep', s.verdict)}
+            onKill={() => decide(s.merchant_id, s.merchant_name, 'kill', s.verdict)}
+            onNotASub={() => decide(s.merchant_id, s.merchant_name, 'not_a_sub', s.verdict)}
             pending={setVerdict.isPending && setVerdict.variables?.merchant_id === s.merchant_id}
           />
         ))}

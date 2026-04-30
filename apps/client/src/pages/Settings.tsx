@@ -311,6 +311,18 @@ export default function Settings() {
           </div>
           <span className="ledger-row-chevron">&rsaquo;</span>
         </Link>
+        <a
+          href="https://github.com/bowgull/declyne/blob/main/PRIVACY.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ledger-row tap"
+        >
+          <div className="ledger-row-main">
+            <span className="ledger-row-label">Privacy &amp; security</span>
+            <span className="ledger-row-hint">what we store, what stays on-device</span>
+          </div>
+          <span className="ledger-row-chevron">&rsaquo;</span>
+        </a>
         <Row k="Current phase" v={s.current_phase ?? '—'} />
         <Row k="Merchant norm version" v={s.merchant_norm_version ?? '—'} />
         <Row k="Reconciliation streak" v={s.reconciliation_streak ?? '0'} />

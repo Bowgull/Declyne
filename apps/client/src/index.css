@@ -66,10 +66,10 @@
   --cat-lifestyle-soft: color-mix(in oklab, var(--cat-lifestyle) 55%, transparent);
   --cat-savings-soft: color-mix(in oklab, var(--cat-savings) 55%, transparent);
   --cat-debt-soft: color-mix(in oklab, var(--cat-debt) 55%, transparent);
-  --color-hairline: rgba(255, 255, 255, 0.1);
+  --color-hairline: rgba(255, 255, 255, 0.16);
   --color-hairline-ink: rgba(26, 20, 29, 0.18);
-  --rule-ink: rgba(255, 255, 255, 0.08);
-  --rule-ink-strong: rgba(255, 255, 255, 0.18);
+  --rule-ink: rgba(255, 255, 255, 0.13);
+  --rule-ink-strong: rgba(255, 255, 255, 0.24);
   --stamp-frame: rgba(232, 228, 236, 0.55);
 
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
@@ -900,6 +900,232 @@
     font-family: var(--font-mono);
   }
 
+  /* General app toast. Sits above the tab bar; error/success/info variants. */
+  .app-toast {
+    position: fixed;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 8px);
+    left: 16px;
+    right: 16px;
+    max-width: 568px;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--color-paper, #f2ece0);
+    color: var(--color-ink, #1a141d);
+    padding: 12px 40px 12px 14px;
+    border-top: 1px dashed rgba(26, 20, 29, 0.22);
+    border-left: 3px solid var(--color-ink, #1a141d);
+    box-shadow: 0 -2px 18px rgba(26, 20, 29, 0.22), 0 2px 8px rgba(26, 20, 29, 0.1);
+    cursor: pointer;
+    z-index: 60;
+    border-radius: 0 0 2px 2px;
+    animation: paper-in 240ms ease-out both;
+  }
+  .app-toast.app-toast-error { border-left-color: var(--color-danger, #c45b5b); }
+  .app-toast.app-toast-success { border-left-color: var(--color-ok, #6f9e7a); }
+  .app-toast.app-toast-info { border-left-color: var(--color-accent-purple, #6b5a9e); }
+  .app-toast-glyph {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-paper, #f2ece0);
+    background: var(--color-ink, #1a141d);
+    margin-top: 1px;
+  }
+  .app-toast-error .app-toast-glyph { background: var(--color-danger, #c45b5b); }
+  .app-toast-success .app-toast-glyph { background: var(--color-ok, #6f9e7a); }
+  .app-toast-info .app-toast-glyph { background: var(--color-accent-purple, #6b5a9e); }
+  .app-toast-text {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-ink, #1a141d);
+    flex: 1;
+  }
+  .app-toast-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 18px;
+    opacity: 0.5;
+    font-family: var(--font-mono);
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Skeleton loaders. Match ledger-row and hero-num shapes during load. */
+  @keyframes skeleton-shimmer {
+    0% { opacity: 0.55; }
+    50% { opacity: 0.85; }
+    100% { opacity: 0.55; }
+  }
+  .skeleton-bar {
+    display: inline-block;
+    height: 12px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.07);
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+  .skeleton-bar.tall { height: 22px; }
+  .skeleton-bar.hero { height: 44px; border-radius: 4px; }
+  .receipt .skeleton-bar { background: rgba(26, 20, 29, 0.07); }
+  .skeleton-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-ink, rgba(255, 255, 255, 0.08));
+    gap: 16px;
+  }
+  .skeleton-row .skeleton-bar:first-child { flex: 1 1 60%; max-width: 220px; }
+  .skeleton-row .skeleton-bar:last-child { flex: 0 0 80px; height: 12px; }
+
+  /* Empty-state card. Used on Today/Books/Goals/Debts when no data yet. */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 24px 16px;
+    border-top: 1px dashed var(--rule-ink-strong, rgba(255, 255, 255, 0.18));
+    border-bottom: 1px dashed var(--rule-ink-strong, rgba(255, 255, 255, 0.18));
+  }
+  .empty-state-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+  }
+  .empty-state-text {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+  }
+  .receipt .empty-state {
+    border-top-color: rgba(26, 20, 29, 0.25);
+    border-bottom-color: rgba(26, 20, 29, 0.25);
+  }
+  .receipt .empty-state-title { color: var(--color-ink); }
+  .receipt .empty-state-text { color: var(--color-ink-muted); }
+
+  /* Hero cycle pagination dots — under cycling Today hero. */
+  .hero-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+    height: 12px;
+  }
+  .hero-dots-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-ink-muted, #6b6470);
+    opacity: 0.35;
+    transition: opacity 180ms ease, transform 180ms ease, background 180ms ease;
+  }
+  .hero-dots-dot.active {
+    opacity: 1;
+    background: var(--color-accent-purple, #6b5a9e);
+    transform: scale(1.25);
+  }
+
+  /* Bottom-sheet drag handle indicator. */
+  .sheet-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 0 4px;
+  }
+  .sheet-handle-pill {
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+  .receipt .sheet-handle-pill { background: rgba(26, 20, 29, 0.22); }
+
+  /* Books summary strip — paycheque/committed/free metric row above network map. */
+  .books-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 12px 0 14px;
+  }
+  .books-summary-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 8px;
+    border-left: 1px solid var(--rule-ink, rgba(255, 255, 255, 0.08));
+    min-width: 0;
+  }
+  .books-summary-cell:first-child { border-left: none; padding-left: 0; }
+  .books-summary-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .books-summary-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .books-summary-value.sage { color: var(--cat-savings); }
+  .books-summary-value.gold { color: var(--cat-debt); }
+  .books-summary-value.sienna { color: var(--cat-indulgence); }
+
+  /* Tap-area helper — pads small icon hits up to a 44x44 target without changing visuals. */
+  .tap-44 {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Icon-only header action (settings cog, etc.) */
+  .header-icon-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--color-text-muted, #8a8294);
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: background 140ms ease, color 140ms ease;
+  }
+  .header-icon-btn:active { background: rgba(255, 255, 255, 0.06); color: var(--color-text-primary); }
+  .receipt .header-icon-btn { color: var(--color-ink-muted); }
+  .receipt .header-icon-btn:active { background: rgba(26, 20, 29, 0.05); color: var(--color-ink); }
+
   .cat-rule {
     width: 3px;
     align-self: stretch;
@@ -1050,21 +1276,23 @@
   }
   .chit-discard {
     position: absolute;
-    top: 6px;
-    right: 8px;
-    width: 22px;
-    height: 22px;
+    top: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--color-ink-muted);
-    font-size: 16px;
+    font-size: 22px;
     line-height: 1;
     background: transparent;
     border: 0;
     cursor: pointer;
+    border-radius: 8px;
   }
   .chit-discard:hover { color: var(--color-ink); }
+  .chit-discard:active { background: rgba(26, 20, 29, 0.06); color: var(--color-ink); }
 
   .chit-field {
     width: 100%;

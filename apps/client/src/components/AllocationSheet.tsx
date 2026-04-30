@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { glyphForCategory } from '../lib/rowGlyph';
 import { showVocabularyToast } from '../lib/vocabularyToast';
+import { toastErrorFrom, showSuccessToast } from '../lib/toast';
 
 export type AllocationRow = {
   id: string;
@@ -49,14 +50,17 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
       if (data.vocabulary_unlock) showVocabularyToast(data.vocabulary_unlock.message);
       qc.invalidateQueries({ queryKey: ['allocations'] });
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't mark this as paid."),
   });
   const unstamp = useMutation({
     mutationFn: (id: string) => api.post(`/api/allocations/${id}/unstamp`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['allocations'] }),
+    onError: (err) => toastErrorFrom(err, "Couldn't undo this."),
   });
   const del = useMutation({
     mutationFn: (id: string) => api.del(`/api/allocations/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['allocations'] }),
+    onError: (err) => toastErrorFrom(err, "Couldn't delete that line."),
   });
   const add = useMutation({
     mutationFn: () =>
@@ -70,19 +74,50 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
       setLabel('');
       setAmount('');
       qc.invalidateQueries({ queryKey: ['allocations'] });
+      showSuccessToast('Line added.');
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't add that line."),
   });
+
+  function tryAdd() {
+    if (!label.trim()) {
+      toastErrorFrom(new Error('Label required.'));
+      return;
+    }
+    const cents = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) {
+      toastErrorFrom(new Error('Amount must be greater than zero.'));
+      return;
+    }
+    add.mutate();
+  }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${GROUP_LABELS[group]} allocations`}
     >
       <section
         className="receipt stub-top stub-bottom w-full max-w-xl"
-        style={{ maxHeight: '85vh', overflowY: 'auto' }}
+        style={{
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          paddingBottom: 'max(24px, env(keyboard-inset-height, 0px))',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div
+          className="sheet-handle"
+          aria-hidden
+          onClick={onClose}
+          role="button"
+          style={{ cursor: 'pointer' }}
+        >
+          <span className="sheet-handle-pill" />
+        </div>
         <div className="flex items-baseline justify-between gap-3">
           <div>
             <div className="label-tag" style={{ color: `var(--cat-${group})` }}>
@@ -136,10 +171,15 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
                 </button>
               )}
               <button
-                className="text-xs underline ink-muted"
-                onClick={() => del.mutate(r.id)}
+                className="header-icon-btn"
+                onClick={() => {
+                  if (window.confirm(`Delete "${r.label}"? This can't be undone.`)) {
+                    del.mutate(r.id);
+                  }
+                }}
                 disabled={del.isPending}
-                aria-label="Delete"
+                aria-label={`Delete allocation: ${r.label}`}
+                style={{ width: 36, height: 36, fontSize: 18 }}
               >
                 ×
               </button>
@@ -167,10 +207,10 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
             <div className="flex gap-2">
               <button
                 className="stamp stamp-purple"
-                onClick={() => add.mutate()}
-                disabled={!label.trim() || !amount || add.isPending}
+                onClick={tryAdd}
+                disabled={add.isPending}
               >
-                Save
+                {add.isPending ? 'saving' : 'Save'}
               </button>
               <button className="stamp stamp-square" onClick={() => setAdding(false)}>
                 Cancel

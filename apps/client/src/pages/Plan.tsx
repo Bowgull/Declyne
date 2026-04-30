@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { SeedArt } from '../components/PostageArt';
 import { showVocabularyToast } from '../lib/vocabularyToast';
+import { toastErrorFrom, showSuccessToast } from '../lib/toast';
 
 const perf: React.CSSProperties = { borderTop: '1px dashed var(--color-hairline)' };
 
@@ -144,6 +145,7 @@ export default function Plan() {
     onError: (err) => {
       const m = err instanceof Error ? err.message : 'refresh failed';
       setRefreshMsg(m.includes('rate_limited') ? 'rate limit hit; try later' : m);
+      toastErrorFrom(err, "Couldn't refresh the rationale.");
     },
   });
 
@@ -171,6 +173,7 @@ export default function Plan() {
             ? 'no current pay period'
             : m,
       );
+      toastErrorFrom(err, "Couldn't accept this plan.");
     },
   });
 
@@ -185,17 +188,30 @@ export default function Plan() {
     },
     onError: (err) => {
       setCommitMsg(err instanceof Error ? err.message : 'release failed');
+      toastErrorFrom(err, "Couldn't release this plan.");
     },
   });
 
   const stamp = useMutation({
     mutationFn: (allocationId: string) =>
       api.post<{ ok: boolean; already: boolean }>(`/api/period-allocations/${allocationId}/stamp`, {}),
-    onSuccess: (_, allocationId) => {
+    onMutate: (allocationId) => {
+      // Optimistic stamp. Flip UI to paid immediately, roll back on error.
       setPaidIds((prev) => new Set([...prev, allocationId]));
+    },
+    onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['plan'] });
       qc.invalidateQueries({ queryKey: ['today'] });
       qc.invalidateQueries({ queryKey: ['allocations'] });
+      if (!r.already) showSuccessToast('Marked paid.');
+    },
+    onError: (err, allocationId) => {
+      setPaidIds((prev) => {
+        const next = new Set(prev);
+        next.delete(allocationId);
+        return next;
+      });
+      toastErrorFrom(err, "Couldn't mark this paid.");
     },
   });
 
