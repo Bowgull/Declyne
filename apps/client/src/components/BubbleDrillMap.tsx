@@ -196,19 +196,37 @@ function Bubble({
   const amtY = labelY + 13;
   const velY = amtY + 12;
 
+  const gradId = `bub-${node.id}`;
+  const grainId = `grain-${node.id}`;
+  const seed = (node.id.charCodeAt(0) + node.id.length * 7) % 100;
+
   return (
     <g
       onClick={onTap ? (e) => { (e as unknown as Event).stopPropagation(); onTap(); } : undefined}
       style={onTap ? { cursor: 'pointer' } : undefined}
       data-tap={onTap ? 'true' : undefined}
     >
+      <defs>
+        <radialGradient id={gradId} cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stopColor={node.color} stopOpacity={1} />
+          <stop offset="55%" stopColor={node.color} stopOpacity={0.95} />
+          <stop offset="100%" stopColor="#0a070c" stopOpacity={0.85} />
+        </radialGradient>
+        <filter id={grainId} x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed={seed} />
+          <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0" />
+          <feComposite in2="SourceGraphic" operator="in" />
+        </filter>
+      </defs>
       {drillable && (
         <circle cx={x} cy={y} r={radius + 7} style={{ fill: node.color }} opacity={0.1} />
       )}
       <circle cx={x} cy={y} r={radius}
-        style={{ fill: node.color }}
-        stroke="#0e0a10" strokeWidth={1.5} opacity={0.9}
+        fill={`url(#${gradId})`}
+        stroke="#0e0a10" strokeWidth={1}
+        filter="url(#bubble-shadow-sm)"
       />
+      <circle cx={x} cy={y} r={radius} filter={`url(#${grainId})`} fill="#ffffff" pointerEvents="none" />
       <text x={labelX} y={labelY} textAnchor={anchor}
         fontFamily="ui-monospace, Menlo" fontSize="11" letterSpacing="0.04em"
         fill="rgba(255,255,255,0.92)"
@@ -251,12 +269,21 @@ function Bubble({
 
 function FreeCenterBubble({ data }: { data: FreeCenterData }) {
   const radius = 78;
+  const offset = radius * 0.3;
+  const overlayR = radius * 0.6;
   return (
     <g style={{ cursor: 'default' }}>
       <circle cx={CX} cy={CY} r={radius + 26} fill="#f2ece0" opacity={0.04} />
       <circle cx={CX} cy={CY} r={radius + 12} fill="#f2ece0" opacity={0.07} />
-      <circle cx={CX} cy={CY} r={radius} fill="#f2ece0" opacity={0.93}
-        stroke="rgba(240,232,222,0.35)" strokeWidth={1} />
+      <circle cx={CX} cy={CY} r={radius} fill="#f2ece0" opacity={0.95}
+        stroke="rgba(240,232,222,0.35)" strokeWidth={1}
+        filter="url(#bubble-shadow-lg)" />
+      <circle cx={CX + offset} cy={CY + offset} r={overlayR}
+        fill="url(#bubble-depth)" opacity={0.18} pointerEvents="none" />
+      <circle cx={CX - offset} cy={CY - offset} r={overlayR}
+        fill="url(#bubble-shine)" opacity={0.45} pointerEvents="none" />
+      <circle cx={CX} cy={CY} r={radius - 0.75}
+        fill="none" stroke="rgba(0,0,0,0.10)" strokeWidth={1} pointerEvents="none" />
       <text x={CX} y={CY - 38} textAnchor="middle"
         fontFamily="ui-monospace, Menlo" fontSize="11" letterSpacing="0.18em"
         fill="rgba(26,20,29,0.42)">
@@ -288,12 +315,29 @@ function HubCenterBubble({
 }: { node: BubbleNode; onTap: () => void; isMoneyContext: boolean }) {
   const radius = isMoneyContext ? 64 : 66;
   const velSuffix = isMoneyContext ? ' VS LAST PAY' : ' 30D';
+  const gradId = `hub-bub-${node.id}`;
+  const grainId = `hub-grain-${node.id}`;
+  const seed = (node.id.charCodeAt(0) + node.id.length * 11) % 100;
   return (
     <g onClick={(e) => { (e as unknown as Event).stopPropagation(); onTap(); }}
       style={{ cursor: 'pointer' }} data-tap="true">
+      <defs>
+        <radialGradient id={gradId} cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stopColor={node.color} stopOpacity={1} />
+          <stop offset="55%" stopColor={node.color} stopOpacity={0.95} />
+          <stop offset="100%" stopColor="#0a070c" stopOpacity={0.85} />
+        </radialGradient>
+        <filter id={grainId} x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed={seed} />
+          <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0" />
+          <feComposite in2="SourceGraphic" operator="in" />
+        </filter>
+      </defs>
       <circle cx={CX} cy={CY} r={radius + 14} style={{ fill: node.color }} opacity={0.15} />
       <circle cx={CX} cy={CY} r={radius}
-        style={{ fill: node.color }} stroke="#0e0a10" strokeWidth={1.5} opacity={0.92} />
+        fill={`url(#${gradId})`} stroke="#0e0a10" strokeWidth={1}
+        filter="url(#bubble-shadow-lg)" />
+      <circle cx={CX} cy={CY} r={radius} filter={`url(#${grainId})`} fill="#ffffff" pointerEvents="none" />
       <text x={CX} y={CY - 26} textAnchor="middle"
         fontFamily="ui-monospace, Menlo" fontSize="14" letterSpacing="0.06em" fontWeight="600"
         fill="rgba(255,255,255,0.95)"
@@ -432,6 +476,36 @@ export default function BubbleDrillMap({
         }}
       >
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
+          <defs>
+            <radialGradient id="bubble-shine" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.85" />
+              <stop offset="55%" stopColor="#ffffff" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="bubble-depth" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#000000" stopOpacity="0.55" />
+              <stop offset="60%" stopColor="#000000" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+            <filter id="bubble-shadow-sm" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="1.6" />
+              <feOffset dx="0" dy="1.4" result="off" />
+              <feComponentTransfer><feFuncA type="linear" slope="0.55" /></feComponentTransfer>
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <filter id="bubble-shadow-lg" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" />
+              <feOffset dx="0" dy="2.4" result="off" />
+              <feComponentTransfer><feFuncA type="linear" slope="0.6" /></feComponentTransfer>
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
           {/* Background tap-to-back when drilled in */}
           {!isRoot && (
             <rect x={0} y={0} width={W} height={H} fill="transparent"

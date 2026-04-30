@@ -44,6 +44,8 @@ const GoalsMockup = lazy(() => import('./pages/GoalsMockup'));
 const HabitsStackMockup = lazy(() => import('./pages/HabitsStackMockup'));
 const PaychequeColorsMockup = lazy(() => import('./pages/PaychequeColorsMockup'));
 const TodayHeaderMockup = lazy(() => import('./pages/TodayHeaderMockup'));
+const ConstellationMockup = lazy(() => import('./pages/ConstellationMockup').then(m => ({ default: m.ConstellationMockup })));
+const BubbleStylesMockup = lazy(() => import('./pages/BubbleStylesMockup'));
 
 export default function App() {
   const location = useLocation();
@@ -129,6 +131,8 @@ export default function App() {
             <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
             <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
             <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
+            <Route path="/mockup/constellation" element={<ConstellationMockup />} />
+            <Route path="/mockup/bubble-styles" element={<BubbleStylesMockup />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
         </Suspense>
