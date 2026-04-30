@@ -16,7 +16,7 @@ export default defineConfig({
         // Cache the app shell and all static chunks on install.
         // Exclude large brand assets (mascot-charcoal is 2.2MB, splash screens
         // are device-specific) — they're served from the network on demand.
-        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}', 'brand/favicon-*.png', 'brand/icon-512.png', 'brand/apple-touch-icon.png'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}', 'brand/favicon-*.png', 'brand/icon-512.png', 'brand/apple-touch-icon-v2.png'],
         // API calls always go to the network; the worker only caches statics.
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
