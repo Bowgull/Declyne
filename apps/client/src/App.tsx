@@ -44,7 +44,6 @@ const GoalsMockup = lazy(() => import('./pages/GoalsMockup'));
 const HabitsStackMockup = lazy(() => import('./pages/HabitsStackMockup'));
 const PaychequeColorsMockup = lazy(() => import('./pages/PaychequeColorsMockup'));
 const TodayHeaderMockup = lazy(() => import('./pages/TodayHeaderMockup'));
-const MobileScaleMockup = lazy(() => import('./pages/MobileScaleMockup'));
 
 export default function App() {
   const location = useLocation();
@@ -114,7 +113,6 @@ export default function App() {
             <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
             <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
             <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
-            <Route path="/mockup/mobile-scale" element={<MobileScaleMockup />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
         </Suspense>
