@@ -468,7 +468,7 @@
 
   .tab-bar {
     position: fixed;
-    bottom: 0;
+    bottom: var(--vv-bottom, 0px);
     left: 0;
     right: 0;
     padding-bottom: env(safe-area-inset-bottom);
