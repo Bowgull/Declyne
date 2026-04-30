@@ -4,6 +4,7 @@ import { writeEditLog } from '../lib/editlog.js';
 import {
   detectSubCategory,
   isSubCategory,
+  isValidForGroup,
   type SubCategory,
 } from '../lib/subCategoryDetect.js';
 
@@ -243,15 +244,22 @@ merchantsRoutes.patch('/:id', async (c) => {
  */
 merchantsRoutes.get('/sub-categories/queue', async (c) => {
   const limit = Math.min(Number(c.req.query('limit') ?? '50') || 50, 200);
+  // Surfaces three states:
+  //   1. sub_category IS NULL                   → unguessed, awaiting first verdict
+  //   2. sub_category set but confirmed = 0     → detector guess, awaiting accept/override
+  //   3. confirmed = 1 but sub doesn't match    → category was changed later; stale
+  //                                                confirmation now visibly broken on the
+  //                                                Habits map (UNCONFIRMED hub). Without
+  //                                                surfacing here the user has no UI path.
   const sql = `SELECT m.id, m.display_name, m.normalized_key, m.sub_category,
+                      m.sub_category_confirmed,
                       c.\`group\` AS category_group,
                       COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') AND t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) AS spend_90d_cents,
                       COALESCE(SUM(CASE WHEN t.posted_at >= date('now', '-90 days') THEN 1 ELSE 0 END), 0) AS txn_count_90d
                FROM merchants m
                LEFT JOIN transactions t ON t.merchant_id = m.id
                LEFT JOIN categories c ON c.id = m.category_default_id
-               WHERE m.sub_category_confirmed = 0
-                 AND c.\`group\` IN ('lifestyle', 'indulgence')
+               WHERE c.\`group\` IN ('lifestyle', 'indulgence')
                GROUP BY m.id
                HAVING spend_90d_cents > 0
                ORDER BY spend_90d_cents DESC
@@ -261,11 +269,26 @@ merchantsRoutes.get('/sub-categories/queue', async (c) => {
     display_name: string;
     normalized_key: string;
     sub_category: string | null;
+    sub_category_confirmed: number;
     category_group: string | null;
     spend_90d_cents: number;
     txn_count_90d: number;
   }>();
-  return c.json({ merchants: results });
+  // Filter in JS: keep unconfirmed OR confirmed-but-mismatched.
+  const filtered = results.filter((m) => {
+    if (m.sub_category_confirmed === 0) return true;
+    if (!m.sub_category) return true;
+    if (m.category_group === 'lifestyle' || m.category_group === 'indulgence') {
+      const sub = m.sub_category as SubCategory;
+      if (!isSubCategory(sub)) return true;
+      return !isValidForGroup(sub, m.category_group);
+    }
+    return false;
+  }).map((m) => ({
+    ...m,
+    mismatch: m.sub_category_confirmed === 1,
+  }));
+  return c.json({ merchants: filtered });
 });
 
 /**
@@ -280,12 +303,12 @@ merchantsRoutes.post('/sub-categories/backfill', async (c) => {
      FROM merchants m
      LEFT JOIN categories c ON c.id = m.category_default_id
      WHERE m.sub_category_confirmed = 0
-       AND c.\`group\` IN ('lifestyle', 'indulgence')`,
+       AND c.\`group\` IN ('essentials', 'lifestyle', 'indulgence')`,
   ).all<{
     id: string;
     display_name: string;
     sub_category: string | null;
-    category_group: 'lifestyle' | 'indulgence';
+    category_group: 'essentials' | 'lifestyle' | 'indulgence';
   }>();
 
   let updated = 0;

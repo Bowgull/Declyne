@@ -4,8 +4,10 @@ import {
   isSubCategory,
   isValidForGroup,
   ALL_SUBS,
+  ESSENTIALS_SUBS,
   LIFESTYLE_SUBS,
   INDULGENCE_SUBS,
+  SUB_CADENCE,
 } from '../lib/subCategoryDetect.js';
 
 describe('isSubCategory', () => {
@@ -22,17 +24,41 @@ describe('isSubCategory', () => {
 });
 
 describe('isValidForGroup', () => {
+  it('essentials subs only valid for essentials group', () => {
+    for (const s of ESSENTIALS_SUBS) {
+      expect(isValidForGroup(s, 'essentials')).toBe(true);
+      expect(isValidForGroup(s, 'lifestyle')).toBe(false);
+      expect(isValidForGroup(s, 'indulgence')).toBe(false);
+    }
+  });
   it('lifestyle subs only valid for lifestyle group', () => {
     for (const s of LIFESTYLE_SUBS) {
       expect(isValidForGroup(s, 'lifestyle')).toBe(true);
+      expect(isValidForGroup(s, 'essentials')).toBe(false);
       expect(isValidForGroup(s, 'indulgence')).toBe(false);
     }
   });
   it('indulgence subs only valid for indulgence group', () => {
     for (const s of INDULGENCE_SUBS) {
       expect(isValidForGroup(s, 'indulgence')).toBe(true);
+      expect(isValidForGroup(s, 'essentials')).toBe(false);
       expect(isValidForGroup(s, 'lifestyle')).toBe(false);
     }
+  });
+});
+
+describe('SUB_CADENCE', () => {
+  it('every sub-category has a cadence', () => {
+    for (const s of ALL_SUBS) expect(SUB_CADENCE[s]).toBeDefined();
+  });
+  it('essentials subs are variable cadence', () => {
+    for (const s of ESSENTIALS_SUBS) expect(SUB_CADENCE[s]).toBe('variable');
+  });
+  it('lifestyle subs are discretionary cadence', () => {
+    for (const s of LIFESTYLE_SUBS) expect(SUB_CADENCE[s]).toBe('discretionary');
+  });
+  it('indulgence subs are discretionary cadence', () => {
+    for (const s of INDULGENCE_SUBS) expect(SUB_CADENCE[s]).toBe('discretionary');
   });
 });
 
@@ -67,15 +93,24 @@ describe('detectSubCategory — indulgence', () => {
   });
 });
 
-describe('detectSubCategory — lifestyle', () => {
+describe('detectSubCategory — essentials', () => {
   it('grocery is food', () => {
-    expect(detectSubCategory('Loblaws #1290', 'lifestyle')).toBe('food');
-    expect(detectSubCategory('No Frills', 'lifestyle')).toBe('food');
+    expect(detectSubCategory('Loblaws #1290', 'essentials')).toBe('food');
+    expect(detectSubCategory('No Frills', 'essentials')).toBe('food');
+    expect(detectSubCategory('Costco Wholesale', 'essentials')).toBe('food');
   });
-  it('transit and gas', () => {
-    expect(detectSubCategory('TTC PRESTO', 'lifestyle')).toBe('transit');
-    expect(detectSubCategory('Shell #4821', 'lifestyle')).toBe('transit');
+  it('transit and gas land in transit', () => {
+    expect(detectSubCategory('TTC PRESTO', 'essentials')).toBe('transit');
+    expect(detectSubCategory('Shell #4821', 'essentials')).toBe('transit');
+    expect(detectSubCategory('Esso Bay & College', 'essentials')).toBe('transit');
   });
+  it('pharmacy and dental are health', () => {
+    expect(detectSubCategory('Shoppers Drug Mart', 'essentials')).toBe('health');
+    expect(detectSubCategory('Bayview Dental', 'essentials')).toBe('health');
+  });
+});
+
+describe('detectSubCategory — lifestyle', () => {
   it('home stores', () => {
     expect(detectSubCategory('IKEA North York', 'lifestyle')).toBe('home');
     expect(detectSubCategory('Canadian Tire', 'lifestyle')).toBe('home');
@@ -84,17 +119,20 @@ describe('detectSubCategory — lifestyle', () => {
     expect(detectSubCategory('Amazon.ca', 'lifestyle')).toBe('shopping');
     expect(detectSubCategory('Aritzia Robson', 'lifestyle')).toBe('shopping');
   });
-  it('health', () => {
-    expect(detectSubCategory('Shoppers Drug Mart', 'lifestyle')).toBe('health');
+  it('lifestyle no longer matches groceries (food moved to essentials)', () => {
+    expect(detectSubCategory('Loblaws #1290', 'lifestyle')).toBeNull();
   });
 });
 
-describe('detectSubCategory — unknown group falls through indulgence first', () => {
-  it('Netflix matches even with no group hint', () => {
+describe('detectSubCategory — unknown group falls through indulgence then essentials then lifestyle', () => {
+  it('Netflix (indulgence) wins over any other rule set', () => {
     expect(detectSubCategory('Netflix')).toBe('streaming');
   });
-  it('Loblaws still resolves to lifestyle food when no group hint', () => {
+  it('Loblaws resolves to essentials food when no group hint', () => {
     expect(detectSubCategory('Loblaws')).toBe('food');
+  });
+  it('Amazon resolves to lifestyle shopping when no group hint', () => {
+    expect(detectSubCategory('Amazon.ca')).toBe('shopping');
   });
   it('returns null when nothing matches', () => {
     expect(detectSubCategory('Random Acme Corp')).toBeNull();
@@ -103,12 +141,16 @@ describe('detectSubCategory — unknown group falls through indulgence first', (
 });
 
 describe('detectSubCategory — group constrains rule set', () => {
+  it('essentials group ignores indulgence-only patterns', () => {
+    expect(detectSubCategory('Netflix.com', 'essentials')).toBeNull();
+  });
   it('lifestyle group ignores indulgence-only patterns', () => {
-    // Netflix is a streaming brand — never a lifestyle sub-category
     expect(detectSubCategory('Netflix.com', 'lifestyle')).toBeNull();
   });
-  it('indulgence group ignores lifestyle-only patterns', () => {
-    // IKEA is home (lifestyle) — never an indulgence sub-category
-    expect(detectSubCategory('IKEA Etobicoke', 'indulgence')).toBeNull();
+  it('indulgence group ignores essentials-only patterns', () => {
+    expect(detectSubCategory('Loblaws Queen', 'indulgence')).toBeNull();
+  });
+  it('lifestyle group ignores essentials-only patterns', () => {
+    expect(detectSubCategory('Shoppers Drug Mart', 'lifestyle')).toBeNull();
   });
 });

@@ -33,7 +33,7 @@ export default function BooksLegend({ view }: { view: Subview }) {
       >
         <LegendItem>
           <SizeSwatch />
-          <span>size = {view === 'paycheque' ? 'amount' : '90d spend'}</span>
+          <span>size = {view === 'paycheque' ? 'amount' : 'velocity'}</span>
         </LegendItem>
         {view === 'paycheque' ? (
           <LegendItem>

@@ -42,6 +42,7 @@ interface PlanInputsBundle {
   commitment_lines: CommittedLine[];
   bills_cents: number;
   savings_cents: number;
+  essentials_variable_baseline_cents: number;
   lifestyle_baseline_cents: number;
 }
 
@@ -122,6 +123,7 @@ async function loadPlanInputs(env: Env): Promise<PlanInputsBundle> {
       commitment_lines: [],
       bills_cents: 0,
       savings_cents: 0,
+      essentials_variable_baseline_cents: 0,
       lifestyle_baseline_cents: 0,
     };
   }
@@ -150,6 +152,7 @@ async function loadPlanInputs(env: Env): Promise<PlanInputsBundle> {
   const essentials_per_paycheque = essentialsBaselineForKernel({
     bills_cents: committed.bills_cents,
     savings_cents: committed.savings_cents,
+    essentials_variable_baseline_cents: inputs.essentials_variable_baseline_cents,
     lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
   });
 
@@ -163,6 +166,7 @@ async function loadPlanInputs(env: Env): Promise<PlanInputsBundle> {
     commitment_lines: committed.lines,
     bills_cents: committed.bills_cents,
     savings_cents: committed.savings_cents,
+    essentials_variable_baseline_cents: inputs.essentials_variable_baseline_cents,
     lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
   };
 }
@@ -323,6 +327,7 @@ planRoutes.get('/', async (c) => {
       // Paycheque page) can show why capacity is what it is.
       bills_cents: b.bills_cents,
       savings_cents: b.savings_cents,
+      essentials_variable_baseline_cents: b.essentials_variable_baseline_cents,
       lifestyle_baseline_cents: b.lifestyle_baseline_cents,
       commitment_lines: b.commitment_lines,
     },

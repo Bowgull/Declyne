@@ -75,14 +75,24 @@ const SUB_LABEL: Record<string, string> = {
   treats: 'TREATS',
 };
 
+// Sub-categories grouped by their parent group. Essentials subs (food /
+// transit / health) are needs and don't show up on the Habits map — habits
+// are about discretionary behavior. They live in the source of truth at
+// `apps/worker/src/lib/subCategoryDetect.ts`.
 const LIFESTYLE_SUBS = new Set([
-  'food',
-  'transit',
   'shopping',
   'home',
   'personal_care',
   'entertainment',
-  'health',
+]);
+const INDULGENCE_SUBS = new Set([
+  'bars',
+  'takeout',
+  'fast_food',
+  'weed',
+  'streaming',
+  'gaming',
+  'treats',
 ]);
 
 // ---------- money-map color helpers ----------
@@ -366,12 +376,15 @@ export function buildHabitsNetwork(
       unconfirmedCount++;
       continue;
     }
-    // Group/sub mismatch: e.g. an indulgence brand mistakenly stamped lifestyle
+    // Group/sub mismatch: sub must belong to its merchant's group. Essentials
+    // subs (food/transit/health) shouldn't reach this branch — they're filtered
+    // out at the group-level filter above — but a stray essentials sub on a
+    // lifestyle/indulgence merchant counts as unconfirmed.
     if (m.category_group === 'lifestyle' && !LIFESTYLE_SUBS.has(sub)) {
       unconfirmedCount++;
       continue;
     }
-    if (m.category_group === 'indulgence' && LIFESTYLE_SUBS.has(sub)) {
+    if (m.category_group === 'indulgence' && !INDULGENCE_SUBS.has(sub)) {
       unconfirmedCount++;
       continue;
     }
@@ -404,15 +417,38 @@ export function buildHabitsNetwork(
     const validSub =
       sub && sub in SUB_LABEL
         ? (m.category_group === 'lifestyle' && LIFESTYLE_SUBS.has(sub)) ||
-          (m.category_group === 'indulgence' && !LIFESTYLE_SUBS.has(sub))
+          (m.category_group === 'indulgence' && INDULGENCE_SUBS.has(sub))
         : false;
+    // Velocity-driven size. Pure recent monthly burn (30d × 3) when we have it,
+    // so a hot merchant reads as visibly bigger and a cold one shrinks even if
+    // its 90d total is large. The displayed label still shows the 90d total
+    // (the human-anchored number); size answers the different question of
+    // "what are you doing right now."
+    const recent = m.spend_30d_cents ?? 0;
+    const steady = m.spend_90d_cents;
+    const sizeCents =
+      m.spend_30d_cents != null
+        ? Math.max(Math.round(recent * 3), 100)
+        : steady;
+    const velocityRatio = steady > 0 && m.spend_30d_cents != null
+      ? (recent * 3) / steady
+      : null;
+    const velocityNote =
+      velocityRatio == null
+        ? ''
+        : velocityRatio >= 1.4
+          ? ' · accelerating'
+          : velocityRatio <= 0.6
+            ? ' · cooling'
+            : '';
     const node: NetworkNode = {
       id,
       label: m.display_name,
       kind: 'merchant',
-      cents: m.spend_90d_cents,
+      cents: steady,
+      sizeCents,
       cat: categoryFromGroup(m.category_group),
-      obs: `${m.txn_count_90d ?? m.txn_count} charges in 90 days · $${(m.spend_90d_cents / 100).toFixed(0)} total`,
+      obs: `${m.txn_count_90d ?? m.txn_count} charges in 90 days · $${(steady / 100).toFixed(0)} total${velocityNote}`,
     };
     if (validSub && sub) node.subCategory = sub;
     nodes.push(node);

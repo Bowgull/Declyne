@@ -14,13 +14,18 @@
 // Vocabulary:
 //   bills      = recurring 'essentials' or 'lifestyle' charges due before
 //                period.end_date (NOT debt — debt mins are separate; NOT
-//                transfer — transfers are savings sweeps).
+//                transfer — transfers are savings sweeps). Fixed cadence.
 //   savings    = recurring 'transfer' sweeps in window + goal per-paycheque
 //                contributions.
 //   debt_mins  = sum of minimum payments from the debts table (kernel input).
-//   lifestyle_baseline = last-90d lifestyle spend per paycheque. The squishy
-//                middle: groceries, gas, takeout. Without this the kernel
-//                pretends the user can live on bills + indulgence alone.
+//   essentials_variable_baseline = last-90d non-recurring essentials spend per
+//                paycheque. Groceries, gas, pharmacy, transit. Variable cadence
+//                — you must spend, the amount flexes. Without this the kernel
+//                ignores ~$300-500/paycheque of unavoidable cost.
+//   lifestyle_baseline = last-90d lifestyle spend per paycheque. True
+//                discretionary: shopping, home, personal care, entertainment.
+//                Things you choose at all.
+//   indulgence = the watched bucket (bars, takeout, weed, streaming, etc).
 //
 // Money for "spending" (the user's framing) = paycheque − committed −
 // recommended_debt_extra. The lifestyle baseline + indulgence allowance are
@@ -103,6 +108,7 @@ export interface PaycheckSnapshot {
   spending_money_cents: number;
   // Underlying inputs the kernel receives.
   baseline: {
+    essentials_variable_per_paycheque_cents: number;
     lifestyle_per_paycheque_cents: number;
     indulgence_per_paycheque_cents: number;
   };
@@ -182,6 +188,17 @@ export function lifestyleBaselinePerPaycheque(lifestyle_90d_cents: number): numb
   return Math.max(0, Math.round(lifestyle_90d_cents / 6.5));
 }
 
+// Pure: 90 days of variable-essentials spend → per-paycheque baseline. Same
+// 6.5-paycheque divisor as lifestyle. Caller passes essentials spend MINUS
+// already-detected recurring bills (so rent/utilities aren't double-counted —
+// they ride on the bills line in committed costs).
+export function essentialsVariableBaselinePerPaycheque(
+  essentials_variable_90d_cents: number,
+): number {
+  if (!Number.isFinite(essentials_variable_90d_cents) || essentials_variable_90d_cents <= 0) return 0;
+  return Math.max(0, Math.round(essentials_variable_90d_cents / 6.5));
+}
+
 // Pure: monthly setting → per-paycheque (26 paycheques / 12 months).
 export function monthlyToPerPaycheque(monthly_cents: number): number {
   if (!Number.isFinite(monthly_cents) || monthly_cents <= 0) return 0;
@@ -252,30 +269,39 @@ export function computePaycheckCommitments(input: {
   };
 }
 
-// Pure: the kernel's view of "fixed cost this paycheque" — bills + savings
-// + lifestyle baseline. Debt mins and indulgence are separate kernel inputs
-// so they're NOT included here.
+// Pure: the kernel's view of "non-debt, non-indulgence reserved cost this
+// paycheque" — bills + savings + variable essentials baseline + lifestyle
+// baseline. Debt mins and indulgence are separate kernel inputs so they're
+// NOT included here.
 export function essentialsBaselineForKernel(args: {
   bills_cents: number;
   savings_cents: number;
+  essentials_variable_baseline_cents: number;
   lifestyle_baseline_cents: number;
 }): number {
-  const v = args.bills_cents + args.savings_cents + args.lifestyle_baseline_cents;
+  const v =
+    args.bills_cents +
+    args.savings_cents +
+    args.essentials_variable_baseline_cents +
+    args.lifestyle_baseline_cents;
   return Math.max(0, Math.trunc(v));
 }
 
 // Pure: how much is left for the kernel to recommend toward debt extras.
-// = paycheque − committed_total − lifestyle_baseline − indulgence_allowance
+// = paycheque − committed_total − essentials_variable_baseline
+//   − lifestyle_baseline − indulgence_allowance
 // (committed_total already includes debt mins, so debt mins don't double-count.)
 export function computeAvailableForDebtExtra(args: {
   paycheque_cents: number;
   committed_total_cents: number;
+  essentials_variable_baseline_cents: number;
   lifestyle_baseline_cents: number;
   indulgence_allowance_cents: number;
 }): number {
   const v =
     args.paycheque_cents -
     args.committed_total_cents -
+    args.essentials_variable_baseline_cents -
     args.lifestyle_baseline_cents -
     args.indulgence_allowance_cents;
   return Math.max(0, Math.trunc(v));
@@ -394,6 +420,32 @@ async function loadLifestyle90d(env: Env): Promise<number> {
   return r?.s ?? 0;
 }
 
+// Variable essentials = 90d essentials spend MINUS spend on merchants the
+// recurring detector flagged as bills (rent, utilities, phone — those ride
+// on the committed bills line). What's left is the variable cost: groceries,
+// gas, pharmacy, transit, ad-hoc medical.
+async function loadEssentialsVariable90d(
+  env: Env,
+  billMerchantIds: readonly string[],
+): Promise<number> {
+  if (billMerchantIds.length === 0) {
+    const r = await env.DB.prepare(
+      `SELECT COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) as s
+       FROM transactions t JOIN categories c ON c.id = t.category_id
+       WHERE c."group" = 'essentials' AND t.posted_at >= date('now', '-90 days')`,
+    ).first<{ s: number }>();
+    return r?.s ?? 0;
+  }
+  const placeholders = billMerchantIds.map(() => '?').join(',');
+  const sql =
+    `SELECT COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN -t.amount_cents ELSE 0 END), 0) as s
+     FROM transactions t JOIN categories c ON c.id = t.category_id
+     WHERE c."group" = 'essentials' AND t.posted_at >= date('now', '-90 days')
+       AND (t.merchant_id IS NULL OR t.merchant_id NOT IN (${placeholders}))`;
+  const r = await env.DB.prepare(sql).bind(...billMerchantIds).first<{ s: number }>();
+  return r?.s ?? 0;
+}
+
 async function loadSpentSoFar(env: Env, periodStart: string, periodEnd: string): Promise<number> {
   // Same shape as /api/budget/tank: count outflows excluding transfer.
   const r = await env.DB.prepare(
@@ -420,6 +472,7 @@ export interface PaycheckInputs {
   debt_mins: DebtMinForCommitment[];
   debt_rows: Array<DebtRow & { plan_input: PlanDebtInput }>;
   savings_goals: GoalForCommitment[];
+  essentials_variable_baseline_cents: number;
   lifestyle_baseline_cents: number;
   indulgence_per_paycheque_cents: number;
   charge_velocity_per_debt_cents: Record<string, number>;
@@ -474,6 +527,10 @@ export async function loadPaycheckInputs(env: Env): Promise<PaycheckInputs | nul
   const savings_goals = await loadActiveGoals(env);
   const lifestyle_90d = await loadLifestyle90d(env);
   const lifestyle_baseline_cents = lifestyleBaselinePerPaycheque(lifestyle_90d);
+  const billMerchantIds = bills.map((b) => b.merchant_id);
+  const essentials_variable_90d = await loadEssentialsVariable90d(env, billMerchantIds);
+  const essentials_variable_baseline_cents =
+    essentialsVariableBaselinePerPaycheque(essentials_variable_90d);
   const indulgence_monthly = await readNumberSetting(env, 'indulgence_allowance_cents', 0);
   const indulgence_per_paycheque_cents = monthlyToPerPaycheque(indulgence_monthly);
   const charge_velocity_per_debt_cents = await loadChargeVelocity(env, debts);
@@ -500,6 +557,7 @@ export async function loadPaycheckInputs(env: Env): Promise<PaycheckInputs | nul
     debt_mins,
     debt_rows,
     savings_goals,
+    essentials_variable_baseline_cents,
     lifestyle_baseline_cents,
     indulgence_per_paycheque_cents,
     charge_velocity_per_debt_cents,
@@ -523,6 +581,7 @@ export async function loadPaycheckSnapshot(env: Env): Promise<PaycheckSnapshot |
   const available_for_debt_extra_cents = computeAvailableForDebtExtra({
     paycheque_cents: inputs.period.paycheque_cents,
     committed_total_cents: committed.total_cents,
+    essentials_variable_baseline_cents: inputs.essentials_variable_baseline_cents,
     lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
     indulgence_allowance_cents: inputs.indulgence_per_paycheque_cents,
   });
@@ -544,6 +603,7 @@ export async function loadPaycheckSnapshot(env: Env): Promise<PaycheckSnapshot |
     available_for_debt_extra_cents,
     spending_money_cents,
     baseline: {
+      essentials_variable_per_paycheque_cents: inputs.essentials_variable_baseline_cents,
       lifestyle_per_paycheque_cents: inputs.lifestyle_baseline_cents,
       indulgence_per_paycheque_cents: inputs.indulgence_per_paycheque_cents,
     },

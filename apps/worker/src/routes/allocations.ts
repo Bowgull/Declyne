@@ -388,6 +388,7 @@ export async function draftForPeriod(env: Env, periodId: string): Promise<number
       essentials_per_paycheque = essentialsBaselineForKernel({
         bills_cents: committed.bills_cents,
         savings_cents: committed.savings_cents,
+        essentials_variable_baseline_cents: inputs.essentials_variable_baseline_cents,
         lifestyle_baseline_cents: inputs.lifestyle_baseline_cents,
       });
       indulgence_per_paycheque = inputs.indulgence_per_paycheque_cents;
