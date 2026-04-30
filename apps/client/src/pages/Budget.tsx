@@ -426,7 +426,7 @@ function PaychequeView({
 
 // ---------- sub-category color map ----------
 const SUB_COLOR: Record<string, string> = {
-  food: 'var(--sub-food)',
+  groceries: 'var(--sub-groceries)',
   transit: 'var(--sub-transit)',
   shopping: 'var(--sub-shopping)',
   home: 'var(--sub-home)',
@@ -435,16 +435,16 @@ const SUB_COLOR: Record<string, string> = {
   health: 'var(--sub-health)',
   bars: 'var(--sub-bars)',
   takeout: 'var(--sub-takeout)',
-  fast_food: 'var(--sub-fast-food)',
+  delivery: 'var(--sub-delivery)',
   weed: 'var(--sub-weed)',
   streaming: 'var(--sub-streaming)',
   gaming: 'var(--sub-gaming)',
   treats: 'var(--sub-treats)',
 };
 const SUB_LABEL: Record<string, string> = {
-  food: 'food', transit: 'transit', shopping: 'shopping', home: 'home',
+  groceries: 'groceries', transit: 'transit', shopping: 'shopping', home: 'home',
   personal_care: 'personal care', entertainment: 'entertainment', health: 'health',
-  bars: 'bars', takeout: 'takeout', fast_food: 'fast food', weed: 'weed',
+  bars: 'bars', takeout: 'takeout', delivery: 'delivery', weed: 'weed',
   streaming: 'streaming', gaming: 'gaming', treats: 'treats',
 };
 
@@ -660,7 +660,7 @@ function PatternsView({
 }: PatternsViewProps) {
   const habitsMerchants = merchants
     .filter((m) => m.spend_90d_cents > 0)
-    .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence' || m.category_group === 'essentials')
+    .filter((m) => m.category_group === 'lifestyle' || m.category_group === 'indulgence')
     .sort((a, b) => b.spend_90d_cents - a.spend_90d_cents);
   const habitsTotal90 = habitsMerchants.reduce((s, m) => s + m.spend_90d_cents, 0);
   const habitsTotal30 = habitsMerchants.reduce((s, m) => s + (m.spend_30d_cents ?? 0), 0);
@@ -696,10 +696,10 @@ function PatternsView({
 
       <section className="ledger-section pt-3">
         <span className="ledger-section-kicker">
-          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Standing orders
+          <span className="num" style={{ color: 'var(--color-accent-gold)' }}>03</span> Subscriptions
         </span>
         <span className="ledger-section-meta">
-          {subRunningCount} {subRunningCount === 1 ? 'hand' : 'hands'} in your wallet
+          {subRunningCount} recurring {subRunningCount === 1 ? 'charge' : 'charges'}
         </span>
 
         <SubscriptionVerdictLedger

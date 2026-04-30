@@ -18,7 +18,7 @@ interface QueueRow {
   mismatch?: boolean;
 }
 
-const ESSENTIALS_SUBS = ['food', 'transit', 'health'] as const;
+const ESSENTIALS_SUBS = ['groceries', 'transit', 'health'] as const;
 
 const LIFESTYLE_SUBS = [
   'shopping',
@@ -30,7 +30,7 @@ const LIFESTYLE_SUBS = [
 const INDULGENCE_SUBS = [
   'bars',
   'takeout',
-  'fast_food',
+  'delivery',
   'weed',
   'streaming',
   'gaming',
@@ -38,7 +38,7 @@ const INDULGENCE_SUBS = [
 ] as const;
 
 const LABEL: Record<string, string> = {
-  food: 'food',
+  groceries: 'groceries',
   transit: 'transit',
   shopping: 'shopping',
   home: 'home',
@@ -47,7 +47,7 @@ const LABEL: Record<string, string> = {
   health: 'health',
   bars: 'bars',
   takeout: 'takeout',
-  fast_food: 'fast food',
+  delivery: 'delivery',
   weed: 'weed',
   streaming: 'streaming',
   gaming: 'gaming',
@@ -55,7 +55,7 @@ const LABEL: Record<string, string> = {
 };
 
 const SUB_VAR: Record<string, string> = {
-  food: '--sub-food',
+  groceries: '--sub-groceries',
   transit: '--sub-transit',
   shopping: '--sub-shopping',
   home: '--sub-home',
@@ -64,7 +64,7 @@ const SUB_VAR: Record<string, string> = {
   health: '--sub-health',
   bars: '--sub-bars',
   takeout: '--sub-takeout',
-  fast_food: '--sub-fast-food',
+  delivery: '--sub-delivery',
   weed: '--sub-weed',
   streaming: '--sub-streaming',
   gaming: '--sub-gaming',
