@@ -5,8 +5,8 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
-import NetworkMap from '../components/NetworkMap';
-import { buildMoneyNetwork } from '../lib/networkData';
+import BubbleDrillMap from '../components/BubbleDrillMap';
+import { buildMoneyDrillTree, buildHabitsDrillTree } from '../lib/networkData';
 import SubscriptionVerdictLedger, { type SubscriptionRow } from '../components/SubscriptionVerdictLedger';
 import SubCategoryQueue from '../components/SubCategoryQueue';
 import BooksLegend from '../components/BooksLegend';
@@ -305,7 +305,7 @@ function PaychequeView({
   drafting,
   counterparties,
 }: PaychequeViewProps) {
-  const moneyNet = buildMoneyNetwork(snapshot, planData, paychequeCents, goalTypeMap);
+  const moneyTree = buildMoneyDrillTree(snapshot, planData, paychequeCents, goalTypeMap);
   const openTabs = counterparties.filter((c) => c.direction !== 'settled');
 
   return (
@@ -325,23 +325,20 @@ function PaychequeView({
           </span>
           <span className="ledger-section-meta">{daysLeft}d to payday</span>
 
-          <HeroNumber
-            kicker="Free to spend"
-            primary={fmtCompact(free)}
-            tone={free > 0 ? 'ink' : 'sienna'}
-            caption={`of ${fmtCompact(paychequeCents)} · ${fmtCompact(totalPlanned)} committed`}
-          />
-
           <div className="pt-2">
-            <NetworkMap
-              mode="money"
-              nodes={moneyNet.nodes}
-              edges={moneyNet.edges}
-              destOf={moneyNet.destOf}
-              height={420}
-              showAmount
+            <BubbleDrillMap
+              freeCenter={moneyTree.freeCenter}
+              nodes={moneyTree.hubs}
+              rootHint={moneyTree.hubs.length > 0 ? 'TAP A BUCKET TO DRILL IN' : ''}
               empty="Nothing committed yet · draft below"
             />
+            <div style={{
+              marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 10,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'var(--color-text-muted)', textAlign: 'center',
+            }}>
+              {fmtCompact(paychequeCents)} paycheque · {fmtCompact(totalPlanned)} committed
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 4px' }}>
@@ -689,7 +686,11 @@ function PatternsView({
         />
 
         <div className="pt-2">
-          <HabitsBuckets merchants={habitsMerchants} />
+          <BubbleDrillMap
+            nodes={buildHabitsDrillTree(habitsMerchants).categories}
+            rootHint="TAP A CATEGORY TO DRILL IN"
+            empty="Nothing yet · import 90 days of activity"
+          />
         </div>
       </section>
 
