@@ -627,7 +627,8 @@ export function buildHabitsNetwork(
   // UNCONFIRMED so the canvas stays readable.
   const MAX_HUBS = 4;
   const subCount = new Map<string, number>(); // sub → # of merchants that resolve there
-  let unconfirmedCount = 0;
+  let unconfirmedCount = 0; // truly unconfirmed — fixable via the queue
+  let otherCount = 0;       // confirmed, but sub didn't make the visible hub cap
 
   const effectiveSub = (m: MerchantShape): string | null => {
     const sub = m.sub_category ?? null;
@@ -655,9 +656,11 @@ export function buildHabitsNetwork(
       .map(([sub]) => sub),
   );
 
-  // Merchants whose sub didn't make the hub cap count as unconfirmed visually.
+  // Merchants whose sub didn't make the hub cap are confirmed but overflow.
+  // They go to OTHER, not UNCONFIRMED — UNCONFIRMED must mean "fixable in
+  // the queue" so reconciliation can actually close.
   for (const [sub, count] of subCount) {
-    if (!usedSubs.has(sub)) unconfirmedCount += count;
+    if (!usedSubs.has(sub)) otherCount += count;
   }
 
   for (const sub of usedSubs) {
@@ -677,6 +680,15 @@ export function buildHabitsNetwork(
       kind: 'hub',
       hubKind: 'bills',
       obs: `${unconfirmedCount} merchant${unconfirmedCount === 1 ? '' : 's'} need a sub-category`,
+    });
+  }
+  if (otherCount > 0) {
+    nodes.push({
+      id: 'hub_other',
+      label: 'OTHER',
+      kind: 'hub',
+      hubKind: 'time',
+      obs: `${otherCount} merchant${otherCount === 1 ? '' : 's'} in smaller sub-categories`,
     });
   }
 
@@ -718,7 +730,16 @@ export function buildHabitsNetwork(
     };
     if (validSub && sub) node.subCategory = sub;
     nodes.push(node);
-    const destHub = validSub && sub ? `hub_sub_${sub}` : 'hub_unconfirmed';
+    // Routing precedence:
+    //   1. Sub made the visible hub cap → its own sub hub.
+    //   2. Sub resolved (confirmed + valid) but didn't make the cap → OTHER.
+    //   3. Otherwise → UNCONFIRMED (fixable via the sub-category queue).
+    const destHub =
+      validSub && sub
+        ? `hub_sub_${sub}`
+        : resolvedSub !== null
+          ? 'hub_other'
+          : 'hub_unconfirmed';
     edges.push({ a: id, b: destHub, weight: 'primary' });
   }
 
