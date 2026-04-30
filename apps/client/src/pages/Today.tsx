@@ -779,6 +779,10 @@ function ChitForm({
           type="text"
           className="chit-field"
           placeholder="Counterparty name"
+          autoComplete="off"
+          autoCapitalize="words"
+          autoCorrect="off"
+          spellCheck={false}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -822,6 +826,10 @@ function ChitForm({
         type="text"
         className="chit-field"
         placeholder="What for?"
+        autoComplete="off"
+        autoCapitalize="sentences"
+        autoCorrect="off"
+        spellCheck={false}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         maxLength={120}

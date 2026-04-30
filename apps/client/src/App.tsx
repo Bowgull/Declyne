@@ -1,42 +1,49 @@
+import { lazy, Suspense } from 'react';
 import type * as React from 'react';
 import { NavLink, Route, Routes, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import Today from './pages/Today';
-import Budget from './pages/Budget';
-import Debts from './pages/Debts';
-import Grow from './pages/Grow';
-import Settings from './pages/Settings';
-import Accounts from './pages/Accounts';
-import Review from './pages/Review';
-import EditLog from './pages/EditLog';
-import Merchants from './pages/Merchants';
-import Credit from './pages/Credit';
-import Goals from './pages/Goals';
-import Holdings from './pages/Holdings';
-import CcStatements from './pages/CcStatements';
-import Onboarding from './pages/Onboarding';
-import PhaseJourney from './pages/PhaseJourney';
-import Reconciliation from './pages/Reconciliation';
-import CounterpartyPage from './pages/Counterparty';
-import TrialBalance from './pages/TrialBalance';
-import Plan from './pages/Plan';
-import PL from './pages/PL';
-import NetWorthTrend from './pages/NetWorthTrend';
-import Forecast from './pages/Forecast';
-import Subscriptions from './pages/Subscriptions';
-import TaxYear from './pages/TaxYear';
-import ButtonsMockup from './pages/ButtonsMockup';
-import PaymentLinkMockup from './pages/PaymentLinkMockup';
-import DraftChitMockup from './pages/DraftChitMockup';
-import PaychequeTankMockup from './pages/PaychequeTankMockup';
-import TodayConstellationMockup from './pages/TodayConstellationMockup';
-import BooksMockup from './pages/BooksMockup';
-import GoalsMockup from './pages/GoalsMockup';
-import HabitsStackMockup from './pages/HabitsStackMockup';
-import PaychequeColorsMockup from './pages/PaychequeColorsMockup';
-import TodayHeaderMockup from './pages/TodayHeaderMockup';
 import VocabularyToast from './components/VocabularyToast';
 import { api } from './lib/api';
+
+// Core tab pages — split into their own chunks but prefetched immediately.
+const Today = lazy(() => import('./pages/Today'));
+const Budget = lazy(() => import('./pages/Budget'));
+const Grow = lazy(() => import('./pages/Grow'));
+
+// Secondary pages — loaded on first navigation.
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Debts = lazy(() => import('./pages/Debts'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Accounts = lazy(() => import('./pages/Accounts'));
+const Review = lazy(() => import('./pages/Review'));
+const EditLog = lazy(() => import('./pages/EditLog'));
+const Merchants = lazy(() => import('./pages/Merchants'));
+const Credit = lazy(() => import('./pages/Credit'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Holdings = lazy(() => import('./pages/Holdings'));
+const CcStatements = lazy(() => import('./pages/CcStatements'));
+const PhaseJourney = lazy(() => import('./pages/PhaseJourney'));
+const Reconciliation = lazy(() => import('./pages/Reconciliation'));
+const CounterpartyPage = lazy(() => import('./pages/Counterparty'));
+const TrialBalance = lazy(() => import('./pages/TrialBalance'));
+const Plan = lazy(() => import('./pages/Plan'));
+const PL = lazy(() => import('./pages/PL'));
+const NetWorthTrend = lazy(() => import('./pages/NetWorthTrend'));
+const Forecast = lazy(() => import('./pages/Forecast'));
+const Subscriptions = lazy(() => import('./pages/Subscriptions'));
+const TaxYear = lazy(() => import('./pages/TaxYear'));
+
+// Mockup pages — lowest priority, never in the critical path.
+const ButtonsMockup = lazy(() => import('./pages/ButtonsMockup'));
+const PaymentLinkMockup = lazy(() => import('./pages/PaymentLinkMockup'));
+const DraftChitMockup = lazy(() => import('./pages/DraftChitMockup'));
+const PaychequeTankMockup = lazy(() => import('./pages/PaychequeTankMockup'));
+const TodayConstellationMockup = lazy(() => import('./pages/TodayConstellationMockup'));
+const BooksMockup = lazy(() => import('./pages/BooksMockup'));
+const GoalsMockup = lazy(() => import('./pages/GoalsMockup'));
+const HabitsStackMockup = lazy(() => import('./pages/HabitsStackMockup'));
+const PaychequeColorsMockup = lazy(() => import('./pages/PaychequeColorsMockup'));
+const TodayHeaderMockup = lazy(() => import('./pages/TodayHeaderMockup'));
 
 export default function App() {
   const location = useLocation();
@@ -58,55 +65,57 @@ export default function App() {
   return (
     <div className="app-shell grain">
       <div className="relative z-10 mx-auto max-w-xl px-4 pt-4">
-        <Routes>
-          <Route path="/" element={<Navigate to={needsOnboarding ? '/onboarding' : '/today'} replace />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route
-            path="/today"
-            element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Today />}
-          />
-          <Route path="/books" element={<Budget />} />
-          <Route path="/paycheque" element={<Navigate to="/books" replace />} />
-          <Route path="/budget" element={<Navigate to="/books" replace />} />
-          <Route path="/debts" element={<Debts />} />
-          <Route path="/yield" element={<Grow unlocked={growUnlocked} />} />
-          <Route path="/grow" element={<Navigate to="/yield" replace />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/accounts" element={<Accounts />} />
-          <Route path="/review" element={<Review />} />
-          <Route path="/settings/edit-log" element={<EditLog />} />
-          <Route path="/settings/merchants" element={<Merchants />} />
-          <Route path="/settings/credit" element={<Credit />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/holdings" element={<Holdings />} />
-          <Route path="/settings/cc-statements" element={<CcStatements />} />
-          <Route path="/phase" element={<PhaseJourney />} />
-          <Route path="/reconcile" element={<Reconciliation />} />
-          <Route path="/settings/trial-balance" element={<TrialBalance />} />
-          <Route path="/paycheque/plan" element={<Plan />} />
-          <Route path="/paycheque/pl" element={<PL />} />
-          <Route path="/budget/pl" element={<Navigate to="/paycheque/pl" replace />} />
-          <Route path="/paycheque/net-worth" element={<NetWorthTrend />} />
-          <Route path="/paycheque/forecast" element={<Forecast />} />
-          <Route path="/paycheque/subscriptions" element={<Subscriptions />} />
-          <Route path="/settings/tax" element={<TaxYear />} />
-          <Route path="/budget/forecast" element={<Navigate to="/paycheque/forecast" replace />} />
-          <Route path="/budget/net-worth" element={<Navigate to="/paycheque/net-worth" replace />} />
-          <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />
-          <Route path="/paycheque/tabs/:id" element={<CounterpartyPage />} />
-          <Route path="/budget/tabs/:id" element={<RedirectTabs />} />
-          <Route path="/mockup/buttons" element={<ButtonsMockup />} />
-          <Route path="/mockup/payment-link" element={<PaymentLinkMockup />} />
-          <Route path="/mockup/draft-chit" element={<DraftChitMockup />} />
-          <Route path="/mockup/paycheque-tank" element={<PaychequeTankMockup />} />
-          <Route path="/mockup/today-constellation" element={<TodayConstellationMockup />} />
-          <Route path="/mockup/books" element={<BooksMockup />} />
-          <Route path="/mockup/goals" element={<GoalsMockup />} />
-          <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
-          <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
-          <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
-          <Route path="*" element={<Navigate to="/today" replace />} />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<Navigate to={needsOnboarding ? '/onboarding' : '/today'} replace />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route
+              path="/today"
+              element={needsOnboarding ? <Navigate to="/onboarding" replace /> : <Today />}
+            />
+            <Route path="/books" element={<Budget />} />
+            <Route path="/paycheque" element={<Navigate to="/books" replace />} />
+            <Route path="/budget" element={<Navigate to="/books" replace />} />
+            <Route path="/debts" element={<Debts />} />
+            <Route path="/yield" element={<Grow unlocked={growUnlocked} />} />
+            <Route path="/grow" element={<Navigate to="/yield" replace />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/accounts" element={<Accounts />} />
+            <Route path="/review" element={<Review />} />
+            <Route path="/settings/edit-log" element={<EditLog />} />
+            <Route path="/settings/merchants" element={<Merchants />} />
+            <Route path="/settings/credit" element={<Credit />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/holdings" element={<Holdings />} />
+            <Route path="/settings/cc-statements" element={<CcStatements />} />
+            <Route path="/phase" element={<PhaseJourney />} />
+            <Route path="/reconcile" element={<Reconciliation />} />
+            <Route path="/settings/trial-balance" element={<TrialBalance />} />
+            <Route path="/paycheque/plan" element={<Plan />} />
+            <Route path="/paycheque/pl" element={<PL />} />
+            <Route path="/budget/pl" element={<Navigate to="/paycheque/pl" replace />} />
+            <Route path="/paycheque/net-worth" element={<NetWorthTrend />} />
+            <Route path="/paycheque/forecast" element={<Forecast />} />
+            <Route path="/paycheque/subscriptions" element={<Subscriptions />} />
+            <Route path="/settings/tax" element={<TaxYear />} />
+            <Route path="/budget/forecast" element={<Navigate to="/paycheque/forecast" replace />} />
+            <Route path="/budget/net-worth" element={<Navigate to="/paycheque/net-worth" replace />} />
+            <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />
+            <Route path="/paycheque/tabs/:id" element={<CounterpartyPage />} />
+            <Route path="/budget/tabs/:id" element={<RedirectTabs />} />
+            <Route path="/mockup/buttons" element={<ButtonsMockup />} />
+            <Route path="/mockup/payment-link" element={<PaymentLinkMockup />} />
+            <Route path="/mockup/draft-chit" element={<DraftChitMockup />} />
+            <Route path="/mockup/paycheque-tank" element={<PaychequeTankMockup />} />
+            <Route path="/mockup/today-constellation" element={<TodayConstellationMockup />} />
+            <Route path="/mockup/books" element={<BooksMockup />} />
+            <Route path="/mockup/goals" element={<GoalsMockup />} />
+            <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
+            <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
+            <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
+            <Route path="*" element={<Navigate to="/today" replace />} />
+          </Routes>
+        </Suspense>
       </div>
 
       <VocabularyToast />
@@ -164,7 +173,6 @@ function TodayIcon() {
 }
 
 function BooksIcon() {
-  // Open ledger book: spine center, two facing pages with hairlines.
   return (
     <svg {...STROKE}>
       <path d="M12 6v14" />
@@ -184,7 +192,6 @@ function RedirectTabs() {
 }
 
 function YieldIcon() {
-  // Wheat stalk: central stem + paired grain bracts climbing the spike.
   return (
     <svg {...STROKE}>
       <path d="M12 21V6" />
