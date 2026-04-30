@@ -34,6 +34,7 @@ import BooksMockup from './pages/BooksMockup';
 import GoalsMockup from './pages/GoalsMockup';
 import HabitsStackMockup from './pages/HabitsStackMockup';
 import PaychequeColorsMockup from './pages/PaychequeColorsMockup';
+import TodayHeaderMockup from './pages/TodayHeaderMockup';
 import VocabularyToast from './components/VocabularyToast';
 import { api } from './lib/api';
 
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/mockup/goals" element={<GoalsMockup />} />
           <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
           <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
+          <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>

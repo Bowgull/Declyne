@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 
-type Group = 'lifestyle' | 'indulgence';
+type Group = 'essentials' | 'lifestyle' | 'indulgence';
 
 interface QueueRow {
   id: string;
@@ -13,16 +13,18 @@ interface QueueRow {
   category_group: Group | null;
   spend_90d_cents: number;
   txn_count_90d: number;
+  /** True when sub_category was confirmed but no longer matches its group's
+   *  allowed list (usually because category was changed after confirmation). */
+  mismatch?: boolean;
 }
 
+const ESSENTIALS_SUBS = ['food', 'transit', 'health'] as const;
+
 const LIFESTYLE_SUBS = [
-  'food',
-  'transit',
   'shopping',
   'home',
   'personal_care',
   'entertainment',
-  'health',
 ] as const;
 
 const INDULGENCE_SUBS = [
@@ -70,7 +72,7 @@ const SUB_VAR: Record<string, string> = {
 };
 
 function allSubs(): readonly string[] {
-  return [...LIFESTYLE_SUBS, ...INDULGENCE_SUBS];
+  return [...ESSENTIALS_SUBS, ...LIFESTYLE_SUBS, ...INDULGENCE_SUBS];
 }
 
 const ROW_TILTS = [-1.4, 1.1, -0.9, 1.6, -1.8, 0.8, -1.2, 1.3, -1.5, 0.6];
@@ -274,7 +276,21 @@ export default function SubCategoryQueue() {
                 }}
               >
                 <div className="ledger-row-main">
-                  <span className="ledger-row-label">{r.display_name}</span>
+                  <span className="ledger-row-label">
+                    {r.display_name}
+                    {r.mismatch && (
+                      <span
+                        className="label-tag"
+                        style={{
+                          marginLeft: 8,
+                          color: 'var(--cat-indulgence)',
+                          letterSpacing: '0.16em',
+                        }}
+                      >
+                        STALE
+                      </span>
+                    )}
+                  </span>
                   <span className="ledger-row-hint">
                     {guess ? (
                       <>

@@ -35,8 +35,13 @@ export interface NetworkNode {
   id: string;
   label: string;
   kind: 'merchant' | 'hub' | 'core';
-  /** Merchant only — drives circle size + amount label. */
+  /** Merchant only — drives the displayed amount label. */
   cents?: number;
+  /** Merchant only — overrides `cents` for circle-radius math when set.
+   *  Used by Habits map to weight bubble size by recent velocity instead of
+   *  raw 90d total. Bubble label still shows `cents` (the human-anchored 90d
+   *  spend), but its size reflects how hot the merchant is right now. */
+  sizeCents?: number;
   /** Merchant only — fill color. */
   cat?: NetworkCat;
   /** Hub only — stripe color. */
@@ -156,13 +161,30 @@ function fmt(c: number): string {
 
 function effectiveR(n: Placed): number {
   if (n.cardW != null && n.cardH != null) {
-    return Math.max(n.cardW, n.cardH) / 2 + 4;
+    return Math.max(n.cardW, n.cardH) / 2 + 6;
   }
-  return n.r + 14;
+  // Merchant: r + label-clearance. Labels can be ~12 chars wide; we approximate
+  // the visual envelope as the bubble plus space for the name + amount stacked
+  // beneath. Bigger bubbles already get more room from r itself.
+  return n.r + 20;
 }
 
-function relax(placed: Placed[], padding = 6, iters = 100): void {
+function relax(placed: Placed[], padding = 6, iters = 100, bounds?: { w: number; h: number }): void {
   const movable = (n: Placed) => n.kind === 'merchant';
+  // Edge inset accounts for the bubble radius plus a small margin so labels
+  // beneath the bubble stay readable without clipping.
+  const clamp = (n: Placed) => {
+    if (!bounds) return;
+    const margin = 4;
+    const minX = n.r + margin;
+    const maxX = bounds.w - n.r - margin;
+    const minY = n.r + margin;
+    const maxY = bounds.h - n.r - margin;
+    if (n.x < minX) n.x = minX;
+    if (n.x > maxX) n.x = maxX;
+    if (n.y < minY) n.y = minY;
+    if (n.y > maxY) n.y = maxY;
+  };
   for (let it = 0; it < iters; it++) {
     let moved = false;
     for (let i = 0; i < placed.length; i++) {
@@ -194,6 +216,11 @@ function relax(placed: Placed[], padding = 6, iters = 100): void {
         }
       }
     }
+    // Clamp every movable to canvas after each iteration so the next pass
+    // re-resolves any new overlaps from the clamp itself.
+    for (const n of placed) {
+      if (movable(n)) clamp(n);
+    }
     if (!moved) break;
   }
 }
@@ -206,7 +233,7 @@ function placeMoney(
   const cx = W / 2;
   const cy = height / 2;
   const merchants = nodes.filter((n) => n.kind === 'merchant');
-  const max = Math.max(...merchants.map((n) => n.cents ?? 1), 1);
+  const max = Math.max(...merchants.map((n) => n.sizeCents ?? n.cents ?? 1), 1);
   const placed: Placed[] = [];
 
   // core
@@ -236,8 +263,11 @@ function placeMoney(
     const dest = destId ? placed.find((p) => p.id === destId) : null;
     const sameDest = merchants.filter((c) => destOf[c.id] === destId);
     const idx = sameDest.indexOf(m);
-    const t = Math.log(1 + (m.cents ?? 1)) / Math.log(1 + max);
-    const r = 11 + t * 13;
+    // Sqrt scaling = area proportional to value (the perceptually-correct
+    // bubble-chart norm). A $200 commit reads ~2× the area of a $50 commit,
+    // not "one slightly larger circle".
+    const t = Math.sqrt((m.sizeCents ?? m.cents ?? 1) / max);
+    const r = 10 + t * 22;
     if (!dest) {
       // orphan commit — place near center
       placed.push({ ...m, x: cx, y: cy + (idx + 1) * 28, r });
@@ -253,18 +283,18 @@ function placeMoney(
         ? 0
         : sameDest.length === 2
           ? idx === 0
-            ? -28
-            : 28
-          : (idx - (sameDest.length - 1) / 2) * 40;
+            ? -42
+            : 42
+          : (idx - (sameDest.length - 1) / 2) * 56;
     placed.push({
       ...m,
-      x: cx + dx * 0.6 + px * spread,
-      y: cy + dy * 0.6 + py * spread,
+      x: cx + dx * 0.5 + px * spread,
+      y: cy + dy * 0.5 + py * spread,
       r,
     });
   });
 
-  relax(placed, 6, 120);
+  relax(placed, 12, 200, { w: W, h: height });
   return placed;
 }
 
@@ -273,7 +303,7 @@ function placeHabits(nodes: NetworkNode[], height: number): Placed[] {
   const cy = height / 2;
   const merchants = nodes.filter((n) => n.kind === 'merchant');
   const hubs = nodes.filter((n) => n.kind === 'hub');
-  const max = Math.max(...merchants.map((n) => n.cents ?? 1), 1);
+  const max = Math.max(...merchants.map((n) => n.sizeCents ?? n.cents ?? 1), 1);
   const placed: Placed[] = [];
   hubs.forEach((h, i) => {
     const angle = -Math.PI / 2 + (i / hubs.length) * Math.PI * 2;
@@ -289,15 +319,15 @@ function placeHabits(nodes: NetworkNode[], height: number): Placed[] {
   merchants.forEach((m, i) => {
     const angle = -Math.PI / 2 + (i / merchants.length) * Math.PI * 2 + 0.3;
     const dist = 60 + (i % 2) * 22;
-    const t = Math.log(1 + (m.cents ?? 1)) / Math.log(1 + max);
+    const t = Math.sqrt((m.sizeCents ?? m.cents ?? 1) / max);
     placed.push({
       ...m,
       x: cx + Math.cos(angle) * dist,
       y: cy + Math.sin(angle) * dist,
-      r: 12 + t * 16,
+      r: 10 + t * 26,
     });
   });
-  relax(placed, 6, 120);
+  relax(placed, 12, 200, { w: W, h: height });
   return placed;
 }
 

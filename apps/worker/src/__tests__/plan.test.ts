@@ -23,6 +23,7 @@ const baseBundle = {
   commitment_lines: [],
   bills_cents: 0,
   savings_cents: 0,
+  essentials_variable_baseline_cents: 0,
   lifestyle_baseline_cents: 0,
 };
 

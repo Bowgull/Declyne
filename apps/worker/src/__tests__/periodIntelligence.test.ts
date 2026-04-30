@@ -4,6 +4,7 @@ import {
   billsInWindow,
   recurringSavingsInWindow,
   lifestyleBaselinePerPaycheque,
+  essentialsVariableBaselinePerPaycheque,
   monthlyToPerPaycheque,
   computePaycheckCommitments,
   essentialsBaselineForKernel,
@@ -124,6 +125,26 @@ describe('lifestyleBaselinePerPaycheque', () => {
   });
 });
 
+describe('essentialsVariableBaselinePerPaycheque', () => {
+  it('zero or negative input returns 0', () => {
+    expect(essentialsVariableBaselinePerPaycheque(0)).toBe(0);
+    expect(essentialsVariableBaselinePerPaycheque(-1000)).toBe(0);
+  });
+
+  it('divides 90d total by ~6.5 paycheques (same divisor as lifestyle)', () => {
+    // $1950 of groceries+gas over 90d → $300 per paycheque
+    expect(essentialsVariableBaselinePerPaycheque(195_000)).toBe(30_000);
+  });
+
+  it('rounds to int cents', () => {
+    expect(essentialsVariableBaselinePerPaycheque(100)).toBe(15); // 100/6.5 = 15.38
+  });
+
+  it('handles non-finite input', () => {
+    expect(essentialsVariableBaselinePerPaycheque(NaN)).toBe(0);
+  });
+});
+
 describe('monthlyToPerPaycheque', () => {
   it('zero or negative returns 0', () => {
     expect(monthlyToPerPaycheque(0)).toBe(0);
@@ -184,14 +205,15 @@ describe('computePaycheckCommitments', () => {
 });
 
 describe('essentialsBaselineForKernel', () => {
-  it('sums bills + savings + lifestyle baseline', () => {
+  it('sums bills + savings + variable essentials + lifestyle baseline', () => {
     expect(
       essentialsBaselineForKernel({
         bills_cents: 20000,
         savings_cents: 35000,
+        essentials_variable_baseline_cents: 45000,
         lifestyle_baseline_cents: 60000,
       }),
-    ).toBe(115000);
+    ).toBe(160000);
   });
 
   it('clamps negative inputs to 0 sum', () => {
@@ -199,6 +221,7 @@ describe('essentialsBaselineForKernel', () => {
       essentialsBaselineForKernel({
         bills_cents: -100,
         savings_cents: -100,
+        essentials_variable_baseline_cents: -100,
         lifestyle_baseline_cents: -100,
       }),
     ).toBe(0);
@@ -206,21 +229,23 @@ describe('essentialsBaselineForKernel', () => {
 });
 
 describe('computeAvailableForDebtExtra', () => {
-  it('subtracts committed + lifestyle + indulgence from paycheque', () => {
+  it('subtracts committed + variable essentials + lifestyle + indulgence from paycheque', () => {
     const v = computeAvailableForDebtExtra({
       paycheque_cents: 425_000,
       committed_total_cents: 100_000, // bills + mins + savings
+      essentials_variable_baseline_cents: 45_000,
       lifestyle_baseline_cents: 60_000,
       indulgence_allowance_cents: 30_000,
     });
-    // 425k - 100k - 60k - 30k = 235k
-    expect(v).toBe(235_000);
+    // 425k - 100k - 45k - 60k - 30k = 190k
+    expect(v).toBe(190_000);
   });
 
   it('clamps to 0 when committed exceeds paycheque', () => {
     const v = computeAvailableForDebtExtra({
       paycheque_cents: 100_000,
       committed_total_cents: 200_000,
+      essentials_variable_baseline_cents: 0,
       lifestyle_baseline_cents: 0,
       indulgence_allowance_cents: 0,
     });
@@ -231,6 +256,7 @@ describe('computeAvailableForDebtExtra', () => {
     const v = computeAvailableForDebtExtra({
       paycheque_cents: 100,
       committed_total_cents: 0,
+      essentials_variable_baseline_cents: 0,
       lifestyle_baseline_cents: 0,
       indulgence_allowance_cents: 0,
     });
