@@ -66,7 +66,7 @@ export default function SearchSheet({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="receipt stub-top stub-bottom w-full max-w-md flex flex-col gap-3 p-5 max-h-[88vh] overflow-y-auto"
+        className="receipt stub-top stub-bottom w-full max-w-md flex flex-col gap-3 p-5 max-h-[88dvh] overflow-y-auto"
         style={{ borderRadius: '12px 12px 0 0' }}
         onClick={(e) => e.stopPropagation()}
       >

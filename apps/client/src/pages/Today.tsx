@@ -369,8 +369,9 @@ export default function Today() {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
-          padding: '24px 12px 32px',
+          padding: 'max(24px, env(safe-area-inset-top)) 12px max(32px, env(safe-area-inset-bottom))',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <div
@@ -392,8 +393,9 @@ export default function Today() {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
-          padding: '24px 12px 32px',
+          padding: 'max(24px, env(safe-area-inset-top)) 12px max(32px, env(safe-area-inset-bottom))',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <div

@@ -103,6 +103,7 @@
 
   * {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
   button {
@@ -197,6 +198,7 @@
     color: var(--color-text-primary);
     border-radius: 2px;
     padding: 8px 12px;
+    min-height: 44px;
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
@@ -384,6 +386,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 0;
+    min-height: 44px;
     border-bottom: 1px solid var(--rule-ink);
     color: var(--color-text-primary);
     transition: background-color 120ms ease, padding 120ms ease;
@@ -565,8 +568,10 @@
   .receipt .row-tap {
     margin: 0 -20px;
     padding: 14px 20px 0;
+    min-height: 44px;
     transition: background-color 120ms ease, transform 120ms ease;
     display: block;
+    -webkit-tap-highlight-color: transparent;
   }
   .receipt .row-tap:active {
     background-color: rgba(26, 20, 29, 0.04);
@@ -725,6 +730,8 @@
     border-radius: 0;
     padding: 10px 0;
     font: inherit;
+    /* 16px minimum prevents iOS Safari from zooming on focus */
+    font-size: max(16px, 1em);
     width: 100%;
     outline: none;
   }
@@ -1050,10 +1057,10 @@
   }
   .chit-discard {
     position: absolute;
-    top: 6px;
-    right: 8px;
-    width: 22px;
-    height: 22px;
+    top: 2px;
+    right: 2px;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1074,6 +1081,8 @@
     border-bottom: 1px solid var(--color-hairline-ink);
     padding: 6px 0;
     font: inherit;
+    /* 16px minimum prevents iOS Safari from zooming on focus */
+    font-size: max(16px, 1em);
     outline: none;
   }
   .chit-field:focus { border-bottom-color: var(--color-ink); }
@@ -1166,7 +1175,7 @@
      Whole column is tappable. Glyph tints on press. */
   .row-with-margin {
     display: grid;
-    grid-template-columns: 32px 1fr auto;
+    grid-template-columns: 44px 1fr auto;
     align-items: center;
     gap: 10px;
     padding: 12px 0;
@@ -1179,8 +1188,8 @@
     appearance: none;
     border: 0;
     background: transparent;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1425,8 +1434,8 @@
     appearance: none;
     border: 0;
     background: transparent;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
