@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import type * as React from 'react';
 import { NavLink, Route, Routes, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -47,6 +47,22 @@ const TodayHeaderMockup = lazy(() => import('./pages/TodayHeaderMockup'));
 
 export default function App() {
   const location = useLocation();
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty('--vv-bottom', `${offset}px`);
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
   const phase = useQuery({
     queryKey: ['phase'],
     queryFn: () => api.get<{ phase: number; name: string }>('/api/phase'),
