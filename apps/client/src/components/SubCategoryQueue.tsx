@@ -461,7 +461,7 @@ function ApproveStripe({
       data-stack-strip="1"
       style={{
         position: 'sticky',
-        bottom: 64, // sit above the tab bar
+        bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
         left: 0,
         right: 0,
         marginTop: 12,

@@ -80,7 +80,7 @@ export default function AllocationSheet({ group, rows, onClose }: Props) {
     >
       <section
         className="receipt stub-top stub-bottom w-full max-w-xl"
-        style={{ maxHeight: '85vh', overflowY: 'auto' }}
+        style={{ maxHeight: '85dvh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between gap-3">

@@ -1,0 +1,30 @@
+{
+  "name": "Declyne",
+  "short_name": "Declyne",
+  "description": "Personal financial reset system",
+  "start_url": "/today",
+  "display": "standalone",
+  "background_color": "#0D0A10",
+  "theme_color": "#0D0A10",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
