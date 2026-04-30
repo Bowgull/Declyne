@@ -5,6 +5,8 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import { DeclyneWordmark } from '../components/DeclyneWordmark';
 import { CounterpartyReceipt } from './Counterparty';
+import { toastErrorFrom, showSuccessToast, showErrorToast } from '../lib/toast';
+import EmptyState from '../components/EmptyState';
 
 type TankResp = {
   period: { start_date: string; end_date: string } | null;
@@ -350,7 +352,9 @@ export default function Today() {
       qc.invalidateQueries({ queryKey: ['counterparties'] });
       qc.invalidateQueries({ queryKey: ['splits'] });
       setChitOpen(null);
+      showSuccessToast('Tab opened.');
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't open the tab. Try again."),
   });
 
   const prefilledCp =
@@ -369,7 +373,7 @@ export default function Today() {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
-          padding: '24px 12px 32px',
+          padding: '24px 12px max(32px, env(keyboard-inset-height, 0px))',
           overflowY: 'auto',
         }}
       >
@@ -392,7 +396,7 @@ export default function Today() {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'center',
-          padding: '24px 12px 32px',
+          padding: '24px 12px max(32px, env(keyboard-inset-height, 0px))',
           overflowY: 'auto',
         }}
       >
@@ -429,14 +433,15 @@ export default function Today() {
             }}
           >
             <span>{dateLabel}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span>{userName || `RCPT ${pad(rcpt, 4)}`} &nbsp;&middot;&nbsp; WK {pad(isoWeek(now), 2)}</span>
               <Link
                 to="/settings"
-                aria-label="Settings"
-                style={{ display: 'flex', color: 'var(--color-ink-muted)', opacity: 0.55 }}
+                aria-label="Open settings"
+                className="header-icon-btn"
+                style={{ marginRight: -10 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.18.43.6.94 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
@@ -469,26 +474,84 @@ export default function Today() {
           <div style={{ borderTop: '1px dashed rgba(26,20,29,0.28)' }} />
         </header>
 
-        <button
-          type="button"
-          onClick={() => setHeroIdx((i) => (i + 1) % heroStates.length)}
-          className="perf pt-4 text-left"
-          style={{ background: 'transparent', border: 0, padding: 0, paddingTop: '1rem', cursor: 'pointer' }}
-        >
-          <div className="section-label mb-2">{hero.label}</div>
-          <div className="hero-num" style={{ color: heroColor, transition: 'color 240ms ease' }}>{hero.value}</div>
-          {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
-          {hero.href && (
-            <Link
-              to={hero.href}
-              className="text-[10px] uppercase tracking-[0.18em] mt-2 inline-block"
-              style={{ color: 'var(--cat-debt)' }}
-              onClick={(e) => e.stopPropagation()}
+        {!tank.data?.period ? (
+          <div className="perf pt-4">
+            <EmptyState
+              title="No paycheque yet"
+              body={
+                <>
+                  Import a CSV from your bank to populate your tank, queue, and tabs.
+                  Once your first paycheque is recognized, this hero will track what's
+                  left to spend, days to payday, and your reconciliation streak.
+                </>
+              }
+              action={
+                <Link to="/settings" className="stamp stamp-purple" style={{ alignSelf: 'flex-start', display: 'inline-flex' }}>
+                  Open settings to import
+                </Link>
+              }
+            />
+          </div>
+        ) : (
+          <div className="perf pt-4">
+            <button
+              type="button"
+              onClick={() => setHeroIdx((i) => (i + 1) % heroStates.length)}
+              className="text-left w-full"
+              style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}
+              aria-label={`${hero.label} (tap for next)`}
             >
-              View plan ▸
-            </Link>
-          )}
-        </button>
+              <div className="section-label mb-2">{hero.label}</div>
+              <div className="hero-num" style={{ color: heroColor, transition: 'color 240ms ease' }}>{hero.value}</div>
+              {hero.sub && <div className="text-xs ink-muted mt-1">{hero.sub}</div>}
+              {hero.href && (
+                <Link
+                  to={hero.href}
+                  className="text-[10px] uppercase tracking-[0.18em] mt-2 inline-block"
+                  style={{ color: 'var(--cat-debt)' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View plan ▸
+                </Link>
+              )}
+            </button>
+            {heroStates.length > 1 && (
+              <div className="hero-dots" role="tablist" aria-label="Hero state">
+                {heroStates.map((s, i) => {
+                  const active = i === heroIdx % heroStates.length;
+                  return (
+                    <button
+                      key={s.kind}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      aria-label={s.label}
+                      onClick={() => setHeroIdx(i)}
+                      style={{
+                        // 22px hit area. Visible 5px dot, transparent padding for tap target.
+                        width: 22,
+                        height: 22,
+                        padding: 0,
+                        border: 0,
+                        borderRadius: '50%',
+                        background: 'transparent',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span
+                        className={`hero-dots-dot${active ? ' active' : ''}`}
+                        aria-hidden
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* TODAY queue — actionable items + upcoming bills, sorted chronologically. */}
         {(() => {
@@ -735,9 +798,19 @@ function ChitForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!prefilledCounterparty && !name.trim()) {
+      showErrorToast('Counterparty name required.');
+      return;
+    }
     const cents = Math.round(Number(amount) * 100);
-    if (!Number.isFinite(cents) || cents <= 0) return;
-    if (!reason.trim()) return;
+    if (!Number.isFinite(cents) || cents <= 0) {
+      showErrorToast('Enter an amount greater than zero.');
+      return;
+    }
+    if (!reason.trim()) {
+      showErrorToast("What's the chit for?");
+      return;
+    }
     if (prefilledCounterparty) {
       onSubmit({
         counterparty_id: prefilledCounterparty.id,
@@ -746,7 +819,6 @@ function ChitForm({
         reason: reason.trim(),
       });
     } else {
-      if (!name.trim()) return;
       onSubmit({
         counterparty_name: name.trim(),
         direction,

@@ -5,11 +5,15 @@ import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
 import ImportCsvButton from '../components/ImportCsvButton';
 import LedgerHeader from '../components/LedgerHeader';
+import SettingsCog from '../components/SettingsCog';
 import NetworkMap from '../components/NetworkMap';
 import { buildMoneyNetwork, buildHabitsNetwork } from '../lib/networkData';
 import SubscriptionVerdictLedger, { type SubscriptionRow } from '../components/SubscriptionVerdictLedger';
 import SubCategoryQueue from '../components/SubCategoryQueue';
 import BooksLegend from '../components/BooksLegend';
+import EmptyState from '../components/EmptyState';
+import { SkeletonHero, SkeletonRows } from '../components/Skeleton';
+import { toastErrorFrom } from '../lib/toast';
 
 type CommittedSource = 'bill' | 'debt_min' | 'savings_goal' | 'savings_recurring';
 interface CommittedLine {
@@ -175,6 +179,7 @@ export default function Budget() {
       qc.invalidateQueries({ queryKey: ['paycheque-snapshot'] });
       qc.invalidateQueries({ queryKey: ['plan'] });
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't draft this paycheque."),
   });
 
   const snapshot = paycheque.data?.snapshot ?? null;
@@ -205,7 +210,12 @@ export default function Budget() {
         kicker="Books"
         title={subtitle}
         subtitle={period ? `${daysLeft}d left · ${fmtCompact(free)} free` : undefined}
-        action={<ImportCsvButton />}
+        action={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ImportCsvButton />
+            <SettingsCog edge />
+          </div>
+        }
       />
 
       <BooksLegend view={view} />
@@ -311,11 +321,20 @@ function PaychequeView({
   return (
     <div className="flex flex-col gap-5">
       {!period && (
-        <section className="card">
-          <p className="text-sm text-[color:var(--color-text-muted)]">
-            Import a paycheque to see where it goes.
-          </p>
-        </section>
+        <EmptyState
+          title="No paycheque on the books yet"
+          body={
+            <>
+              Books fills in once you import bank activity that includes a paycheque.
+              Open Settings to import a CSV from your bank.
+            </>
+          }
+          action={
+            <Link to="/settings" className="stamp stamp-purple" style={{ display: 'inline-flex' }}>
+              Open settings to import
+            </Link>
+          }
+        />
       )}
 
       {period && (
@@ -331,6 +350,23 @@ function PaychequeView({
             tone={free > 0 ? 'ink' : 'sienna'}
             caption={`of ${fmtCompact(paychequeCents)} · ${fmtCompact(totalPlanned)} committed`}
           />
+
+          {/* Plain-language summary above the graph: 3 numbers people scan
+              before they appreciate the network visualization. */}
+          <div className="books-summary" aria-label="Paycheque summary">
+            <div className="books-summary-cell">
+              <span className="books-summary-label">Paycheque</span>
+              <span className="books-summary-value">{fmtCompact(paychequeCents)}</span>
+            </div>
+            <div className="books-summary-cell">
+              <span className="books-summary-label">Committed</span>
+              <span className="books-summary-value gold">{fmtCompact(totalPlanned)}</span>
+            </div>
+            <div className="books-summary-cell">
+              <span className="books-summary-label">Free</span>
+              <span className={`books-summary-value ${free > 0 ? 'sage' : 'sienna'}`}>{fmtCompact(free)}</span>
+            </div>
+          </div>
 
           <div className="pt-2">
             <NetworkMap

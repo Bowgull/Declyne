@@ -36,6 +36,7 @@ import HabitsStackMockup from './pages/HabitsStackMockup';
 import PaychequeColorsMockup from './pages/PaychequeColorsMockup';
 import TodayHeaderMockup from './pages/TodayHeaderMockup';
 import VocabularyToast from './components/VocabularyToast';
+import Toast from './components/Toast';
 import { api } from './lib/api';
 
 export default function App() {
@@ -95,21 +96,26 @@ export default function App() {
           <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />
           <Route path="/paycheque/tabs/:id" element={<CounterpartyPage />} />
           <Route path="/budget/tabs/:id" element={<RedirectTabs />} />
-          <Route path="/mockup/buttons" element={<ButtonsMockup />} />
-          <Route path="/mockup/payment-link" element={<PaymentLinkMockup />} />
-          <Route path="/mockup/draft-chit" element={<DraftChitMockup />} />
-          <Route path="/mockup/paycheque-tank" element={<PaychequeTankMockup />} />
-          <Route path="/mockup/today-constellation" element={<TodayConstellationMockup />} />
-          <Route path="/mockup/books" element={<BooksMockup />} />
-          <Route path="/mockup/goals" element={<GoalsMockup />} />
-          <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
-          <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
-          <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
+          {import.meta.env.DEV && (
+            <>
+              <Route path="/mockup/buttons" element={<ButtonsMockup />} />
+              <Route path="/mockup/payment-link" element={<PaymentLinkMockup />} />
+              <Route path="/mockup/draft-chit" element={<DraftChitMockup />} />
+              <Route path="/mockup/paycheque-tank" element={<PaychequeTankMockup />} />
+              <Route path="/mockup/today-constellation" element={<TodayConstellationMockup />} />
+              <Route path="/mockup/books" element={<BooksMockup />} />
+              <Route path="/mockup/goals" element={<GoalsMockup />} />
+              <Route path="/mockup/habits-stack" element={<HabitsStackMockup />} />
+              <Route path="/mockup/paycheque-colors" element={<PaychequeColorsMockup />} />
+              <Route path="/mockup/today-header" element={<TodayHeaderMockup />} />
+            </>
+          )}
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </div>
 
       <VocabularyToast />
+      <Toast />
       <nav className="tab-bar" aria-label="Primary">
         <div className="tab-bar-inner">
           <TabLink to="/today" label="Today" icon={<TodayIcon />} />

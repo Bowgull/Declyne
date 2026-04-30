@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { formatCents, parseMoneyToCents } from '@declyne/shared';
 import type { Account } from './Accounts';
 import LedgerHeader from '../components/LedgerHeader';
+import { toastErrorFrom, showSuccessToast } from '../lib/toast';
 
 interface Debt {
   id: string;
@@ -583,8 +584,14 @@ function DebtSheet({
       if (initial) return api.patch<{ ok: true }>(`/api/debts/${initial.id}`, body);
       return api.post<{ id: string }>('/api/debts', body);
     },
-    onSuccess: onSaved,
-    onError: (e: Error) => setError(e.message),
+    onSuccess: () => {
+      showSuccessToast(initial ? 'Debt saved.' : 'Debt added.');
+      onSaved();
+    },
+    onError: (e: Error) => {
+      setError(e.message);
+      toastErrorFrom(e, "Couldn't save this debt.");
+    },
   });
 
   const archive = useMutation({
@@ -592,8 +599,14 @@ function DebtSheet({
       if (!initial) return;
       return api.patch<{ ok: true }>(`/api/debts/${initial.id}`, { archived: 1 });
     },
-    onSuccess: onSaved,
-    onError: (e: Error) => setError(e.message),
+    onSuccess: () => {
+      showSuccessToast('Debt archived.');
+      onSaved();
+    },
+    onError: (e: Error) => {
+      setError(e.message);
+      toastErrorFrom(e, "Couldn't archive this debt.");
+    },
   });
 
   return (

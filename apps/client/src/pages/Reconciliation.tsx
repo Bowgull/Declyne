@@ -6,6 +6,8 @@ import { dismissFollowUpThisWeek } from '../native/notifications';
 import { showVocabularyToast } from '../lib/vocabularyToast';
 import { SealArt } from '../components/PostageArt';
 import { glyphForCategory } from '../lib/rowGlyph';
+import { toastErrorFrom, showSuccessToast } from '../lib/toast';
+import { SkeletonRows } from '../components/Skeleton';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
@@ -175,6 +177,7 @@ export default function Reconciliation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliation-accounts'] });
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't clear that line."),
   });
 
   const unclearLine = useMutation({
@@ -183,6 +186,7 @@ export default function Reconciliation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reconciliation-accounts'] });
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't undo that line."),
   });
 
   const matchTab = useMutation({
@@ -192,7 +196,9 @@ export default function Reconciliation() {
       qc.invalidateQueries({ queryKey: ['reconciliation-tabs-to-match'] });
       qc.invalidateQueries({ queryKey: ['splits'] });
       qc.invalidateQueries({ queryKey: ['counterparties'] });
+      showSuccessToast('Tab matched.');
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't match that tab."),
   });
 
   const complete = useMutation({
@@ -209,14 +215,17 @@ export default function Reconciliation() {
       qc.invalidateQueries({ queryKey: ['reconciliation-week'] });
       qc.invalidateQueries({ queryKey: ['reconciliation-status'] });
       qc.invalidateQueries({ queryKey: ['reconciliation-accounts'] });
+      showSuccessToast(`Sealed. Streak: ${data.reconciliation_streak} ${data.reconciliation_streak === 1 ? 'week' : 'weeks'}.`);
     },
+    onError: (err) => toastErrorFrom(err, "Couldn't seal this week."),
   });
 
   if (!week.data) {
     return (
       <div className="pb-6">
         <section className="receipt stub-top stub-bottom">
-          <div className="text-center text-sm text-[color:var(--color-text-muted)]">Loading…</div>
+          <div className="label-tag mb-3">Loading week</div>
+          <SkeletonRows rows={4} />
         </section>
       </div>
     );

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { toastErrorFrom, showSuccessToast } from '../lib/toast';
 
 const perforation: React.CSSProperties = {
   borderTop: '1px dashed var(--color-hairline)',
@@ -274,7 +275,11 @@ function GoalSheet({
         });
       }
     },
-    onSuccess: () => onSaved(),
+    onSuccess: () => {
+      showSuccessToast(mode === 'add' ? 'Goal added.' : 'Goal saved.');
+      onSaved();
+    },
+    onError: (err) => toastErrorFrom(err, "Couldn't save this goal."),
   });
 
   const valid =
