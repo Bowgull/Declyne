@@ -1,7 +1,7 @@
 export default function PaymentLinkMockup() {
   return (
     <div style={{
-      minHeight: '100vh',
+      minHeight: '100dvh',
       padding: '24px 16px 48px',
       display: 'flex',
       flexDirection: 'column',

@@ -78,6 +78,10 @@ export default function SearchSheet({ onClose }: Props) {
           autoFocus
           className="field"
           placeholder="merchant, description.."
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />

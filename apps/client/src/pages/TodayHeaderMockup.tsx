@@ -457,7 +457,7 @@ function AnnotatedReceipt() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TodayHeaderMockup() {
   return (
-    <div style={{ minHeight: '100vh', background: '#0a070c', padding: '24px 14px 60px', fontFamily: 'var(--font-mono)' }}>
+    <div style={{ minHeight: '100dvh', background: '#0a070c', padding: '24px 14px 60px', fontFamily: 'var(--font-mono)' }}>
       <div style={{ marginBottom: 24 }}>
         <Link to="/today" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', textDecoration: 'none' }}>
           ← Today
