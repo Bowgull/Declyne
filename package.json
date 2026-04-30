@@ -22,7 +22,7 @@
     "setup": "bash scripts/setup.sh"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "wrangler": "^4.85.0"
   },
   "engines": {
