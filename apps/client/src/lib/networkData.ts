@@ -346,6 +346,252 @@ export function buildMoneyNetwork(
   return { nodes, edges, destOf };
 }
 
+// ---------- money drill tree (for BubbleDrillMap) ----------
+
+import type { BubbleNode, FreeCenterData, Velocity } from '../components/BubbleDrillMap';
+
+export interface MoneyDrillTree {
+  freeCenter: FreeCenterData;
+  hubs: BubbleNode[];
+}
+
+const PAY_BILLS_COLOR = '#7a8595';      // slate
+const PAY_DEBT_COLOR  = '#c8a96a';      // muted gold
+const PAY_GOAL_COLOR  = '#94a888';      // sage
+
+export function buildMoneyDrillTree(
+  snapshot: PaycheckSnapshotShape | null,
+  plan: PlanShape | null,
+  paychequeCents: number,
+  goalTypeMap: Record<string, string> = {},
+): MoneyDrillTree {
+  const periodEnd = snapshot?.period?.end_date ?? null;
+  const days = periodEnd ? daysUntil(periodEnd) : 0;
+
+  const billLines = snapshot?.committed.lines.filter((l) => l.source === 'bill') ?? [];
+  const billsTotal = billLines.reduce((s, l) => s + l.amount_cents, 0);
+  const billNodes: BubbleNode[] = billLines.map((l) => ({
+    id: `bill-${l.ref_id ?? l.label}`,
+    label: graphLabel(l.label),
+    color: PAY_BILLS_COLOR,
+    amount_cents: l.amount_cents,
+  }));
+
+  // Debt = mins from snapshot + extras from plan, grouped per debt.
+  const debtMap = new Map<string, { name: string; min: number; extra: number; refId: string }>();
+  const minLines = snapshot?.committed.lines.filter((l) => l.source === 'debt_min') ?? [];
+  for (const l of minLines) {
+    const root = extractDestRoot(l.label);
+    const refId = l.ref_id ?? root;
+    const cur = debtMap.get(refId) ?? { name: root, min: 0, extra: 0, refId };
+    cur.min += l.amount_cents;
+    debtMap.set(refId, cur);
+  }
+  if (plan) {
+    for (const a of plan.next_paycheque_allocations) {
+      const refId = a.debt_id;
+      const cur = debtMap.get(refId) ?? { name: a.debt_name, min: 0, extra: 0, refId };
+      if (a.role === 'min') cur.min += a.amount_cents;
+      else cur.extra += a.amount_cents;
+      debtMap.set(refId, cur);
+    }
+  }
+  const debtNodes: BubbleNode[] = [];
+  let debtTotal = 0;
+  for (const v of debtMap.values()) {
+    const total = v.min + v.extra;
+    if (total <= 0) continue;
+    debtTotal += total;
+    const colors = creditorColors(v.refId);
+    debtNodes.push({
+      id: `debt-${v.refId}`,
+      label: graphLabel(v.name),
+      color: v.extra > 0 ? colors.extra : colors.min,
+      amount_cents: total,
+      badge: v.extra > 0 ? 'extra' : 'min',
+    });
+  }
+
+  const goalLines = snapshot?.committed.lines.filter(
+    (l) => l.source === 'savings_goal' || l.source === 'savings_recurring',
+  ) ?? [];
+  const goalsTotal = goalLines.reduce((s, l) => s + l.amount_cents, 0);
+  const goalNodes: BubbleNode[] = goalLines.map((l) => {
+    const refId = l.ref_id ?? l.label;
+    const goalType = l.ref_id ? goalTypeMap[l.ref_id] : undefined;
+    const color = goalType ? (GOAL_TYPE_COLOR[goalType] ?? PAY_GOAL_COLOR) : PAY_GOAL_COLOR;
+    return {
+      id: `goal-${refId}`,
+      label: graphLabel(l.label),
+      color,
+      amount_cents: l.amount_cents,
+    };
+  });
+
+  const totalPlanned = billsTotal + debtTotal + goalsTotal;
+  const freeCents = Math.max(0, paychequeCents - totalPlanned);
+
+  const hubs: BubbleNode[] = [];
+  if (billNodes.length > 0) {
+    hubs.push({
+      id: 'hub-bills', label: 'Bills', color: PAY_BILLS_COLOR,
+      amount_cents: billsTotal, children: billNodes,
+    });
+  }
+  if (debtNodes.length > 0) {
+    hubs.push({
+      id: 'hub-debt', label: 'Debt', color: PAY_DEBT_COLOR,
+      amount_cents: debtTotal, children: debtNodes,
+    });
+  }
+  if (goalNodes.length > 0) {
+    hubs.push({
+      id: 'hub-goals', label: 'Goals', color: PAY_GOAL_COLOR,
+      amount_cents: goalsTotal, children: goalNodes,
+    });
+  }
+
+  const freeCenter: FreeCenterData = {
+    amount_cents: freeCents,
+    daysToPayday: days,
+  };
+
+  return { freeCenter, hubs };
+}
+
+// ---------- habits drill tree ----------
+
+export interface HabitsDrillTree {
+  categories: BubbleNode[];
+  totalSpend90: number;
+}
+
+const SUB_COLOR_MAP: Record<string, string> = {
+  food: 'var(--sub-food)',
+  transit: 'var(--sub-transit)',
+  shopping: 'var(--sub-shopping)',
+  home: 'var(--sub-home)',
+  personal_care: 'var(--sub-personal-care)',
+  entertainment: 'var(--sub-entertainment)',
+  health: 'var(--sub-health)',
+  bars: 'var(--sub-bars)',
+  takeout: 'var(--sub-takeout)',
+  fast_food: 'var(--sub-fast-food)',
+  weed: 'var(--sub-weed)',
+  streaming: 'var(--sub-streaming)',
+  gaming: 'var(--sub-gaming)',
+  treats: 'var(--sub-treats)',
+};
+
+const CAT_COLOR_MAP: Record<string, string> = {
+  essentials: 'var(--cat-essentials)',
+  lifestyle:  'var(--cat-lifestyle)',
+  indulgence: 'var(--cat-indulgence)',
+};
+
+const CAT_LABEL: Record<string, string> = {
+  essentials: 'Essentials',
+  lifestyle:  'Lifestyle',
+  indulgence: 'Indulgence',
+};
+
+/** Velocity from 30d vs 90d/3 (steady monthly). down=good for outflow categories. */
+function deriveSpendVelocity(spend30: number, spend90: number): Velocity | undefined {
+  if (spend90 <= 0) return undefined;
+  const steadyMonthly = spend90 / 3;
+  if (steadyMonthly <= 0) return undefined;
+  const ratio = spend30 / steadyMonthly;
+  // Ratio 1.0 = matching trend; >1 = accelerating, <1 = cooling.
+  const pct = Math.round(Math.abs(ratio - 1) * 100);
+  if (pct < 5) return { dir: 'flat', pct: 0, good: true };
+  return {
+    dir: ratio > 1 ? 'up' : 'down',
+    pct,
+    good: ratio < 1, // cooling spending is good
+  };
+}
+
+export function buildHabitsDrillTree(merchants: MerchantShape[]): HabitsDrillTree {
+  const habitMerchants = merchants.filter((m) => m.spend_90d_cents > 0);
+
+  // Group: category → sub_category → merchants[]
+  const catMap = new Map<string, Map<string, MerchantShape[]>>();
+  for (const m of habitMerchants) {
+    const catKey = m.category_group;
+    if (!catKey || !(catKey in CAT_COLOR_MAP)) continue;
+    const sub = m.sub_category_confirmed === 1 ? (m.sub_category ?? null) : null;
+    const subKey = sub && sub in SUB_LABEL ? sub : '__unconfirmed';
+    let subs = catMap.get(catKey);
+    if (!subs) { subs = new Map(); catMap.set(catKey, subs); }
+    const list = subs.get(subKey) ?? [];
+    list.push(m);
+    subs.set(subKey, list);
+  }
+
+  let totalSpend90 = 0;
+  const categories: BubbleNode[] = [];
+  for (const [catKey, subs] of catMap) {
+    const subNodes: BubbleNode[] = [];
+    let catTotal90 = 0;
+    let catTotal30 = 0;
+
+    for (const [subKey, list] of subs) {
+      const subTotal90 = list.reduce((s, m) => s + m.spend_90d_cents, 0);
+      const subTotal30 = list.reduce((s, m) => s + (m.spend_30d_cents ?? 0), 0);
+      catTotal90 += subTotal90;
+      catTotal30 += subTotal30;
+
+      const merchantNodes: BubbleNode[] = [...list]
+        .sort((a, b) => b.spend_90d_cents - a.spend_90d_cents)
+        .map((m) => {
+          const color = subKey === '__unconfirmed'
+            ? CAT_COLOR_MAP[catKey] ?? 'var(--color-text-muted)'
+            : SUB_COLOR_MAP[subKey] ?? CAT_COLOR_MAP[catKey] ?? 'var(--color-text-muted)';
+          const v = deriveSpendVelocity(m.spend_30d_cents ?? 0, m.spend_90d_cents);
+          const node: BubbleNode = {
+            id: `merchant-${m.id}`,
+            label: m.display_name,
+            color,
+            amount_cents: m.spend_90d_cents,
+          };
+          if (v) node.velocity = v;
+          return node;
+        });
+
+      const subColor = subKey === '__unconfirmed'
+        ? CAT_COLOR_MAP[catKey] ?? 'var(--color-text-muted)'
+        : SUB_COLOR_MAP[subKey] ?? CAT_COLOR_MAP[catKey] ?? 'var(--color-text-muted)';
+      const subLabel = subKey === '__unconfirmed' ? 'Unconfirmed' : (SUB_LABEL[subKey] ?? subKey);
+      const v = deriveSpendVelocity(subTotal30, subTotal90);
+      const subNode: BubbleNode = {
+        id: `sub-${catKey}-${subKey}`,
+        label: subLabel,
+        color: subColor,
+        amount_cents: subTotal90,
+        children: merchantNodes,
+      };
+      if (v) subNode.velocity = v;
+      subNodes.push(subNode);
+    }
+
+    if (catTotal90 <= 0) continue;
+    totalSpend90 += catTotal90;
+    const v = deriveSpendVelocity(catTotal30, catTotal90);
+    const catNode: BubbleNode = {
+      id: `cat-${catKey}`,
+      label: CAT_LABEL[catKey] ?? catKey,
+      color: CAT_COLOR_MAP[catKey] ?? 'var(--color-text-muted)',
+      amount_cents: catTotal90,
+      children: subNodes.sort((a, b) => b.amount_cents - a.amount_cents),
+    };
+    if (v) catNode.velocity = v;
+    categories.push(catNode);
+  }
+
+  categories.sort((a, b) => b.amount_cents - a.amount_cents);
+  return { categories, totalSpend90 };
+}
+
 // ---------- habits network ----------
 
 export interface HabitsNetwork {
