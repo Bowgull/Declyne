@@ -30,12 +30,6 @@ function pad(n: number, w: number) {
   return String(n).padStart(w, '0');
 }
 
-function daysUntilNextSunday(today: Date) {
-  const d = today.getDay();
-  if (d === 0) return 0;
-  return 7 - d;
-}
-
 function isoWeek(d: Date) {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = t.getUTCDay() || 7;
@@ -51,14 +45,40 @@ type HistoryRef =
   | { kind: 'bill'; merchant_id: string }
   | { kind: 'payday' }
   | { kind: 'plan'; label: string };
+
+// Mirror of worker QueueKind. Kept loose: server adds new kinds, we render the
+// fallback row treatment without breaking the page.
+type QueueKind =
+  | 'reconcile'
+  | 'bill'
+  | 'plan_installment'
+  | 'payday'
+  | 'review_uncategorized'
+  | 'sub_category_unconfirmed'
+  | 'sub_category_stale'
+  | 'tab_to_match'
+  | 'uncleared_line'
+  | 'subscription_pending_verdict'
+  | 'statement_mismatch'
+  | 'counterparty_stale';
+
+interface ServerQueueItem {
+  kind: QueueKind;
+  id: string;
+  label: string;
+  meta?: string;
+  due_date: string | null;
+  tier: number;
+  href: string;
+  amount_cents?: number;
+}
+
 type QueueItem = {
   key: string;
   label: string;
   meta: string;
   days_until: number;
-  // Priority tier for ordering: 0 ritual (reconcile/review) > 1 bill >
-  // 2 installment > 3 payday. Within tier, sort by days_until ascending.
-  tier: 0 | 1 | 2 | 3;
+  tier: number;
   href?: string;
   glyph?: Glyph;
   glyphTone?: 'income' | 'debt' | 'muted' | null;
@@ -166,9 +186,14 @@ export default function Today() {
   const [chitOpen, setChitOpen] = useState<{ prefilledFor: string | null } | null>(null);
   const [chitCrumpling, setChitCrumpling] = useState(false);
 
-  const review = useQuery({
-    queryKey: ['review'],
-    queryFn: () => api.get<{ items: Array<unknown> }>('/api/review'),
+  const queue = useQuery({
+    queryKey: ['queue'],
+    queryFn: () =>
+      api.get<{
+        items: ServerQueueItem[];
+        total: number;
+        by_kind: Record<QueueKind, number>;
+      }>('/api/queue'),
   });
   const reconciliation = useQuery({
     queryKey: ['reconciliation-status'],
@@ -233,12 +258,10 @@ export default function Today() {
 
   const rcpt = todayExtras.data?.rcpt_days ?? 0;
   const userName = settings.data?.settings?.user_display_name ?? '';
-  const reviewCount = review.data?.items.length ?? 0;
   const streak = reconciliation.data?.reconciliation_streak ?? 0;
   const remaining = tank.data?.remaining_cents ?? 0;
   const daysLeft = tank.data?.days_remaining ?? 0;
   const paycheque = tank.data?.paycheque_cents ?? 0;
-  const sundayDays = daysUntilNextSunday(now);
 
   // Burn-rate color for "Left in tank" hero. Reactive from day one: before any
   // spend daily_burn=0 → runway=infinity → green. First charge recomputes.
@@ -299,7 +322,6 @@ export default function Today() {
     .filter((c) => c.open_tab_count > 0)
     .sort((a, b) => Math.abs(b.net_cents) - Math.abs(a.net_cents));
 
-  const printingAhead = todayExtras.data?.printing_ahead ?? [];
   const lastPaid = todayExtras.data?.last_paid_installment ?? null;
   const committedCents = tank.data?.committed_cents ?? 0;
   const committedExceedsRemaining = committedCents > 0 && committedCents > remaining;
@@ -507,61 +529,82 @@ export default function Today() {
 
         {/* TODAY queue — actionable items + upcoming bills, sorted chronologically. */}
         {(() => {
-          // Row-type glyph vocabulary. See lib/rowGlyph.ts for the full set.
-          // Today's queue uses: ↻ bill, ▸ plan installment, + payday,
-          // ? review queue. Reconcile action stays glyph-free (it's a ritual,
-          // not a money row).
-          const queue: QueueItem[] = [];
-          if (sundayDays === 0 && !reconciliation.data?.completed_this_week) {
-            queue.push({ key: 'reconcile', label: 'Reconcile this week', meta: 'now', days_until: 0, tier: 0, href: '/reconcile' });
-          }
-          if (reviewCount > 0) {
-            queue.push({
-              key: 'review',
-              label: `${reviewCount} to categorize`,
-              meta: 'now',
-              days_until: 0,
-              tier: 0,
-              href: '/review',
-              glyph: '?',
-              glyphTone: 'muted',
-            });
-          }
-          for (const row of printingAhead) {
-            let glyph: Glyph;
+          // Single source of truth: /api/queue. Server returns items already
+          // sorted by tier asc, then due_date asc (nulls last). We map kinds
+          // to the row-type glyph vocabulary (see lib/rowGlyph.ts).
+          const todayStr = now.toISOString().slice(0, 10);
+          const items = queue.data?.items ?? [];
+          const queueItems: QueueItem[] = items.map((it) => {
+            let glyph: Glyph = null;
             let tone: QueueItem['glyphTone'] = null;
             let history: HistoryRef | undefined;
-            let tier: QueueItem['tier'];
-            if (row.kind === 'payday') {
-              glyph = '+';
-              tone = 'income';
-              history = { kind: 'payday' };
-              tier = 3;
-            } else if (row.kind === 'plan') {
+            let label = it.label;
+            let meta = '';
+            if (it.kind === 'reconcile') {
+              meta = 'now';
+            } else if (it.kind === 'bill') {
+              glyph = '↻';
+              if (it.amount_cents) meta = formatCents(it.amount_cents);
+              const merchantId = it.id.startsWith('bill-') ? it.id.slice(5) : '';
+              if (merchantId) history = { kind: 'bill', merchant_id: merchantId };
+            } else if (it.kind === 'plan_installment') {
               glyph = '▸';
               tone = 'debt';
-              history = { kind: 'plan', label: row.label };
-              tier = 2;
-            } else {
-              glyph = '↻';
-              if (row.merchant_id) history = { kind: 'bill', merchant_id: row.merchant_id };
-              tier = 1;
+              if (it.amount_cents) meta = formatCents(it.amount_cents);
+              history = { kind: 'plan', label: it.label };
+            } else if (it.kind === 'payday') {
+              glyph = '+';
+              tone = 'income';
+              if (it.amount_cents) meta = `+${formatCents(it.amount_cents)}`;
+              history = { kind: 'payday' };
+            } else if (it.kind === 'review_uncategorized') {
+              glyph = '?';
+              tone = 'muted';
+              meta = 'review';
+            } else if (it.kind === 'sub_category_unconfirmed' || it.kind === 'sub_category_stale') {
+              glyph = '?';
+              tone = 'muted';
+              meta = it.kind === 'sub_category_stale' ? 'stale' : 'sub-category';
+            } else if (it.kind === 'tab_to_match') {
+              glyph = '?';
+              tone = 'muted';
+              meta = it.meta ?? 'match';
+            } else if (it.kind === 'uncleared_line') {
+              glyph = '?';
+              tone = 'muted';
+              if (it.amount_cents) meta = formatCents(it.amount_cents);
+            } else if (it.kind === 'subscription_pending_verdict') {
+              glyph = '?';
+              tone = 'muted';
+              if (it.amount_cents) meta = `${formatCents(it.amount_cents)}/mo`;
+            } else if (it.kind === 'statement_mismatch') {
+              glyph = '?';
+              tone = 'muted';
+              if (it.amount_cents) meta = formatCents(it.amount_cents);
+            } else if (it.kind === 'counterparty_stale') {
+              glyph = '?';
+              tone = 'muted';
+              meta = it.meta ?? '';
             }
-            queue.push({
-              key: `${row.kind}-${row.due_date}-${row.label}`,
-              label: row.label,
-              meta: `${row.kind === 'payday' ? '+' : ''}${formatCents(row.amount_cents)}`,
-              days_until: row.days_until,
-              tier,
-              glyph,
-              glyphTone: tone,
+            const days_until = it.due_date
+              ? Math.max(0, Math.round((Date.parse(it.due_date) - Date.parse(todayStr)) / 86_400_000))
+              : 0;
+            return {
+              key: `${it.kind}-${it.id}`,
+              label,
+              meta,
+              days_until,
+              tier: it.tier,
+              ...(it.href ? { href: it.href } : {}),
+              ...(glyph ? { glyph } : {}),
+              ...(tone ? { glyphTone: tone } : {}),
               ...(history ? { history } : {}),
-            });
-          }
-          queue.sort((a, b) => a.tier - b.tier || a.days_until - b.days_until);
-          const visible = expanded ? queue.slice(0, 5) : queue.slice(0, 3);
-          const hiddenCount = Math.min(queue.length, 5) - visible.length;
-          const overflowToPaycheque = queue.length > 5;
+            };
+          });
+
+          const visible = expanded ? queueItems.slice(0, 5) : queueItems.slice(0, 3);
+          const hiddenCount = Math.min(queueItems.length, 5) - visible.length;
+          const overflowToFullQueue = queueItems.length > 5;
           return (
             <div className="perf pt-4">
               <div className="section-label mb-2">Up next</div>
@@ -579,7 +622,7 @@ export default function Today() {
                   </div>
                 </div>
               )}
-              {queue.length === 0 ? (
+              {queueItems.length === 0 ? (
                 <div className="text-sm ink-muted">Nothing up next.</div>
               ) : (
                 <ul className="flex flex-col">
@@ -603,19 +646,19 @@ export default function Today() {
                       </button>
                     </li>
                   )}
-                  {(expanded || queue.length <= 5) && overflowToPaycheque && (
+                  {(expanded || queueItems.length <= 5) && overflowToFullQueue && (
                     <li style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
-                      <Link to="/paycheque" className="row-tap block">
+                      <Link to="/queue" className="row-tap block">
                         <div className="flex items-baseline justify-between py-2 px-1" style={{ gap: 12 }}>
                           <div className="text-sm" style={{ color: 'var(--color-ink-muted)' }}>
-                            see all in paycheque
+                            see all ({queueItems.length})
                           </div>
                           <div className="num text-sm" style={{ color: 'var(--color-ink-muted)' }}>&rsaquo;</div>
                         </div>
                       </Link>
                     </li>
                   )}
-                  {expanded && queue.length > 3 && (
+                  {expanded && queueItems.length > 3 && (
                     <li style={{ borderTop: '1px dashed var(--color-hairline-ink)' }}>
                       <button
                         type="button"
