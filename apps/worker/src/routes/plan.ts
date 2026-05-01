@@ -16,6 +16,8 @@ import {
   type CommittedLine,
 } from '../lib/periodIntelligence.js';
 import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
+import { loadHabitContext } from './habits.js';
+import type { HabitContext } from '../lib/habitContext.js';
 
 export const planRoutes = new Hono<{ Bindings: Env }>();
 
@@ -351,6 +353,38 @@ function safeParseArray(s: string): string[] {
   return [];
 }
 
+// Pure: shrinks habit context for the AI payload. Drops merchant_ids and
+// nested top_merchants (the AI doesn't need merchant-level detail to write a
+// rationale; it cites sub-category dollars and kill-candidate names only).
+export function trimHabitContextForAi(ctx: HabitContext): {
+  by_sub_category: Array<{ sub: string; monthly_burn_cents: number; velocity: string }>;
+  subscription_bleed: {
+    monthly_cents: number;
+    annual_cents: number;
+    kill_candidates: Array<{ name: string; monthly_cents: number }>;
+  };
+  hot_categories: string[];
+  cold_categories: string[];
+} {
+  return {
+    by_sub_category: ctx.by_sub_category.map((r) => ({
+      sub: r.sub,
+      monthly_burn_cents: r.monthly_burn_cents,
+      velocity: r.velocity,
+    })),
+    subscription_bleed: {
+      monthly_cents: ctx.subscription_bleed.monthly_cents,
+      annual_cents: ctx.subscription_bleed.annual_cents,
+      kill_candidates: ctx.subscription_bleed.kill_candidates.map((k) => ({
+        name: k.name,
+        monthly_cents: k.monthly_cents,
+      })),
+    },
+    hot_categories: ctx.hot_categories,
+    cold_categories: ctx.cold_categories,
+  };
+}
+
 // Pure: validates the AI response shape. AI must not invent numbers — this
 // helper just checks string-only content + bounds. The kernel owns dollars.
 export function validateAiRationale(raw: unknown): { rationale: string; observations: string[] } | { error: string } {
@@ -384,6 +418,8 @@ planRoutes.post('/refresh', async (c) => {
   const b = await loadPlanInputs(c.env);
   const out = runPlan(b);
   const hash = hashPlanInputs(b);
+  const today = new Date().toISOString().slice(0, 10);
+  const habit_context = await loadHabitContext(c.env, today).catch(() => null);
 
   // Build the AI payload. AI sees deterministic numbers we already computed.
   // It writes prose. Every dollar in the response must already be in the input.
@@ -403,6 +439,7 @@ planRoutes.post('/refresh', async (c) => {
         .filter((a) => a.debt_id === d.id)
         .reduce((s, a) => s + a.amount_cents, 0),
     })),
+    habit_context: habit_context ? trimHabitContextForAi(habit_context) : null,
   };
 
   const systemPrompt = `You write the rationale for Declyne's payment plan. One user.
@@ -415,7 +452,10 @@ Rules:
 5. Frame avalanche debts as "highest APR drains capacity fastest."
 6. If a debt has charge velocity > 0, you may note "this card is still being charged ~$X/mo" using the input number.
 7. Observations describe habits or patterns from the input. No financial advice. No "you should."
-8. If capacity is 0, the rationale is "no overflow this paycheque, mins only." No observations.`;
+8. If capacity is 0, the rationale is "no overflow this paycheque, mins only." No observations.
+9. You may cite specific sub-category spend (e.g. "bars at $400/month") when explaining where capacity could grow. Numbers must come from habit_context.by_sub_category.monthly_burn_cents (cents — divide by 100 for dollars).
+10. You may cite kill candidates (e.g. "Spotify at $13/mo is undecided") only if habit_context.subscription_bleed.kill_candidates lists them by name + monthly_cents.
+11. Observations may name 1-2 specific subs as drag on capacity. No advice. No "you should." Just the observation.`;
 
   const id = newId('pcache');
   const now = nowIso();

@@ -4,17 +4,23 @@
 
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
-import { buildHabitContext, type HabitMerchantInput, type HabitVerdict } from '../lib/habitContext.js';
-import { loadRecurringContext } from '../lib/recurringContext.js';
+import {
+  buildHabitContext,
+  type HabitContext,
+  type HabitMerchantInput,
+  type HabitVerdict,
+} from '../lib/habitContext.js';
+import { loadRecurringContext, type RecurringContext } from '../lib/recurringContext.js';
 
 export const habitsRoutes = new Hono<{ Bindings: Env }>();
 
-habitsRoutes.get('/context', async (c) => {
-  const today = new Date().toISOString().slice(0, 10);
-
-  const [ctx, merchantsRes, verdictsRes] = await Promise.all([
-    loadRecurringContext(c.env, today),
-    c.env.DB.prepare(
+// Shared loader so /api/habits/context and the plan AI rationale read from the
+// same SQL. Pass an existing recurring context to avoid re-running the detector.
+export async function loadHabitContext(env: Env, today: string, ctx?: RecurringContext): Promise<HabitContext> {
+  const recurringPromise = ctx ? Promise.resolve(ctx) : loadRecurringContext(env, today);
+  const [recurring, merchantsRes, verdictsRes] = await Promise.all([
+    recurringPromise,
+    env.DB.prepare(
       `SELECT m.id AS merchant_id,
               m.display_name,
               m.sub_category,
@@ -29,16 +35,20 @@ habitsRoutes.get('/context', async (c) => {
        GROUP BY m.id
        HAVING spend_90d_cents > 0`,
     ).all<HabitMerchantInput>(),
-    c.env.DB.prepare(
+    env.DB.prepare(
       `SELECT merchant_id, verdict FROM subscription_verdicts`,
     ).all<HabitVerdict>(),
   ]);
 
-  const context = buildHabitContext({
+  return buildHabitContext({
     merchants: merchantsRes.results ?? [],
-    subscriptions: ctx.subscriptions,
+    subscriptions: recurring.subscriptions,
     verdicts: verdictsRes.results ?? [],
   });
+}
 
+habitsRoutes.get('/context', async (c) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const context = await loadHabitContext(c.env, today);
   return c.json(context);
 });
