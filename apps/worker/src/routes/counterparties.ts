@@ -25,9 +25,18 @@ export function parseCounterpartyInput(b: unknown): CounterpartyInput | { error:
   return { name, default_settlement_method };
 }
 
+// Pure helper: signed direction tag from a GL balance (positive = they owe me).
+export function directionFromGlBalance(net: number): 'owes_you' | 'you_owe' | 'settled' {
+  if (net > 0) return 'owes_you';
+  if (net < 0) return 'you_owe';
+  return 'settled';
+}
+
 // GET /api/counterparties
 // Returns one row per counterparty with aggregated open-tab balance.
-// Direction: net cents (positive = owes_you, negative = you_owe).
+// gl_balance_cents reads from the cp's Assets:Receivable:<Name> GL account
+// (positive = they owe me, negative = I owe them). Splits aggregates kept
+// alongside for parity checking until session 10 lands the parity tests.
 counterpartiesRoutes.get('/', async (c) => {
   const includeArchived = c.req.query('include_archived') === '1';
   const where = includeArchived ? '' : 'WHERE cp.archived_at IS NULL';
@@ -38,6 +47,7 @@ counterpartiesRoutes.get('/', async (c) => {
        cp.default_settlement_method,
        cp.archived_at,
        cp.created_at,
+       cp.account_id,
        COALESCE(SUM(CASE WHEN s.closed_at IS NULL AND s.direction = 'they_owe'
                          THEN s.remaining_cents ELSE 0 END), 0) AS owes_you_cents,
        COALESCE(SUM(CASE WHEN s.closed_at IS NULL AND s.direction = 'i_owe'
@@ -48,7 +58,9 @@ counterpartiesRoutes.get('/', async (c) => {
          WHERE s2.counterparty_id = cp.id
            AND s2.closed_at IS NULL
            AND s2.direction = 'they_owe'
-         ORDER BY s2.remaining_cents DESC, s2.created_at DESC LIMIT 1) AS latest_owes_you_split_id
+         ORDER BY s2.remaining_cents DESC, s2.created_at DESC LIMIT 1) AS latest_owes_you_split_id,
+       (SELECT COALESCE(SUM(jl.debit_cents), 0) - COALESCE(SUM(jl.credit_cents), 0)
+          FROM journal_lines jl WHERE jl.account_id = cp.account_id) AS gl_balance_cents
      FROM counterparties cp
      LEFT JOIN splits s ON s.counterparty_id = cp.id
      ${where}
@@ -60,18 +72,21 @@ counterpartiesRoutes.get('/', async (c) => {
     default_settlement_method: string | null;
     archived_at: string | null;
     created_at: string;
+    account_id: string | null;
     owes_you_cents: number;
     you_owe_cents: number;
     open_tab_count: number;
     last_tab_at: string | null;
     latest_owes_you_split_id: string | null;
+    gl_balance_cents: number | null;
   }>();
   const rows = (results ?? []).map((r) => {
-    const net = r.owes_you_cents - r.you_owe_cents;
+    const gl = r.account_id ? (r.gl_balance_cents ?? 0) : r.owes_you_cents - r.you_owe_cents;
     return {
       ...r,
-      net_cents: net,
-      direction: net > 0 ? ('owes_you' as const) : net < 0 ? ('you_owe' as const) : ('settled' as const),
+      gl_balance_cents: r.account_id ? (r.gl_balance_cents ?? 0) : null,
+      net_cents: gl,
+      direction: directionFromGlBalance(gl),
     };
   });
   return c.json({ counterparties: rows });

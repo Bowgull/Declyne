@@ -7,11 +7,15 @@ import { redactSensitive } from '../lib/logRedact.js';
 export const investmentRoutes = new Hono<{ Bindings: Env }>();
 
 investmentRoutes.get('/holdings', async (c) => {
+  // Cost basis reads from the per-lot GL account (Assets:Investments:<Wrapper>:<Symbol>)
+  // when account_id is set. Falls back to NULL so client uses units * avg_cost legacy math.
   const { results } = await c.env.DB.prepare(
     `SELECT h.*,
             p.close_cents AS latest_price_cents,
             p.date        AS price_date,
-            s.sma50, s.sma200, s.rsi14, s.momentum_30d
+            s.sma50, s.sma200, s.rsi14, s.momentum_30d,
+            (SELECT COALESCE(SUM(jl.debit_cents), 0) - COALESCE(SUM(jl.credit_cents), 0)
+               FROM journal_lines jl WHERE jl.account_id = h.account_id) AS gl_balance_cents
      FROM holdings h
      LEFT JOIN prices p
        ON p.symbol = h.symbol

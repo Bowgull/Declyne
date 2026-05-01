@@ -11,6 +11,8 @@ type Holding = {
   account_wrapper: string;
   units: number;
   avg_cost_cents: number;
+  account_id: string | null;
+  gl_balance_cents: number | null;
   latest_price_cents: number | null;
   price_date: string | null;
   sma50: number | null;
@@ -41,11 +43,17 @@ function marketValue(h: Holding): number | null {
   return Math.round((h.units * h.latest_price_cents) / 10_000);
 }
 
+function costBasis(h: Holding): number {
+  // Prefer GL balance (Assets:Investments:<Wrapper>:<Symbol>) when the lot
+  // is GL-linked. Falls back to the units * avg_cost computation.
+  if (h.account_id && h.gl_balance_cents != null) return h.gl_balance_cents;
+  return Math.round((h.units * h.avg_cost_cents) / 10_000);
+}
+
 function gainLoss(h: Holding): number | null {
   const mv = marketValue(h);
   if (mv == null) return null;
-  const costBasis = Math.round((h.units * h.avg_cost_cents) / 10_000);
-  return mv - costBasis;
+  return mv - costBasis(h);
 }
 
 function rsiLabel(rsi: number | null): string {
