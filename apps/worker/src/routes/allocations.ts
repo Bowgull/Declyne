@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
-import { detectRecurring, type RecurringTxn } from '../lib/recurring.js';
+import { loadRecurringContext, type RecurringContext } from '../lib/recurringContext.js';
 import {
   draftAllocations,
   diffDraft,
@@ -312,7 +312,11 @@ allocationsRoutes.post('/auto-match', async (c) => {
 
 // ---- helpers used by import.ts and routes above ----
 
-export async function draftForPeriod(env: Env, periodId: string): Promise<number> {
+export async function draftForPeriod(
+  env: Env,
+  periodId: string,
+  ctx?: RecurringContext,
+): Promise<number> {
   // Existing rows for diffing.
   const { results: existing } = await env.DB.prepare(
     `SELECT category_group, label, stamped_at FROM period_allocations WHERE pay_period_id = ?`,
@@ -320,20 +324,15 @@ export async function draftForPeriod(env: Env, periodId: string): Promise<number
     .bind(periodId)
     .all<{ category_group: string; label: string; stamped_at: string | null }>();
 
-  // Recurring bills from past 90d using the same detector as Today.
-  const { results: txns } = await env.DB.prepare(
-    `SELECT t.posted_at, t.amount_cents, t.merchant_id, m.display_name as merchant_name, c."group" as "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now','-90 days')`,
-  ).all<RecurringTxn>();
+  // Recurring bills from past 90d using the same detector as Today. Reuses
+  // the per-request RecurringContext when available; otherwise loads its own.
   const today = new Date().toISOString().slice(0, 10);
-  const recurring = detectRecurring(txns, today, 31);
+  const context = ctx ?? (await loadRecurringContext(env, today));
+  const recurring = context.getRecurring(31);
   const recurringInputs: DraftRecurring[] = recurring
     .filter((r) => r.merchant_name)
     .map((r) => {
-      const raw = txns.find((t) => t.merchant_id === r.merchant_id);
+      const raw = context.txns_90d.find((t) => t.merchant_id === r.merchant_id);
       const grp = (raw?.group ?? 'essentials') as DraftRecurring['group'];
       return {
         merchant_id: r.merchant_id,

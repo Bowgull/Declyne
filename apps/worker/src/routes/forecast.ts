@@ -6,7 +6,7 @@ import {
   type ForecastEvent,
   type ForecastEventInput,
 } from '../lib/forecast.js';
-import { detectRecurring, type RecurringTxn } from '../lib/recurring.js';
+import { loadRecurringContext } from '../lib/recurringContext.js';
 import { stripRoleSuffix } from './today.js';
 
 export const forecastRoutes = new Hono<{ Bindings: Env }>();
@@ -43,20 +43,8 @@ forecastRoutes.get('/', async (c) => {
 
   // Recurring bills + savings sweeps — detector returns one next occurrence
   // per merchant; that's enough resolution for a 30-day window.
-  const { results: txnRows } = await c.env.DB.prepare(
-    `SELECT t.posted_at as posted_at,
-            t.amount_cents as amount_cents,
-            t.merchant_id as merchant_id,
-            m.display_name as merchant_name,
-            c."group" as "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now', '-90 days')
-       AND t.amount_cents < 0
-       AND t.merchant_id IS NOT NULL`,
-  ).all<RecurringTxn>();
-  const recurring = detectRecurring(txnRows ?? [], today, days);
+  const ctx = await loadRecurringContext(c.env, today);
+  const recurring = ctx.getRecurring(days);
 
   const events: ForecastEventInput[] = [];
   for (const r of recurring) {

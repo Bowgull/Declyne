@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
-import { detectSubscriptions, type RecurringTxn } from '../lib/recurring.js';
+import { loadRecurringContext } from '../lib/recurringContext.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { nowIso } from '../lib/ids.js';
 
@@ -279,17 +279,9 @@ budgetRoutes.get('/history', async (c) => {
 // categories. These are the subscriptions the user might have forgotten about.
 // Sorted by monthly cost descending. Uses 180 days of history for detection.
 budgetRoutes.get('/subscriptions', async (c) => {
-  const [{ results: txnRows }, { results: verdictRows }] = await Promise.all([
-    c.env.DB.prepare(
-      `SELECT t.posted_at, t.amount_cents, t.merchant_id,
-              m.display_name AS merchant_name,
-              c."group" AS "group"
-       FROM transactions t
-       LEFT JOIN merchants m ON m.id = t.merchant_id
-       LEFT JOIN categories c ON c.id = t.category_id
-       WHERE t.posted_at >= date('now', '-180 days')
-         AND t.merchant_id IS NOT NULL`,
-    ).all<RecurringTxn>(),
+  const today = new Date().toISOString().slice(0, 10);
+  const [ctx, { results: verdictRows }] = await Promise.all([
+    loadRecurringContext(c.env, today),
     c.env.DB.prepare(
       `SELECT merchant_id, verdict, set_at FROM subscription_verdicts`,
     ).all<{ merchant_id: string; verdict: SubscriptionVerdict; set_at: string }>(),
@@ -300,7 +292,7 @@ budgetRoutes.get('/subscriptions', async (c) => {
     verdictMap.set(v.merchant_id, { verdict: v.verdict, set_at: v.set_at });
   }
 
-  const detected = detectSubscriptions(txnRows);
+  const detected = ctx.subscriptions;
   // Drop merchants the user has marked NOT_A_SUB. They stay categorised
   // everywhere else; they just stop appearing on the standing-orders surface.
   const subscriptions = detected

@@ -8,12 +8,8 @@
 // route from another route creates a cycle.
 
 import type { Env } from '../env.js';
-import {
-  detectRecurring,
-  detectSubscriptions,
-  predictNextPayday,
-  type RecurringTxn,
-} from './recurring.js';
+import { predictNextPayday } from './recurring.js';
+import { loadRecurringContext } from './recurringContext.js';
 import {
   buildMasterQueue,
   summarizeQueue,
@@ -84,18 +80,8 @@ export async function loadMasterQueue(env: Env, today: string): Promise<MasterQu
   ).first<{ value: string }>();
   const completed_this_week = isCompletedThisWeek(lastAtRow?.value ?? null, today);
 
-  const { results: txnRows } = await env.DB.prepare(
-    `SELECT t.posted_at as posted_at, t.amount_cents as amount_cents,
-            t.merchant_id as merchant_id, m.display_name as merchant_name,
-            c."group" as "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now', '-90 days')
-       AND t.amount_cents < 0
-       AND t.merchant_id IS NOT NULL`,
-  ).all<RecurringTxn>();
-  const bills = detectRecurring(txnRows, today, HORIZON_DAYS);
+  const ctx = await loadRecurringContext(env, today);
+  const bills = ctx.getRecurring(HORIZON_DAYS);
 
   const period = await env.DB.prepare(
     `SELECT id, end_date, paycheque_cents FROM pay_periods
@@ -272,16 +258,7 @@ export async function loadMasterQueue(env: Env, today: string): Promise<MasterQu
     }
   }
 
-  const { results: subTxns } = await env.DB.prepare(
-    `SELECT t.posted_at, t.amount_cents, t.merchant_id,
-            m.display_name AS merchant_name, c."group" AS "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now','-180 days')
-       AND t.merchant_id IS NOT NULL`,
-  ).all<RecurringTxn>();
-  const detectedSubs = detectSubscriptions(subTxns);
+  const detectedSubs = ctx.subscriptions;
   const { results: verdictRows } = await env.DB.prepare(
     `SELECT merchant_id, verdict FROM subscription_verdicts`,
   ).all<{ merchant_id: string; verdict: string }>();
