@@ -89,6 +89,9 @@ export default function SubCategoryQueue() {
   // Stack-mode state. Long-press a row to pick it; tap others to add/remove.
   // Tap empty space (or the release button) to clear the stack and exit.
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [stackResult, setStackResult] = useState<
+    { approved: number; skipped: number } | null
+  >(null);
   const pressTimer = useRef<number | null>(null);
   // When the long-press fires, the user is still holding the button. The
   // pointerup that follows will trigger a `click`, which would then run
@@ -123,25 +126,35 @@ export default function SubCategoryQueue() {
   const approveStack = useMutation({
     mutationFn: async (rows: QueueRow[]) => {
       // Each row keeps its detector guess (or the inline override if user
-      // edited it). Run sequentially so a single failure surfaces clearly
-      // instead of silent partial success.
-      let count = 0;
+      // edited it). Rows without a sub are skipped and stay picked so the
+      // user sees what's left to handle.
+      let approved = 0;
+      const skippedIds: string[] = [];
       for (const r of rows) {
         const sub = override[r.id] ?? r.sub_category;
-        if (!sub) continue;
+        if (!sub) {
+          skippedIds.push(r.id);
+          continue;
+        }
         await api.patch(`/api/merchants/${r.id}`, {
           sub_category: sub,
           sub_category_confirmed: 1,
         });
-        count++;
+        approved++;
       }
-      return count;
+      return { approved, skippedIds };
     },
-    onSuccess: () => {
+    onSuccess: ({ approved, skippedIds }) => {
       qc.invalidateQueries({ queryKey: ['sub-category-queue'] });
       qc.invalidateQueries({ queryKey: ['merchants', 'habits'] });
-      setPicked(new Set());
-      setOverride({});
+      // Skipped rows stay picked so the user sees what still needs a sub.
+      setPicked(new Set(skippedIds));
+      setOverride((p) => {
+        const n: Record<string, string> = {};
+        for (const id of skippedIds) if (p[id]) n[id] = p[id]!;
+        return n;
+      });
+      setStackResult({ approved, skipped: skippedIds.length });
     },
   });
 
@@ -201,14 +214,20 @@ export default function SubCategoryQueue() {
     if (Date.now() - releasedAt.current < 250) {
       return;
     }
-    // 3. Already in stack mode — tap toggles membership.
+    // 3. Already in stack mode:
+    //    - Tap on an unpicked row adds it to the stack.
+    //    - Tap on a picked row opens its inline editor (so the user can
+    //      override its sub without leaving stack mode).
     if (picked.size > 0) {
-      setPicked((prev) => {
-        const n = new Set(prev);
-        if (n.has(id)) n.delete(id);
-        else n.add(id);
-        return n;
-      });
+      if (picked.has(id)) {
+        setOpen((cur) => (cur === id ? null : id));
+      } else {
+        setPicked((prev) => {
+          const n = new Set(prev);
+          n.add(id);
+          return n;
+        });
+      }
       return;
     }
     // 4. Default: tap opens the inline editor.
@@ -312,7 +331,9 @@ export default function SubCategoryQueue() {
                         {LABEL[guess] ?? guess}
                       </>
                     ) : (
-                      'unrecognized'
+                      <span style={{ color: 'var(--cat-indulgence)' }}>
+                        unrecognized
+                      </span>
                     )}
                     {' · '}
                     {r.category_group ?? '?'}
@@ -326,7 +347,7 @@ export default function SubCategoryQueue() {
                 </div>
               </button>
 
-              {isOpen && picked.size === 0 && (
+              {isOpen && (
                 <div
                   className="flex flex-col gap-2 pt-2 pb-3"
                   style={{ borderTop: '1px dashed var(--rule-ink)' }}
@@ -410,12 +431,19 @@ export default function SubCategoryQueue() {
       {picked.size > 0 && (
         <ApproveStripe
           count={picked.size}
-          allConfirmable={stackedRows.every(
-            (r) => override[r.id] ?? r.sub_category,
-          )}
+          confirmableCount={
+            stackedRows.filter((r) => override[r.id] ?? r.sub_category).length
+          }
           pending={approveStack.isPending}
-          onApprove={() => approveStack.mutate(stackedRows)}
-          onRelease={() => setPicked(new Set())}
+          result={stackResult}
+          onApprove={() => {
+            setStackResult(null);
+            approveStack.mutate(stackedRows);
+          }}
+          onRelease={() => {
+            setPicked(new Set());
+            setStackResult(null);
+          }}
         />
       )}
     </section>
@@ -446,17 +474,21 @@ function PickedStamp({ tilt }: { tilt: number }) {
 
 function ApproveStripe({
   count,
-  allConfirmable,
+  confirmableCount,
   pending,
+  result,
   onApprove,
   onRelease,
 }: {
   count: number;
-  allConfirmable: boolean;
+  confirmableCount: number;
   pending: boolean;
+  result: { approved: number; skipped: number } | null;
   onApprove: () => void;
   onRelease: () => void;
 }) {
+  const someConfirmable = confirmableCount > 0;
+  const unrecognized = count - confirmableCount;
   return (
     <div
       data-stack-strip="1"
@@ -490,30 +522,63 @@ function ApproveStripe({
           }}
         >
           {count} picked
+          {unrecognized > 0 && !result && (
+            <span
+              style={{
+                marginLeft: 8,
+                color: 'var(--cat-indulgence)',
+                letterSpacing: '0.14em',
+              }}
+            >
+              · {unrecognized} need a sub
+            </span>
+          )}
         </span>
-        <button
-          type="button"
-          onClick={onRelease}
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 9,
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            color: 'var(--color-text-muted)',
-            background: 'transparent',
-            border: 'none',
-            padding: 0,
-            textAlign: 'left',
-            cursor: 'pointer',
-          }}
-        >
-          tap empty space to release
-        </button>
+        {result ? (
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            {result.approved} approved
+            {result.skipped > 0 && (
+              <>
+                {', '}
+                <span style={{ color: 'var(--cat-indulgence)' }}>
+                  {result.skipped} need a sub-category
+                </span>
+              </>
+            )}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onRelease}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-muted)',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}
+          >
+            tap empty space to release
+          </button>
+        )}
       </div>
       <button
         type="button"
         className="stamp stamp-purple"
-        disabled={!allConfirmable || pending}
+        disabled={!someConfirmable || pending}
         onClick={onApprove}
         style={{ transform: 'rotate(-1.4deg)' }}
       >
