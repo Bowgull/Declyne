@@ -29,6 +29,14 @@ interface Suggestion {
   why_paycheque: string;
 }
 
+type WhatIf = {
+  sub: string;
+  cut_pct: number;
+  monthly_freed_cents: number;
+  new_complete_date: string;
+  months_saved: number;
+};
+
 type Goal = {
   id: string;
   name: string;
@@ -40,7 +48,33 @@ type Goal = {
   goal_type?: GoalType;
   per_paycheque_cents?: number;
   projected_complete_date?: string | null;
+  what_if?: WhatIf[];
 };
+
+const SUB_LABEL: Record<string, string> = {
+  takeout: 'takeout',
+  delivery: 'delivery',
+  bars: 'bars',
+  weed: 'weed',
+  streaming: 'streaming',
+  gaming: 'gaming',
+  treats: 'treats',
+  shopping: 'shopping',
+  home: 'home goods',
+  personal_care: 'personal care',
+  entertainment: 'entertainment',
+  groceries: 'groceries',
+  transit: 'transit',
+  health: 'health',
+};
+
+function subLabel(s: string): string {
+  return SUB_LABEL[s] ?? s.replace(/_/g, ' ');
+}
+
+function monthsLabel(n: number): string {
+  return n === 1 ? '1 month' : `${n} months`;
+}
 
 type Account = {
   id: string;
@@ -149,6 +183,19 @@ export default function Goals() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
+                  {g.what_if && g.what_if.length > 0 && (
+                    <ul
+                      className="mt-1 flex flex-col gap-0.5 text-[11px] italic leading-snug"
+                      style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {g.what_if.map((w) => (
+                        <li key={w.sub}>
+                          cut {subLabel(w.sub)} {w.cut_pct}% → finishes {monthsLabel(w.months_saved)} sooner
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               );
             })}
