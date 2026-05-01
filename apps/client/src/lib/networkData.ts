@@ -62,36 +62,31 @@ const SUB_LABEL: Record<string, string> = {
   groceries: 'GROCERIES',
   transit: 'TRANSIT',
   shopping: 'SHOPPING',
-  home: 'HOME',
   personal_care: 'PERSONAL CARE',
   entertainment: 'ENTERTAINMENT',
-  health: 'HEALTH',
-  bars: 'BARS',
-  takeout: 'TAKEOUT',
+  alcohol: 'ALCOHOL',
+  restaurants: 'RESTAURANTS',
   delivery: 'DELIVERY',
   weed: 'WEED',
   streaming: 'STREAMING',
-  gaming: 'GAMING',
   treats: 'TREATS',
 };
 
-// Sub-categories grouped by their parent group. Essentials subs (food /
-// transit / health) are needs and don't show up on the Habits map — habits
-// are about discretionary behavior. They live in the source of truth at
+// Sub-categories grouped by their parent group. Essentials subs (groceries /
+// transit) are needs and don't show up on the Habits map — habits are about
+// discretionary behavior. Source of truth lives at
 // `apps/worker/src/lib/subCategoryDetect.ts`.
 const LIFESTYLE_SUBS = new Set([
   'shopping',
-  'home',
   'personal_care',
   'entertainment',
 ]);
 const INDULGENCE_SUBS = new Set([
-  'bars',
-  'takeout',
+  'alcohol',
+  'restaurants',
   'delivery',
   'weed',
   'streaming',
-  'gaming',
   'treats',
 ]);
 
@@ -470,16 +465,13 @@ const SUB_COLOR_MAP: Record<string, string> = {
   groceries: 'var(--sub-groceries)',
   transit: 'var(--sub-transit)',
   shopping: 'var(--sub-shopping)',
-  home: 'var(--sub-home)',
   personal_care: 'var(--sub-personal-care)',
   entertainment: 'var(--sub-entertainment)',
-  health: 'var(--sub-health)',
-  bars: 'var(--sub-bars)',
-  takeout: 'var(--sub-takeout)',
+  alcohol: 'var(--sub-alcohol)',
+  restaurants: 'var(--sub-restaurants)',
   delivery: 'var(--sub-delivery)',
   weed: 'var(--sub-weed)',
   streaming: 'var(--sub-streaming)',
-  gaming: 'var(--sub-gaming)',
   treats: 'var(--sub-treats)',
 };
 

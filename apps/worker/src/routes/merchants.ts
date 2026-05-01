@@ -4,10 +4,9 @@ import { writeEditLog } from '../lib/editlog.js';
 import {
   detectSubCategory,
   isSubCategory,
-  isValidForGroup,
   type SubCategory,
-  type SubGroup,
 } from '../lib/subCategoryDetect.js';
+import { reclassifyMerchant } from '../lib/merchantReclassify.js';
 
 export const merchantsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -231,7 +230,21 @@ merchantsRoutes.patch('/:id', async (c) => {
   }
 
   await writeEditLog(c.env, logs);
-  return c.json({ ok: true, backfilled });
+
+  // Cross-group reclassify: when the user confirms a sub-category whose group
+  // differs from the merchant's current category group, retroactively realign
+  // every existing transaction's GL booking. Map and books stay in sync.
+  let reclassify: import('../lib/merchantReclassify.js').ReclassifyResult | null = null;
+  if (
+    patch.sub_category_confirmed === 1 || patch.sub_category_confirmed === true
+  ) {
+    const finalSub = patch.sub_category !== undefined ? patch.sub_category : existing.sub_category;
+    if (finalSub && isSubCategory(finalSub)) {
+      reclassify = await reclassifyMerchant(c.env, id, finalSub);
+    }
+  }
+
+  return c.json({ ok: true, backfilled, reclassify });
 });
 
 /**
@@ -277,27 +290,18 @@ merchantsRoutes.get('/sub-categories/queue', async (c) => {
   }>();
   // Filter in JS. Surface two states:
   //   1. sub_category_confirmed = 0 — never confirmed; awaiting verdict.
-  //   2. sub_category_confirmed = 1 BUT the confirmed sub is no longer valid
-  //      for the merchant's category group (category was changed after
-  //      confirmation). The map already routes these to UNCONFIRMED; without
-  //      surfacing here the user has no UI path to fix them and the books
-  //      can never reconcile.
+  //   2. sub_category_confirmed = 1 BUT the stored sub value is no longer a
+  //      valid SubCategory enum value. Catches renames (e.g. session 98
+  //      renamed `fast_food`→`takeout`) so the user can re-pick. We do NOT
+  //      flag group-mismatch as stale: the user's chosen sub is the source
+  //      of truth and the map already routes by the sub's own group.
   const filtered = results
     .map((m) => {
       if (m.sub_category_confirmed === 0) {
         return { ...m, mismatch: false as boolean };
       }
-      if (!m.sub_category || !isSubCategory(m.sub_category)) {
-        return { ...m, mismatch: true as boolean };
-      }
-      const group = m.category_group;
-      if (group !== 'lifestyle' && group !== 'indulgence' && group !== 'essentials') {
-        return { ...m, mismatch: true as boolean };
-      }
-      return {
-        ...m,
-        mismatch: !isValidForGroup(m.sub_category, group as SubGroup),
-      };
+      const subInvalid = !m.sub_category || !isSubCategory(m.sub_category);
+      return { ...m, mismatch: subInvalid as boolean };
     })
     .filter((m) => m.sub_category_confirmed === 0 || m.mismatch);
   return c.json({ merchants: filtered });

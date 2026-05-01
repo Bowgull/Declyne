@@ -3,33 +3,31 @@
  *
  * Three buckets, three cadences:
  *   essentials   = needs (variable cadence within essentials, on top of fixed
- *                  bills like rent/utilities/phone). Groceries, transit, fuel,
- *                  health/pharmacy. The user can flex these but cannot skip them.
- *   lifestyle    = wants you regularly choose. Shopping, home goods, personal
- *                  care, entertainment. Discretionary cadence.
- *   indulgence   = the watched bucket. Bars, booze, takeout, delivery, weed,
- *                  streaming, gaming, treats.
+ *                  bills like rent/utilities/phone). Groceries, transit/fuel.
+ *                  The user can flex these but cannot skip them.
+ *   lifestyle    = wants you regularly choose. Shopping, personal care
+ *                  (incl. pharmacy/health), entertainment. Discretionary cadence.
+ *   indulgence   = the watched bucket. Alcohol, restaurants, delivery, weed,
+ *                  streaming, treats.
  *
  * Returns null when nothing matches confidently. The Habits queue surfaces
  * unconfirmed merchants either way (null guess included), letting the user
  * pick from the dropdown.
  */
 
-export type EssentialsSub = 'groceries' | 'transit' | 'health';
+export type EssentialsSub = 'groceries' | 'transit';
 
 export type LifestyleSub =
   | 'shopping'
-  | 'home'
   | 'personal_care'
   | 'entertainment';
 
 export type IndulgenceSub =
-  | 'bars'
-  | 'takeout'
+  | 'alcohol'
+  | 'restaurants'
   | 'delivery'
   | 'weed'
   | 'streaming'
-  | 'gaming'
   | 'treats';
 
 export type SubCategory = EssentialsSub | LifestyleSub | IndulgenceSub;
@@ -39,23 +37,20 @@ export type SubGroup = 'essentials' | 'lifestyle' | 'indulgence';
 export const ESSENTIALS_SUBS: readonly EssentialsSub[] = [
   'groceries',
   'transit',
-  'health',
 ];
 
 export const LIFESTYLE_SUBS: readonly LifestyleSub[] = [
   'shopping',
-  'home',
   'personal_care',
   'entertainment',
 ];
 
 export const INDULGENCE_SUBS: readonly IndulgenceSub[] = [
-  'bars',
-  'takeout',
+  'alcohol',
+  'restaurants',
   'delivery',
   'weed',
   'streaming',
-  'gaming',
   'treats',
 ];
 
@@ -75,17 +70,14 @@ export type Cadence = 'fixed' | 'variable' | 'discretionary';
 export const SUB_CADENCE: Record<SubCategory, Cadence> = {
   groceries: 'variable',
   transit: 'variable',
-  health: 'variable',
   shopping: 'discretionary',
-  home: 'discretionary',
   personal_care: 'discretionary',
   entertainment: 'discretionary',
-  bars: 'discretionary',
-  takeout: 'discretionary',
+  alcohol: 'discretionary',
+  restaurants: 'discretionary',
   delivery: 'discretionary',
   weed: 'discretionary',
   streaming: 'discretionary',
-  gaming: 'discretionary',
   treats: 'discretionary',
 };
 
@@ -110,13 +102,13 @@ interface Rule {
 const INDULGENCE_RULES: readonly Rule[] = [
   // streaming first — these are subscription brands, can't be confused with food
   { sub: 'streaming', patterns: ['netflix', 'spotify', 'disney+', 'disney plus', 'crave', 'prime video', 'apple music', 'apple tv', 'youtube premium', 'hulu', 'paramount+', 'paramount plus', 'hbo'] },
-  { sub: 'gaming', patterns: ['steam', 'playstation', 'xbox', 'nintendo', 'epic games', 'riot games', 'blizzard', 'twitch'] },
   { sub: 'weed', patterns: ['tokyo smoke', 'ocs.ca', 'value buds', 'fire & flower', 'fire and flower', 'one plant', 'spiritleaf', 'canna cabana', 'cannabis', 'dispensary'] },
-  { sub: 'bars', patterns: ['bar raval', 'pub', ' lcbo', 'lcbo ', 'beer store', 'wine rack', ' bar ', 'tavern', 'cocktail', 'brewery', 'brewing', 'distillery'] },
+  { sub: 'alcohol', patterns: ['bar raval', 'pub', ' lcbo', 'lcbo ', 'beer store', 'wine rack', ' bar ', 'tavern', 'cocktail', 'brewery', 'brewing', 'distillery'] },
   // delivery = app-based food delivery (Uber Eats, DoorDash, Skip)
   { sub: 'delivery', patterns: ['uber eats', 'ubereats', 'doordash', 'skip the dishes', 'skipthedishes', 'foodora'] },
-  // takeout = quick-serve restaurants you go to in person
-  { sub: 'takeout', patterns: ['mcdonald', 'tim hortons', 'tim horton', 'burger king', 'wendy', 'a&w', 'subway', 'kfc', 'popeyes', 'taco bell', 'pizza pizza', 'dominos', "domino's", 'little caesars', 'banh mi', 'pho ', 'sushi', 'thai express', 'chipotle', 'pai northern'] },
+  // restaurants = food you bought outside the home, in person — fast food
+  // and sit-down both land here. Delivery apps stay separate.
+  { sub: 'restaurants', patterns: ['mcdonald', 'tim hortons', 'tim horton', 'burger king', 'wendy', 'a&w', 'subway', 'kfc', 'popeyes', 'taco bell', 'pizza pizza', 'dominos', "domino's", 'little caesars', 'banh mi', 'pho ', 'sushi', 'thai express', 'chipotle', 'pai northern'] },
   { sub: 'treats', patterns: ['starbucks', 'second cup', 'aroma', 'dq', 'dairy queen', 'baskin', 'menchie', 'mcvities', 'cinnabon'] },
 ];
 
@@ -125,16 +117,15 @@ const ESSENTIALS_RULES: readonly Rule[] = [
   { sub: 'groceries', patterns: ['loblaws', 'no frills', 'metro ', 'sobeys', 'farm boy', 'whole foods', 'longo', 'fortinos', 'food basics', 'freshco', 'rabba', 'costco wholesale', 'walmart supercentre', 'walmart supercenter', 'grocer', 'market '] },
   // transit covers gas + transit + rideshare
   { sub: 'transit', patterns: ['ttc', 'presto', 'go transit', ' uber ', 'uber*', 'lyft', 'parking', 'green p', 'shell', 'esso', 'petro-canada', 'petro canada', 'ultramar', 'husky', 'mobil', 'chevron'] },
-  // health = pharmacy + dental + physio + optometry
-  { sub: 'health', patterns: ['shoppers drug', 'rexall', 'pharmaprix', 'pharmacy', 'dental', 'dentist', 'physio', 'chiropractor', 'massage', 'optom', 'lenscrafters'] },
 ];
 
 const LIFESTYLE_RULES: readonly Rule[] = [
-  { sub: 'personal_care', patterns: ['sephora', 'mac cosmetics', 'lush', 'salon', 'barber', 'hair ', 'nails', 'spa', 'beauty'] },
-  { sub: 'entertainment', patterns: ['cineplex', 'imax', 'tiff', 'theatre', 'theater', 'concert', 'ticketmaster', 'stubhub', 'rogers centre', 'scotiabank arena', 'museum'] },
-  { sub: 'home', patterns: ['ikea', 'home depot', "lowe's", 'lowes', 'rona', 'canadian tire', 'home hardware', 'best buy', 'staples', 'wayfair', 'structube'] },
-  // shopping is the catch-all — keep last, broadest
-  { sub: 'shopping', patterns: ['amazon', 'aritzia', 'zara', 'h&m', 'uniqlo', 'lululemon', 'roots', 'gap', 'old navy', 'nike', 'adidas', 'winners', 'marshalls', 'simons', 'hudson', 'value village'] },
+  // personal_care folds in pharmacy/dental/physio/optometry — body upkeep
+  { sub: 'personal_care', patterns: ['sephora', 'mac cosmetics', 'lush', 'salon', 'barber', 'hair ', 'nails', 'spa', 'beauty', 'shoppers drug', 'rexall', 'pharmaprix', 'pharmacy', 'dental', 'dentist', 'physio', 'chiropractor', 'massage', 'optom', 'lenscrafters'] },
+  // entertainment folds in gaming brands — anything you do for fun
+  { sub: 'entertainment', patterns: ['cineplex', 'imax', 'tiff', 'theatre', 'theater', 'concert', 'ticketmaster', 'stubhub', 'rogers centre', 'scotiabank arena', 'museum', 'steam', 'playstation', 'xbox', 'nintendo', 'epic games', 'riot games', 'blizzard', 'twitch'] },
+  // shopping folds in home goods — anything you buy. Keep last, broadest.
+  { sub: 'shopping', patterns: ['ikea', 'home depot', "lowe's", 'lowes', 'rona', 'canadian tire', 'home hardware', 'best buy', 'staples', 'wayfair', 'structube', 'amazon', 'aritzia', 'zara', 'h&m', 'uniqlo', 'lululemon', 'roots', 'gap', 'old navy', 'nike', 'adidas', 'winners', 'marshalls', 'simons', 'hudson', 'value village'] },
 ];
 
 /**
@@ -171,16 +162,13 @@ export function detectSubCategory(
 export const SUB_LABELS: Record<SubCategory, string> = {
   groceries: 'groceries',
   transit: 'transit',
-  health: 'health',
   shopping: 'shopping',
-  home: 'home',
   personal_care: 'personal care',
   entertainment: 'entertainment',
-  bars: 'bars',
-  takeout: 'takeout',
+  alcohol: 'alcohol',
+  restaurants: 'restaurants',
   delivery: 'delivery',
   weed: 'weed',
   streaming: 'streaming',
-  gaming: 'gaming',
   treats: 'treats',
 };

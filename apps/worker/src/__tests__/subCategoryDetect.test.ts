@@ -72,13 +72,13 @@ describe('detectSubCategory — indulgence', () => {
     expect(detectSubCategory('Tokyo Smoke Queen St')).toBe('weed');
     expect(detectSubCategory('OCS.CA online')).toBe('weed');
   });
-  it('bars and LCBO', () => {
-    expect(detectSubCategory('LCBO #482')).toBe('bars');
-    expect(detectSubCategory('Bar Raval')).toBe('bars');
+  it('alcohol and LCBO', () => {
+    expect(detectSubCategory('LCBO #482')).toBe('alcohol');
+    expect(detectSubCategory('Bar Raval')).toBe('alcohol');
   });
-  it('quick-serve restaurants land in takeout', () => {
-    expect(detectSubCategory("McDonald's #1234")).toBe('takeout');
-    expect(detectSubCategory('Tim Hortons #4823')).toBe('takeout');
+  it('quick-serve and sit-down both land in restaurants', () => {
+    expect(detectSubCategory("McDonald's #1234")).toBe('restaurants');
+    expect(detectSubCategory('Tim Hortons #4823')).toBe('restaurants');
   });
   it('delivery apps land in delivery', () => {
     expect(detectSubCategory('Uber Eats')).toBe('delivery');
@@ -86,10 +86,6 @@ describe('detectSubCategory — indulgence', () => {
   });
   it('coffee/treats', () => {
     expect(detectSubCategory('Starbucks Bay & College')).toBe('treats');
-  });
-  it('gaming platforms', () => {
-    expect(detectSubCategory('Steam Purchase')).toBe('gaming');
-    expect(detectSubCategory('PLAYSTATION NETWORK')).toBe('gaming');
   });
 });
 
@@ -104,16 +100,25 @@ describe('detectSubCategory — essentials', () => {
     expect(detectSubCategory('Shell #4821', 'essentials')).toBe('transit');
     expect(detectSubCategory('Esso Bay & College', 'essentials')).toBe('transit');
   });
-  it('pharmacy and dental are health', () => {
-    expect(detectSubCategory('Shoppers Drug Mart', 'essentials')).toBe('health');
-    expect(detectSubCategory('Bayview Dental', 'essentials')).toBe('health');
+  it('essentials group no longer detects pharmacy (folded into lifestyle/personal_care)', () => {
+    expect(detectSubCategory('Shoppers Drug Mart', 'essentials')).toBeNull();
+    expect(detectSubCategory('Bayview Dental', 'essentials')).toBeNull();
   });
 });
 
 describe('detectSubCategory — lifestyle', () => {
-  it('home stores', () => {
-    expect(detectSubCategory('IKEA North York', 'lifestyle')).toBe('home');
-    expect(detectSubCategory('Canadian Tire', 'lifestyle')).toBe('home');
+  it('pharmacy + body upkeep land in personal_care', () => {
+    expect(detectSubCategory('Shoppers Drug Mart', 'lifestyle')).toBe('personal_care');
+    expect(detectSubCategory('Bayview Dental', 'lifestyle')).toBe('personal_care');
+    expect(detectSubCategory('Sephora Eaton', 'lifestyle')).toBe('personal_care');
+  });
+  it('gaming brands land in entertainment', () => {
+    expect(detectSubCategory('Steam Purchase', 'lifestyle')).toBe('entertainment');
+    expect(detectSubCategory('PLAYSTATION NETWORK', 'lifestyle')).toBe('entertainment');
+  });
+  it('home goods land in shopping', () => {
+    expect(detectSubCategory('IKEA North York', 'lifestyle')).toBe('shopping');
+    expect(detectSubCategory('Canadian Tire', 'lifestyle')).toBe('shopping');
   });
   it('shopping catch-all', () => {
     expect(detectSubCategory('Amazon.ca', 'lifestyle')).toBe('shopping');
@@ -149,8 +154,5 @@ describe('detectSubCategory — group constrains rule set', () => {
   });
   it('indulgence group ignores essentials-only patterns', () => {
     expect(detectSubCategory('Loblaws Queen', 'indulgence')).toBeNull();
-  });
-  it('lifestyle group ignores essentials-only patterns', () => {
-    expect(detectSubCategory('Shoppers Drug Mart', 'lifestyle')).toBeNull();
   });
 });

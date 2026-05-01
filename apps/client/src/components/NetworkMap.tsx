@@ -46,7 +46,7 @@ export interface NetworkNode {
   cat?: NetworkCat;
   /** Hub only — stripe color. */
   hubKind?: HubKind;
-  /** Habits map: sub-category id (food, takeout, weed, etc.). When present
+  /** Habits map: sub-category id (groceries, restaurants, weed, etc.). When present
    *  it overrides the merchant fill and the hub stripe so each sub gets its
    *  own readable color. */
   subCategory?: string;
@@ -102,22 +102,19 @@ const HUB_STRIPE: Record<HubKind, string> = {
   indulgence: 'var(--cat-indulgence)',
 };
 
-// 14 sub-category hues. Keep the IDs aligned with the worker vocab in
+// 11 sub-category hues. Keep the IDs aligned with the worker vocab in
 // subCategoryDetect.ts. Underscores in source → hyphens in CSS-var names.
 const SUB_COLOR: Record<string, string> = {
   groceries: 'var(--sub-groceries)',
   transit: 'var(--sub-transit)',
   shopping: 'var(--sub-shopping)',
-  home: 'var(--sub-home)',
   personal_care: 'var(--sub-personal-care)',
   entertainment: 'var(--sub-entertainment)',
-  health: 'var(--sub-health)',
-  bars: 'var(--sub-bars)',
-  takeout: 'var(--sub-takeout)',
+  alcohol: 'var(--sub-alcohol)',
+  restaurants: 'var(--sub-restaurants)',
   delivery: 'var(--sub-delivery)',
   weed: 'var(--sub-weed)',
   streaming: 'var(--sub-streaming)',
-  gaming: 'var(--sub-gaming)',
   treats: 'var(--sub-treats)',
 };
 

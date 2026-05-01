@@ -87,7 +87,7 @@ function SubCatSwatch() {
     <svg width="52" height="10" viewBox="0 0 52 10" aria-hidden="true">
       <circle cx="4"  cy="5" r="3.5" fill="var(--sub-food)" />
       <circle cx="16" cy="5" r="3.5" fill="var(--sub-shopping)" />
-      <circle cx="28" cy="5" r="3.5" fill="var(--sub-bars)" />
+      <circle cx="28" cy="5" r="3.5" fill="var(--sub-alcohol)" />
       <circle cx="40" cy="5" r="3.5" fill="var(--sub-streaming)" />
       <circle cx="52" cy="5" r="3.5" fill="var(--sub-weed)" />
     </svg>
