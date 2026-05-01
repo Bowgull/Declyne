@@ -1,6 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { parseCounterpartyInput } from '../routes/counterparties.js';
+import { parseCounterpartyInput, directionFromGlBalance } from '../routes/counterparties.js';
 import { parseSplitInput } from '../routes/splits.js';
+
+describe('directionFromGlBalance', () => {
+  it('positive balance => owes_you (they owe me)', () => {
+    expect(directionFromGlBalance(4750)).toBe('owes_you');
+    expect(directionFromGlBalance(1)).toBe('owes_you');
+  });
+  it('negative balance => you_owe (I owe them)', () => {
+    expect(directionFromGlBalance(-110000)).toBe('you_owe');
+    expect(directionFromGlBalance(-1)).toBe('you_owe');
+  });
+  it('zero balance => settled', () => {
+    expect(directionFromGlBalance(0)).toBe('settled');
+  });
+});
 
 describe('parseCounterpartyInput', () => {
   it('accepts a minimal valid input', () => {
