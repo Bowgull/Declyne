@@ -3,6 +3,7 @@ import {
   buildForecast,
   projectPaydays,
   projectGoalCompletion,
+  projectGoalWithCuts,
   type ForecastEventInput,
 } from '../lib/forecast.js';
 
@@ -165,5 +166,130 @@ describe('projectGoalCompletion', () => {
         cadence_days: 14,
       }),
     ).toBeNull();
+  });
+});
+
+describe('projectGoalWithCuts', () => {
+  // Baseline goal: $1000 remaining at $50/paycheque, next_payday 2026-05-02,
+  // bi-weekly. ceil(1000/50) = 20 periods, 19 cadence gaps × 14d = 266 days
+  // out from 2026-05-02 → 2027-01-23.
+  const base = {
+    remaining_cents: 100000,
+    per_paycheque_cents: 5000,
+    next_payday: '2026-05-02' as const,
+    cadence_days: 14,
+    current_complete_date: '2027-01-23',
+  };
+
+  it('returns top 3 cuts ranked by months_saved desc', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      subs: [
+        // Big monthly burn → biggest months saved
+        { sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' },
+        { sub: 'bars', monthly_burn_cents: 30000, velocity: 'accelerating' },
+        { sub: 'weed', monthly_burn_cents: 10000, velocity: 'accelerating' },
+        { sub: 'gaming', monthly_burn_cents: 4000, velocity: 'accelerating' },
+      ],
+    });
+    expect(out.length).toBe(3);
+    expect(out[0]!.sub).toBe('takeout');
+    expect(out[1]!.sub).toBe('bars');
+    expect(out[2]!.sub).toBe('weed');
+    expect(out[0]!.months_saved).toBeGreaterThanOrEqual(out[1]!.months_saved);
+    expect(out[1]!.months_saved).toBeGreaterThanOrEqual(out[2]!.months_saved);
+  });
+
+  it('skips non-accelerating subs', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      subs: [
+        { sub: 'takeout', monthly_burn_cents: 60000, velocity: 'cooling' },
+        { sub: 'bars', monthly_burn_cents: 30000, velocity: 'steady' },
+      ],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('returns empty when no current_complete_date', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      current_complete_date: null,
+      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('returns empty when remaining_cents is 0', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      remaining_cents: 0,
+      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('returns empty when next_payday is null', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      next_payday: null,
+      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('drops cuts that save 0 months (dust)', () => {
+    // $200/mo cut × 50% = $100/mo freed = $46/paycheque. New per = $96.
+    // ceil(100000/9600)=11 periods on a 20-period base. Saves real months.
+    // But $20/mo cut × 50% = $10/mo = $5/paycheque, ceil(100000/5500)=19, saves only days → 0 months.
+    const out = projectGoalWithCuts({
+      ...base,
+      subs: [
+        { sub: 'gaming', monthly_burn_cents: 2000, velocity: 'accelerating' },
+      ],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('default cut_pct is 50', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+    });
+    expect(out.length).toBe(1);
+    expect(out[0]!.cut_pct).toBe(50);
+    expect(out[0]!.monthly_freed_cents).toBe(30000);
+  });
+
+  it('respects custom cut_pct', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      cut_pct: 25,
+      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+    });
+    expect(out.length).toBe(1);
+    expect(out[0]!.cut_pct).toBe(25);
+    expect(out[0]!.monthly_freed_cents).toBe(15000);
+  });
+
+  it('skips zero or negative monthly_burn', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      subs: [
+        { sub: 'takeout', monthly_burn_cents: 0, velocity: 'accelerating' },
+        { sub: 'bars', monthly_burn_cents: -100, velocity: 'accelerating' },
+      ],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('new_complete_date is on or before current_complete_date', () => {
+    const out = projectGoalWithCuts({
+      ...base,
+      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+    });
+    expect(Date.parse(out[0]!.new_complete_date)).toBeLessThanOrEqual(
+      Date.parse(base.current_complete_date),
+    );
   });
 });

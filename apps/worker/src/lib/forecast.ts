@@ -115,3 +115,90 @@ export function projectGoalCompletion(input: {
   const days = (periods - 1) * Math.max(1, Math.round(input.cadence_days));
   return addDays(input.next_payday, days);
 }
+
+// ---------------------------------------------------------------------------
+// Session 8 (connect plan): habit context into goal projections.
+//
+// For each accelerating discretionary sub-category, simulate cutting it by 50%
+// and redirecting the freed monthly cents into the goal. Returns the top 3
+// candidates by months_saved descending. Pure — no DB.
+//
+// Math:
+//   monthly_freed = round(monthly_burn × cut_pct / 100)
+//   per_paycheque_freed = round(monthly_freed × 12 / 26)
+//   new_per = current_per + per_paycheque_freed
+//   new_complete = projectGoalCompletion(remaining, new_per, next_payday, cadence)
+//   months_saved = round((current_complete_ms - new_complete_ms) / (30 days))
+// ---------------------------------------------------------------------------
+
+export interface GoalWhatIf {
+  sub: string;
+  cut_pct: number;
+  monthly_freed_cents: number;
+  new_complete_date: string;
+  months_saved: number;
+}
+
+export interface AcceleratingSub {
+  sub: string;
+  monthly_burn_cents: number;
+  velocity: 'accelerating' | 'steady' | 'cooling';
+}
+
+const PAYCHEQUES_PER_YEAR = 26;
+const MONTHS_PER_YEAR = 12;
+
+export function projectGoalWithCuts(input: {
+  remaining_cents: number;
+  per_paycheque_cents: number;
+  next_payday: string | null;
+  cadence_days: number;
+  current_complete_date: string | null;
+  subs: AcceleratingSub[];
+  cut_pct?: number;
+}): GoalWhatIf[] {
+  const cut_pct = input.cut_pct ?? 50;
+  if (!input.current_complete_date) return [];
+  if (input.remaining_cents <= 0) return [];
+  if (!input.next_payday) return [];
+
+  const currentMs = Date.parse(input.current_complete_date);
+  if (!Number.isFinite(currentMs)) return [];
+
+  const candidates: GoalWhatIf[] = [];
+  for (const s of input.subs) {
+    if (s.velocity !== 'accelerating') continue;
+    if (s.monthly_burn_cents <= 0) continue;
+
+    const monthly_freed_cents = Math.round((s.monthly_burn_cents * cut_pct) / 100);
+    if (monthly_freed_cents <= 0) continue;
+
+    const per_paycheque_freed = Math.round((monthly_freed_cents * MONTHS_PER_YEAR) / PAYCHEQUES_PER_YEAR);
+    if (per_paycheque_freed <= 0) continue;
+
+    const new_complete_date = projectGoalCompletion({
+      remaining_cents: input.remaining_cents,
+      per_paycheque_cents: input.per_paycheque_cents + per_paycheque_freed,
+      next_payday: input.next_payday,
+      cadence_days: input.cadence_days,
+    });
+    if (!new_complete_date) continue;
+
+    const newMs = Date.parse(new_complete_date);
+    if (!Number.isFinite(newMs)) continue;
+
+    const months_saved = Math.round((currentMs - newMs) / (30 * MS_PER_DAY));
+    if (months_saved <= 0) continue;
+
+    candidates.push({
+      sub: s.sub,
+      cut_pct,
+      monthly_freed_cents,
+      new_complete_date,
+      months_saved,
+    });
+  }
+
+  candidates.sort((a, b) => b.months_saved - a.months_saved);
+  return candidates.slice(0, 3);
+}

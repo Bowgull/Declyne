@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { newId } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
-import { projectGoalCompletion } from '../lib/forecast.js';
+import { projectGoalCompletion, projectGoalWithCuts, type GoalWhatIf } from '../lib/forecast.js';
+import { loadHabitContext } from './habits.js';
 
 export const goalsRoutes = new Hono<{ Bindings: Env }>();
 
@@ -137,6 +138,19 @@ goalsRoutes.get('/', async (c) => {
     ? new Date(Date.parse(period.end_date) + 86_400_000).toISOString().slice(0, 10)
     : null;
   const todayMs = Date.now();
+  const todayIso = new Date(todayMs).toISOString().slice(0, 10);
+
+  // Habit context drives the per-goal what-if cuts. Best-effort: failure
+  // leaves what_if = [] on every goal, never breaks the route.
+  let acceleratingSubs: { sub: string; monthly_burn_cents: number; velocity: 'accelerating' | 'steady' | 'cooling' }[] = [];
+  try {
+    const ctx = await loadHabitContext(c.env, todayIso);
+    acceleratingSubs = ctx.by_sub_category
+      .filter((r) => r.velocity === 'accelerating')
+      .map((r) => ({ sub: r.sub, monthly_burn_cents: r.monthly_burn_cents, velocity: r.velocity }));
+  } catch {
+    acceleratingSubs = [];
+  }
 
   const goals = (results ?? []).map((g) => {
     const remaining = Math.max(0, g.target_cents - g.progress_cents);
@@ -149,10 +163,21 @@ goalsRoutes.get('/', async (c) => {
       next_payday,
       cadence_days: 14,
     });
+    const what_if: GoalWhatIf[] = g.archived
+      ? []
+      : projectGoalWithCuts({
+          remaining_cents: remaining,
+          per_paycheque_cents,
+          next_payday,
+          cadence_days: 14,
+          current_complete_date: projected_complete_date,
+          subs: acceleratingSubs,
+        });
     return {
       ...g,
       per_paycheque_cents,
       projected_complete_date,
+      what_if,
     };
   });
 
