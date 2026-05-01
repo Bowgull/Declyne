@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { hashPlanInputs, validateAiRationale } from '../routes/plan.js';
+import { hashPlanInputs, trimHabitContextForAi, validateAiRationale } from '../routes/plan.js';
+import type { HabitContext } from '../lib/habitContext.js';
 
 const baseDebts = [
   {
@@ -127,5 +128,70 @@ describe('validateAiRationale', () => {
     const v = validateAiRationale({ rationale: 'fine' });
     if ('error' in v) throw new Error('should pass');
     expect(v.observations).toEqual([]);
+  });
+});
+
+describe('trimHabitContextForAi', () => {
+  const fullCtx: HabitContext = {
+    by_sub_category: [
+      {
+        sub: 'bars',
+        spend_30d_cents: 40_000,
+        spend_90d_cents: 90_000,
+        monthly_burn_cents: 30_000,
+        velocity: 'accelerating',
+        merchant_count: 2,
+        top_merchants: [
+          { name: 'LCBO', spend_90d_cents: 60_000 },
+          { name: 'Beer Store', spend_90d_cents: 30_000 },
+        ],
+      },
+    ],
+    subscription_bleed: {
+      monthly_cents: 4_500,
+      annual_cents: 54_000,
+      kill_candidates: [
+        { merchant_id: 'm_spotify', name: 'Spotify', monthly_cents: 1_300, reason: 'undecided' },
+      ],
+    },
+    hot_categories: ['bars'],
+    cold_categories: [],
+  };
+
+  it('drops top_merchants from sub-category rows', () => {
+    const t = trimHabitContextForAi(fullCtx);
+    expect(t.by_sub_category[0]).toEqual({
+      sub: 'bars',
+      monthly_burn_cents: 30_000,
+      velocity: 'accelerating',
+    });
+    expect((t.by_sub_category[0] as Record<string, unknown>).top_merchants).toBeUndefined();
+  });
+
+  it('drops merchant_id and reason from kill_candidates', () => {
+    const t = trimHabitContextForAi(fullCtx);
+    expect(t.subscription_bleed.kill_candidates).toEqual([
+      { name: 'Spotify', monthly_cents: 1_300 },
+    ]);
+  });
+
+  it('preserves bleed totals + hot/cold lists', () => {
+    const t = trimHabitContextForAi(fullCtx);
+    expect(t.subscription_bleed.monthly_cents).toBe(4_500);
+    expect(t.subscription_bleed.annual_cents).toBe(54_000);
+    expect(t.hot_categories).toEqual(['bars']);
+    expect(t.cold_categories).toEqual([]);
+  });
+
+  it('handles empty context', () => {
+    const empty: HabitContext = {
+      by_sub_category: [],
+      subscription_bleed: { monthly_cents: 0, annual_cents: 0, kill_candidates: [] },
+      hot_categories: [],
+      cold_categories: [],
+    };
+    const t = trimHabitContextForAi(empty);
+    expect(t.by_sub_category).toEqual([]);
+    expect(t.subscription_bleed.kill_candidates).toEqual([]);
   });
 });
