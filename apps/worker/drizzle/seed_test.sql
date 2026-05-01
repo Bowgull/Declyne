@@ -135,7 +135,10 @@ INSERT OR REPLACE INTO transactions (id, account_id, posted_at, amount_cents, de
   -- Internet: Rogers Ignite 150 $80/mo (20th)
   ('tx_net_02','acc_td_chq','2026-02-20',-8000,'ROGERS INTERNET','m_rogers','cat_internet','h_net_02','csv','2026-02-20T09:00:00Z'),
   ('tx_net_03','acc_td_chq','2026-03-20',-8000,'ROGERS INTERNET','m_rogers','cat_internet','h_net_03','csv','2026-03-20T09:00:00Z'),
-  ('tx_net_04','acc_td_chq','2026-04-21',-8000,'ROGERS INTERNET','m_rogers','cat_internet','h_net_04','csv','2026-04-21T09:00:00Z'),
+  -- session 10 seed tune: shifted from 2026-04-21 to 2026-04-08 so the
+  -- detector predicts next due ~2026-05-02 — inside the current paycheque
+  -- window. Money map's BILLS hub renders on the seed.
+  ('tx_net_04','acc_td_chq','2026-04-08',-8000,'ROGERS INTERNET','m_rogers','cat_internet','h_net_04','csv','2026-04-08T09:00:00Z'),
 
   -- Tenant insurance: Intact $32/mo (5th)
   ('tx_ins_02','acc_td_chq','2026-02-05',-3200,'INTACT INSURANCE','m_intact','cat_insurance','h_ins_02','csv','2026-02-05T09:00:00Z'),
