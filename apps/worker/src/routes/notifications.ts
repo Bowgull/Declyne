@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
-import { detectRecurring, predictNextPayday, type RecurringTxn } from '../lib/recurring.js';
+import { predictNextPayday } from '../lib/recurring.js';
+import { loadRecurringContext } from '../lib/recurringContext.js';
 import {
   buildNotificationSchedule,
   type BillInput,
@@ -20,20 +21,8 @@ const HORIZON_DAYS = 30;
 notificationsRoutes.get('/schedule', async (c) => {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { results: txnRows } = await c.env.DB.prepare(
-    `SELECT t.posted_at as posted_at,
-            t.amount_cents as amount_cents,
-            t.merchant_id as merchant_id,
-            m.display_name as merchant_name,
-            c."group" as "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now', '-90 days')
-       AND t.amount_cents < 0
-       AND t.merchant_id IS NOT NULL`,
-  ).all<RecurringTxn>();
-  const detected = detectRecurring(txnRows, today, HORIZON_DAYS);
+  const ctx = await loadRecurringContext(c.env, today);
+  const detected = ctx.getRecurring(HORIZON_DAYS);
   const bills: BillInput[] = detected.map((b) => ({
     merchant_name: b.merchant_name,
     amount_cents: b.amount_cents,

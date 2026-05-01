@@ -33,10 +33,9 @@
 
 import type { Env } from '../env.js';
 import {
-  detectRecurring,
   type RecurringPrediction,
-  type RecurringTxn,
 } from './recurring.js';
+import { loadRecurringContext, type RecurringContext } from './recurringContext.js';
 import { minPaymentCents, type PlanDebtInput } from './paymentPlan.js';
 
 // ---------------------------------------------------------------------------
@@ -356,22 +355,8 @@ async function readNumberSetting(env: Env, key: string, fallback: number): Promi
   return Number.isFinite(n) ? n : fallback;
 }
 
-async function loadRecurring(env: Env, today: string, horizonDays: number): Promise<RecurringPrediction[]> {
-  const { results } = await env.DB.prepare(
-    `SELECT t.posted_at as posted_at,
-            t.amount_cents as amount_cents,
-            t.merchant_id as merchant_id,
-            m.display_name as merchant_name,
-            c."group" as "group"
-     FROM transactions t
-     LEFT JOIN merchants m ON m.id = t.merchant_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE t.posted_at >= date('now', '-90 days')
-       AND t.amount_cents < 0
-       AND t.merchant_id IS NOT NULL`,
-  ).all<RecurringTxn>();
-  return detectRecurring(results ?? [], today, horizonDays);
-}
+// Reused via the shared per-request RecurringContext when callers pass one in.
+// loadPaycheckInputs falls back to loading its own context if none is provided.
 
 interface DebtRow {
   id: string;
@@ -498,7 +483,10 @@ async function loadChargeVelocity(env: Env, debts: DebtRow[]): Promise<Record<st
   return out;
 }
 
-export async function loadPaycheckInputs(env: Env): Promise<PaycheckInputs | null> {
+export async function loadPaycheckInputs(
+  env: Env,
+  ctx?: RecurringContext,
+): Promise<PaycheckInputs | null> {
   const period = await loadCurrentPeriod(env);
   if (!period) return null;
   const today = new Date().toISOString().slice(0, 10);
@@ -506,7 +494,8 @@ export async function loadPaycheckInputs(env: Env): Promise<PaycheckInputs | nul
   // Forward window: today through period end. Capped at 31 days for the
   // detector horizon (longer cadences fall outside reasonable bill prediction).
   const horizon = Math.max(1, Math.min(31, Math.round((Date.parse(period.end_date) - Date.parse(today)) / 86_400_000) + 1));
-  const recurring = await loadRecurring(env, today, horizon);
+  const context = ctx ?? (await loadRecurringContext(env, today));
+  const recurring = context.getRecurring(horizon);
   const bills = billsInWindow(recurring, today, period.end_date);
   const recurring_savings = recurringSavingsInWindow(recurring, today, period.end_date);
 
@@ -568,8 +557,11 @@ export async function loadPaycheckInputs(env: Env): Promise<PaycheckInputs | nul
 // Paycheque page consumes. Includes the recommended_debt_extra computed
 // from the kernel-style available number (NOT a kernel run — the route can
 // run the kernel separately if it wants the per-debt allocations).
-export async function loadPaycheckSnapshot(env: Env): Promise<PaycheckSnapshot | null> {
-  const inputs = await loadPaycheckInputs(env);
+export async function loadPaycheckSnapshot(
+  env: Env,
+  ctx?: RecurringContext,
+): Promise<PaycheckSnapshot | null> {
+  const inputs = await loadPaycheckInputs(env, ctx);
   if (!inputs) return null;
 
   const committed = computePaycheckCommitments({
