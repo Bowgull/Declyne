@@ -45,6 +45,7 @@ import { paychequeRoutes } from './routes/paycheque.js';
 import { transactionsRoutes } from './routes/transactions.js';
 import { forecastRoutes } from './routes/forecast.js';
 import { taxYearRoutes } from './routes/taxYear.js';
+import { habitsRoutes } from './routes/habits.js';
 import { auth } from './middleware/auth.js';
 import { redactSensitive } from './lib/logRedact.js';
 
@@ -123,6 +124,7 @@ api.route('/paycheque', paychequeRoutes);
 api.route('/transactions', transactionsRoutes);
 api.route('/forecast', forecastRoutes);
 api.route('/settings/tax-year', taxYearRoutes);
+api.route('/habits', habitsRoutes);
 
 app.route('/api', api);
 
