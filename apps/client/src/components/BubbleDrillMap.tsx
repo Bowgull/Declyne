@@ -466,12 +466,7 @@ export default function BubbleDrillMap({
       <div
         key={sceneKey}
         style={{
-          background: isMoneyContext
-            ? 'radial-gradient(ellipse at center, rgba(242,236,224,0.05) 0%, transparent 60%), linear-gradient(180deg, #1a141d 0%, #0f0c12 100%)'
-            : 'radial-gradient(ellipse at center, rgba(158,120,185,0.07) 0%, transparent 65%), linear-gradient(180deg, #1a141d 0%, #0f0c12 100%)',
-          borderRadius: 6,
           overflow: 'hidden',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 16px 32px -16px rgba(0,0,0,0.7)',
           animation: `${sceneAnim} 460ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards`,
         }}
       >

@@ -2,6 +2,25 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatCents } from '@declyne/shared';
+import { showVocabularyToast } from '../lib/vocabularyToast';
+
+interface ReclassifyResp {
+  reclassify?: {
+    reclassified: boolean;
+    from_group: string | null;
+    to_group: string;
+    txn_count: number;
+    je_count: number;
+  } | null;
+}
+
+function reclassifyToast(r: NonNullable<ReclassifyResp['reclassify']>, name: string): string {
+  if (!r.reclassified) return '';
+  const from = (r.from_group ?? 'unknown').replace(/^\w/, (c) => c.toUpperCase());
+  const to = r.to_group.replace(/^\w/, (c) => c.toUpperCase());
+  const n = r.je_count;
+  return `${name} moved from ${from} to ${to} · ${n} ${n === 1 ? 'entry' : 'entries'} adjusted`;
+}
 
 type Group = 'essentials' | 'lifestyle' | 'indulgence';
 
@@ -18,22 +37,20 @@ interface QueueRow {
   mismatch?: boolean;
 }
 
-const ESSENTIALS_SUBS = ['groceries', 'transit', 'health'] as const;
+const ESSENTIALS_SUBS = ['groceries', 'transit'] as const;
 
 const LIFESTYLE_SUBS = [
   'shopping',
-  'home',
   'personal_care',
   'entertainment',
 ] as const;
 
 const INDULGENCE_SUBS = [
-  'bars',
-  'takeout',
+  'alcohol',
+  'restaurants',
   'delivery',
   'weed',
   'streaming',
-  'gaming',
   'treats',
 ] as const;
 
@@ -41,16 +58,13 @@ const LABEL: Record<string, string> = {
   groceries: 'groceries',
   transit: 'transit',
   shopping: 'shopping',
-  home: 'home',
   personal_care: 'personal care',
   entertainment: 'entertainment',
-  health: 'health',
-  bars: 'bars',
-  takeout: 'takeout',
+  alcohol: 'alcohol',
+  restaurants: 'restaurants',
   delivery: 'delivery',
   weed: 'weed',
   streaming: 'streaming',
-  gaming: 'gaming',
   treats: 'treats',
 };
 
@@ -58,18 +72,21 @@ const SUB_VAR: Record<string, string> = {
   groceries: '--sub-groceries',
   transit: '--sub-transit',
   shopping: '--sub-shopping',
-  home: '--sub-home',
   personal_care: '--sub-personal-care',
   entertainment: '--sub-entertainment',
-  health: '--sub-health',
-  bars: '--sub-bars',
-  takeout: '--sub-takeout',
+  alcohol: '--sub-alcohol',
+  restaurants: '--sub-restaurants',
   delivery: '--sub-delivery',
   weed: '--sub-weed',
   streaming: '--sub-streaming',
-  gaming: '--sub-gaming',
   treats: '--sub-treats',
 };
+
+const VALID_SUBS = new Set<string>([
+  ...ESSENTIALS_SUBS,
+  ...LIFESTYLE_SUBS,
+  ...INDULGENCE_SUBS,
+]);
 
 function allSubs(): readonly string[] {
   return [...ESSENTIALS_SUBS, ...LIFESTYLE_SUBS, ...INDULGENCE_SUBS];
@@ -112,14 +129,21 @@ export default function SubCategoryQueue() {
   });
 
   const approve = useMutation({
-    mutationFn: ({ id, sub }: { id: string; sub: string }) =>
-      api.patch(`/api/merchants/${id}`, {
+    mutationFn: async ({ id, sub, name }: { id: string; sub: string; name: string }) => {
+      const resp = await api.patch<ReclassifyResp>(`/api/merchants/${id}`, {
         sub_category: sub,
         sub_category_confirmed: 1,
-      }),
-    onSuccess: () => {
+      });
+      return { resp, name };
+    },
+    onSuccess: ({ resp, name }) => {
       qc.invalidateQueries({ queryKey: ['sub-category-queue'] });
       qc.invalidateQueries({ queryKey: ['merchants', 'habits'] });
+      qc.invalidateQueries({ queryKey: ['paycheque-snapshot'] });
+      qc.invalidateQueries({ queryKey: ['plan'] });
+      if (resp.reclassify?.reclassified) {
+        showVocabularyToast(reclassifyToast(resp.reclassify, name));
+      }
     },
   });
 
@@ -129,24 +153,42 @@ export default function SubCategoryQueue() {
       // edited it). Rows without a sub are skipped and stay picked so the
       // user sees what's left to handle.
       let approved = 0;
+      let reclassifyCount = 0;
+      let totalEntries = 0;
       const skippedIds: string[] = [];
       for (const r of rows) {
-        const sub = override[r.id] ?? r.sub_category;
-        if (!sub) {
+        // Use the user's override if set, else the merchant's existing sub.
+        // Skip rows whose would-be-written sub isn't in the current valid set
+        // (no detector guess, or a renamed/dropped value left in the DB).
+        // Re-approving an invalid sub would just loop the row back into the
+        // queue forever — make the user pick from the tray.
+        const candidate = override[r.id] ?? r.sub_category;
+        if (!candidate || !VALID_SUBS.has(candidate)) {
           skippedIds.push(r.id);
           continue;
         }
-        await api.patch(`/api/merchants/${r.id}`, {
-          sub_category: sub,
+        const resp = await api.patch<ReclassifyResp>(`/api/merchants/${r.id}`, {
+          sub_category: candidate,
           sub_category_confirmed: 1,
         });
         approved++;
+        if (resp.reclassify?.reclassified) {
+          reclassifyCount++;
+          totalEntries += resp.reclassify.je_count;
+        }
       }
-      return { approved, skippedIds };
+      return { approved, skippedIds, reclassifyCount, totalEntries };
     },
-    onSuccess: ({ approved, skippedIds }) => {
+    onSuccess: ({ approved, skippedIds, reclassifyCount, totalEntries }) => {
       qc.invalidateQueries({ queryKey: ['sub-category-queue'] });
       qc.invalidateQueries({ queryKey: ['merchants', 'habits'] });
+      qc.invalidateQueries({ queryKey: ['paycheque-snapshot'] });
+      qc.invalidateQueries({ queryKey: ['plan'] });
+      if (reclassifyCount > 0) {
+        showVocabularyToast(
+          `${reclassifyCount} ${reclassifyCount === 1 ? 'merchant' : 'merchants'} reclassified · ${totalEntries} entries adjusted in the books`,
+        );
+      }
       // Skipped rows stay picked so the user sees what still needs a sub.
       setPicked(new Set(skippedIds));
       setOverride((p) => {
@@ -297,21 +339,9 @@ export default function SubCategoryQueue() {
                 <div className="ledger-row-main">
                   <span className="ledger-row-label">
                     {r.display_name}
-                    {r.mismatch && (
-                      <span
-                        className="label-tag"
-                        style={{
-                          marginLeft: 8,
-                          color: 'var(--cat-indulgence)',
-                          letterSpacing: '0.16em',
-                        }}
-                      >
-                        STALE
-                      </span>
-                    )}
                   </span>
                   <span className="ledger-row-hint">
-                    {guess ? (
+                    {guess && VALID_SUBS.has(guess) ? (
                       <>
                         guess ·{' '}
                         {guessVar && (
@@ -332,7 +362,7 @@ export default function SubCategoryQueue() {
                       </>
                     ) : (
                       <span style={{ color: 'var(--cat-indulgence)' }}>
-                        unrecognized
+                        needs a choice
                       </span>
                     )}
                     {' · '}
@@ -397,7 +427,7 @@ export default function SubCategoryQueue() {
                       onClick={() => {
                         if (!choice) return;
                         approve.mutate(
-                          { id: r.id, sub: choice },
+                          { id: r.id, sub: choice, name: r.display_name },
                           {
                             onSuccess: () => {
                               setOpen(null);
@@ -432,7 +462,10 @@ export default function SubCategoryQueue() {
         <ApproveStripe
           count={picked.size}
           confirmableCount={
-            stackedRows.filter((r) => override[r.id] ?? r.sub_category).length
+            stackedRows.filter((r) => {
+              const candidate = override[r.id] ?? r.sub_category;
+              return !!candidate && VALID_SUBS.has(candidate);
+            }).length
           }
           pending={approveStack.isPending}
           result={stackResult}

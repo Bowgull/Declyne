@@ -40,16 +40,13 @@
   --sub-groceries:      #b88e7a;     /* clay */
   --sub-transit:        #7b8e9c;     /* slate-warm */
   --sub-shopping:       #bf8a8a;     /* dusty rose */
-  --sub-home:           #9c8a6a;     /* olive */
   --sub-personal-care:  #c9a896;     /* peach */
   --sub-entertainment:  #a890b0;     /* muted lavender */
-  --sub-health:         #94a888;     /* sage */
-  --sub-bars:           #a85c4a;     /* deep sienna */
-  --sub-takeout:        #d99a5a;     /* warm amber */
+  --sub-alcohol:        #a85c4a;     /* deep sienna */
+  --sub-restaurants:    #d99a5a;     /* warm amber */
   --sub-delivery:       #c97a4a;     /* sienna */
   --sub-weed:           #7a9c6a;     /* moss green */
   --sub-streaming:      #5a7a9c;     /* petrol blue */
-  --sub-gaming:         #7c5aa8;     /* purple */
   --sub-treats:         #d4a4b8;     /* pink-rose */
 
   /* Paycheque-map roles. Four distinct tones so the user reads the map at a
@@ -301,9 +298,12 @@
   .ledger-page {
     padding: 18px 18px 24px;
     min-height: 100%;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-      inset 0 2px 10px rgba(0, 0, 0, 0.35);
+  }
+  /* Break a child out of the ledger-page horizontal padding so the SVG
+     canvas can render edge-to-edge on iPhone. Keep top/bottom rhythm. */
+  .ledger-bleed {
+    margin-left: -18px;
+    margin-right: -18px;
   }
   .ledger-header {
     display: flex;

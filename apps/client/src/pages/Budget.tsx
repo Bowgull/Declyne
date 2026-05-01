@@ -325,7 +325,7 @@ function PaychequeView({
           </span>
           <span className="ledger-section-meta">{daysLeft}d to payday</span>
 
-          <div className="pt-2">
+          <div className="pt-2 ledger-bleed">
             <BubbleDrillMap
               freeCenter={moneyTree.freeCenter}
               nodes={moneyTree.hubs}
@@ -429,23 +429,20 @@ const SUB_COLOR: Record<string, string> = {
   groceries: 'var(--sub-groceries)',
   transit: 'var(--sub-transit)',
   shopping: 'var(--sub-shopping)',
-  home: 'var(--sub-home)',
   personal_care: 'var(--sub-personal-care)',
   entertainment: 'var(--sub-entertainment)',
-  health: 'var(--sub-health)',
-  bars: 'var(--sub-bars)',
-  takeout: 'var(--sub-takeout)',
+  alcohol: 'var(--sub-alcohol)',
+  restaurants: 'var(--sub-restaurants)',
   delivery: 'var(--sub-delivery)',
   weed: 'var(--sub-weed)',
   streaming: 'var(--sub-streaming)',
-  gaming: 'var(--sub-gaming)',
   treats: 'var(--sub-treats)',
 };
 const SUB_LABEL: Record<string, string> = {
-  groceries: 'groceries', transit: 'transit', shopping: 'shopping', home: 'home',
-  personal_care: 'personal care', entertainment: 'entertainment', health: 'health',
-  bars: 'bars', takeout: 'takeout', delivery: 'delivery', weed: 'weed',
-  streaming: 'streaming', gaming: 'gaming', treats: 'treats',
+  groceries: 'groceries', transit: 'transit', shopping: 'shopping',
+  personal_care: 'personal care', entertainment: 'entertainment',
+  alcohol: 'alcohol', restaurants: 'restaurants', delivery: 'delivery', weed: 'weed',
+  streaming: 'streaming', treats: 'treats',
 };
 
 interface HabitsBucket {
@@ -685,7 +682,7 @@ function PatternsView({
           caption={`${fmtCompact(habitsTotal30)} in last 30d`}
         />
 
-        <div className="pt-2">
+        <div className="pt-2 ledger-bleed">
           <BubbleDrillMap
             nodes={buildHabitsDrillTree(habitsMerchants).categories}
             rootHint="TAP A CATEGORY TO DRILL IN"

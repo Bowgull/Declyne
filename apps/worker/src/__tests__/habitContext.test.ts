@@ -11,7 +11,7 @@ const merchant = (overrides: Partial<HabitMerchantInput> = {}): HabitMerchantInp
   merchant_id: 'm_x',
   display_name: 'Merchant',
   category_group: 'indulgence',
-  sub_category: 'bars',
+  sub_category: 'alcohol',
   sub_category_confirmed: 1,
   spend_30d_cents: 0,
   spend_90d_cents: 0,
@@ -93,15 +93,15 @@ describe('buildHabitContext', () => {
   it('aggregates merchants by sub-category with monthly burn = 90d/3', () => {
     const ctx = buildHabitContext({
       merchants: [
-        merchant({ merchant_id: 'm1', display_name: 'Bar Raval', sub_category: 'bars', spend_30d_cents: 12000, spend_90d_cents: 30000 }),
-        merchant({ merchant_id: 'm2', display_name: 'LCBO', sub_category: 'bars', spend_30d_cents: 8000, spend_90d_cents: 21000 }),
+        merchant({ merchant_id: 'm1', display_name: 'Bar Raval', sub_category: 'alcohol', spend_30d_cents: 12000, spend_90d_cents: 30000 }),
+        merchant({ merchant_id: 'm2', display_name: 'LCBO', sub_category: 'alcohol', spend_30d_cents: 8000, spend_90d_cents: 21000 }),
       ],
       subscriptions: [],
       verdicts: [],
     });
     expect(ctx.by_sub_category).toHaveLength(1);
     const row = ctx.by_sub_category[0]!;
-    expect(row.sub).toBe('bars');
+    expect(row.sub).toBe('alcohol');
     expect(row.spend_30d_cents).toBe(20000);
     expect(row.spend_90d_cents).toBe(51000);
     expect(row.monthly_burn_cents).toBe(17000);
@@ -112,10 +112,10 @@ describe('buildHabitContext', () => {
   it('top_merchants is capped at 3 and sorted desc by spend', () => {
     const ctx = buildHabitContext({
       merchants: [
-        merchant({ merchant_id: 'a', display_name: 'A', sub_category: 'takeout', spend_90d_cents: 10000 }),
-        merchant({ merchant_id: 'b', display_name: 'B', sub_category: 'takeout', spend_90d_cents: 30000 }),
-        merchant({ merchant_id: 'c', display_name: 'C', sub_category: 'takeout', spend_90d_cents: 20000 }),
-        merchant({ merchant_id: 'd', display_name: 'D', sub_category: 'takeout', spend_90d_cents: 5000 }),
+        merchant({ merchant_id: 'a', display_name: 'A', sub_category: 'restaurants', spend_90d_cents: 10000 }),
+        merchant({ merchant_id: 'b', display_name: 'B', sub_category: 'restaurants', spend_90d_cents: 30000 }),
+        merchant({ merchant_id: 'c', display_name: 'C', sub_category: 'restaurants', spend_90d_cents: 20000 }),
+        merchant({ merchant_id: 'd', display_name: 'D', sub_category: 'restaurants', spend_90d_cents: 5000 }),
       ],
       subscriptions: [],
       verdicts: [],
@@ -127,28 +127,28 @@ describe('buildHabitContext', () => {
   it('sorts by_sub_category by 90d spend descending', () => {
     const ctx = buildHabitContext({
       merchants: [
-        merchant({ merchant_id: 'a', sub_category: 'bars', spend_90d_cents: 10000 }),
-        merchant({ merchant_id: 'b', sub_category: 'takeout', spend_90d_cents: 50000 }),
+        merchant({ merchant_id: 'a', sub_category: 'alcohol', spend_90d_cents: 10000 }),
+        merchant({ merchant_id: 'b', sub_category: 'restaurants', spend_90d_cents: 50000 }),
         merchant({ merchant_id: 'c', sub_category: 'weed', spend_90d_cents: 20000 }),
       ],
       subscriptions: [],
       verdicts: [],
     });
-    expect(ctx.by_sub_category.map((r) => r.sub)).toEqual(['takeout', 'weed', 'bars']);
+    expect(ctx.by_sub_category.map((r) => r.sub)).toEqual(['restaurants', 'weed', 'alcohol']);
   });
 
   it('hot/cold categories follow velocity', () => {
     const ctx = buildHabitContext({
       merchants: [
-        merchant({ merchant_id: 'a', sub_category: 'bars', spend_30d_cents: 30000, spend_90d_cents: 60000 }), // 30 vs 20 → hot
-        merchant({ merchant_id: 'b', sub_category: 'takeout', spend_30d_cents: 10000, spend_90d_cents: 60000 }), // 10 vs 20 → cold
+        merchant({ merchant_id: 'a', sub_category: 'alcohol', spend_30d_cents: 30000, spend_90d_cents: 60000 }), // 30 vs 20 → hot
+        merchant({ merchant_id: 'b', sub_category: 'restaurants', spend_30d_cents: 10000, spend_90d_cents: 60000 }), // 10 vs 20 → cold
         merchant({ merchant_id: 'c', sub_category: 'weed', spend_30d_cents: 10000, spend_90d_cents: 30000 }), // steady
       ],
       subscriptions: [],
       verdicts: [],
     });
-    expect(ctx.hot_categories).toEqual(['bars']);
-    expect(ctx.cold_categories).toEqual(['takeout']);
+    expect(ctx.hot_categories).toEqual(['alcohol']);
+    expect(ctx.cold_categories).toEqual(['restaurants']);
   });
 
   it('subscription bleed sums monthly + annual = monthly × 12', () => {

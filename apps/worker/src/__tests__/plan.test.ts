@@ -135,7 +135,7 @@ describe('trimHabitContextForAi', () => {
   const fullCtx: HabitContext = {
     by_sub_category: [
       {
-        sub: 'bars',
+        sub: 'alcohol',
         spend_30d_cents: 40_000,
         spend_90d_cents: 90_000,
         monthly_burn_cents: 30_000,
@@ -154,14 +154,14 @@ describe('trimHabitContextForAi', () => {
         { merchant_id: 'm_spotify', name: 'Spotify', monthly_cents: 1_300, reason: 'undecided' },
       ],
     },
-    hot_categories: ['bars'],
+    hot_categories: ['alcohol'],
     cold_categories: [],
   };
 
   it('drops top_merchants from sub-category rows', () => {
     const t = trimHabitContextForAi(fullCtx);
     expect(t.by_sub_category[0]).toEqual({
-      sub: 'bars',
+      sub: 'alcohol',
       monthly_burn_cents: 30_000,
       velocity: 'accelerating',
     });
@@ -179,7 +179,7 @@ describe('trimHabitContextForAi', () => {
     const t = trimHabitContextForAi(fullCtx);
     expect(t.subscription_bleed.monthly_cents).toBe(4_500);
     expect(t.subscription_bleed.annual_cents).toBe(54_000);
-    expect(t.hot_categories).toEqual(['bars']);
+    expect(t.hot_categories).toEqual(['alcohol']);
     expect(t.cold_categories).toEqual([]);
   });
 

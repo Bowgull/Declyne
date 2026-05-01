@@ -186,15 +186,15 @@ describe('projectGoalWithCuts', () => {
       ...base,
       subs: [
         // Big monthly burn → biggest months saved
-        { sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' },
-        { sub: 'bars', monthly_burn_cents: 30000, velocity: 'accelerating' },
+        { sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' },
+        { sub: 'alcohol', monthly_burn_cents: 30000, velocity: 'accelerating' },
         { sub: 'weed', monthly_burn_cents: 10000, velocity: 'accelerating' },
-        { sub: 'gaming', monthly_burn_cents: 4000, velocity: 'accelerating' },
+        { sub: 'streaming', monthly_burn_cents: 4000, velocity: 'accelerating' },
       ],
     });
     expect(out.length).toBe(3);
-    expect(out[0]!.sub).toBe('takeout');
-    expect(out[1]!.sub).toBe('bars');
+    expect(out[0]!.sub).toBe('restaurants');
+    expect(out[1]!.sub).toBe('alcohol');
     expect(out[2]!.sub).toBe('weed');
     expect(out[0]!.months_saved).toBeGreaterThanOrEqual(out[1]!.months_saved);
     expect(out[1]!.months_saved).toBeGreaterThanOrEqual(out[2]!.months_saved);
@@ -204,8 +204,8 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       subs: [
-        { sub: 'takeout', monthly_burn_cents: 60000, velocity: 'cooling' },
-        { sub: 'bars', monthly_burn_cents: 30000, velocity: 'steady' },
+        { sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'cooling' },
+        { sub: 'alcohol', monthly_burn_cents: 30000, velocity: 'steady' },
       ],
     });
     expect(out).toEqual([]);
@@ -215,7 +215,7 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       current_complete_date: null,
-      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+      subs: [{ sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' }],
     });
     expect(out).toEqual([]);
   });
@@ -224,7 +224,7 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       remaining_cents: 0,
-      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+      subs: [{ sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' }],
     });
     expect(out).toEqual([]);
   });
@@ -233,7 +233,7 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       next_payday: null,
-      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+      subs: [{ sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' }],
     });
     expect(out).toEqual([]);
   });
@@ -245,7 +245,7 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       subs: [
-        { sub: 'gaming', monthly_burn_cents: 2000, velocity: 'accelerating' },
+        { sub: 'streaming', monthly_burn_cents: 2000, velocity: 'accelerating' },
       ],
     });
     expect(out).toEqual([]);
@@ -254,7 +254,7 @@ describe('projectGoalWithCuts', () => {
   it('default cut_pct is 50', () => {
     const out = projectGoalWithCuts({
       ...base,
-      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+      subs: [{ sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' }],
     });
     expect(out.length).toBe(1);
     expect(out[0]!.cut_pct).toBe(50);
@@ -265,7 +265,7 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       cut_pct: 25,
-      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+      subs: [{ sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' }],
     });
     expect(out.length).toBe(1);
     expect(out[0]!.cut_pct).toBe(25);
@@ -276,8 +276,8 @@ describe('projectGoalWithCuts', () => {
     const out = projectGoalWithCuts({
       ...base,
       subs: [
-        { sub: 'takeout', monthly_burn_cents: 0, velocity: 'accelerating' },
-        { sub: 'bars', monthly_burn_cents: -100, velocity: 'accelerating' },
+        { sub: 'restaurants', monthly_burn_cents: 0, velocity: 'accelerating' },
+        { sub: 'alcohol', monthly_burn_cents: -100, velocity: 'accelerating' },
       ],
     });
     expect(out).toEqual([]);
@@ -286,7 +286,7 @@ describe('projectGoalWithCuts', () => {
   it('new_complete_date is on or before current_complete_date', () => {
     const out = projectGoalWithCuts({
       ...base,
-      subs: [{ sub: 'takeout', monthly_burn_cents: 60000, velocity: 'accelerating' }],
+      subs: [{ sub: 'restaurants', monthly_burn_cents: 60000, velocity: 'accelerating' }],
     });
     expect(Date.parse(out[0]!.new_complete_date)).toBeLessThanOrEqual(
       Date.parse(base.current_complete_date),

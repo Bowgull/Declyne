@@ -52,20 +52,17 @@ type Goal = {
 };
 
 const SUB_LABEL: Record<string, string> = {
-  takeout: 'takeout',
+  restaurants: 'restaurants',
   delivery: 'delivery',
-  bars: 'bars',
+  alcohol: 'alcohol',
   weed: 'weed',
   streaming: 'streaming',
-  gaming: 'gaming',
   treats: 'treats',
   shopping: 'shopping',
-  home: 'home goods',
   personal_care: 'personal care',
   entertainment: 'entertainment',
   groceries: 'groceries',
   transit: 'transit',
-  health: 'health',
 };
 
 function subLabel(s: string): string {

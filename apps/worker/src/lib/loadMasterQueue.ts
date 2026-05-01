@@ -33,7 +33,7 @@ import {
 } from '../routes/reconciliation.js';
 import { stripRoleSuffix } from '../routes/today.js';
 import { reconcileStatements } from './debtGl.js';
-import { isSubCategory, isValidForGroup, type SubGroup } from './subCategoryDetect.js';
+import { isSubCategory } from './subCategoryDetect.js';
 
 const HORIZON_DAYS = 30;
 const COUNTERPARTY_STALE_DAYS = 30;
@@ -140,19 +140,13 @@ export async function loadMasterQueue(env: Env, today: string): Promise<MasterQu
   }>();
   const sub_category_queue: SubCategoryRowInput[] = [];
   for (const m of subRows ?? []) {
-    let mismatch = false;
-    if (m.sub_category_confirmed === 0) {
-      mismatch = false;
-    } else if (!m.sub_category || !isSubCategory(m.sub_category)) {
-      mismatch = true;
-    } else {
-      const g = m.category_group;
-      if (g !== 'lifestyle' && g !== 'indulgence' && g !== 'essentials') {
-        mismatch = true;
-      } else {
-        mismatch = !isValidForGroup(m.sub_category, g as SubGroup);
-      }
-    }
+    // Mirrors merchants.ts queue filter. Confirmed merchants only resurface
+    // when their stored sub is no longer a valid SubCategory value (catches
+    // renames). Group-mismatch is NOT a stale signal: the user's chosen sub
+    // is the source of truth and the map already routes by sub-group.
+    const mismatch =
+      m.sub_category_confirmed === 1 &&
+      (!m.sub_category || !isSubCategory(m.sub_category));
     if (m.sub_category_confirmed === 0 || mismatch) {
       sub_category_queue.push({
         id: m.id,
