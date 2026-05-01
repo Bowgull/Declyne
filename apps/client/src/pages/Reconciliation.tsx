@@ -90,6 +90,52 @@ type AccountsResponse = {
   accounts: AccountReconciliation[];
 };
 
+type QueueKind =
+  | 'reconcile'
+  | 'bill'
+  | 'plan_installment'
+  | 'payday'
+  | 'review_uncategorized'
+  | 'sub_category_unconfirmed'
+  | 'sub_category_stale'
+  | 'tab_to_match'
+  | 'uncleared_line'
+  | 'subscription_pending_verdict'
+  | 'statement_mismatch'
+  | 'counterparty_stale';
+
+type QueueResponse = {
+  items: Array<{ kind: QueueKind; id: string; label: string; href: string }>;
+  total: number;
+  by_kind: Record<QueueKind, number>;
+};
+
+const ADMIN_KINDS: QueueKind[] = [
+  'review_uncategorized',
+  'sub_category_unconfirmed',
+  'sub_category_stale',
+  'tab_to_match',
+  'uncleared_line',
+  'subscription_pending_verdict',
+  'statement_mismatch',
+  'counterparty_stale',
+];
+
+const BLOCKER_LABEL: Record<QueueKind, string> = {
+  reconcile: 'Reconcile',
+  bill: 'Bill',
+  plan_installment: 'Installment',
+  payday: 'Payday',
+  review_uncategorized: 'review queue',
+  sub_category_unconfirmed: 'sub-cat to confirm',
+  sub_category_stale: 'sub-cat stale',
+  tab_to_match: 'tab to match',
+  uncleared_line: 'uncleared line',
+  subscription_pending_verdict: 'subscription verdict',
+  statement_mismatch: 'statement mismatch',
+  counterparty_stale: 'stale counterparty',
+};
+
 type MissedInstallment = {
   id: string;
   label: string;
@@ -169,6 +215,11 @@ export default function Reconciliation() {
     queryFn: () => api.get<PlanSummaryResponse>('/api/reconciliation/plan-summary'),
   });
 
+  const queue = useQuery({
+    queryKey: ['queue'],
+    queryFn: () => api.get<QueueResponse>('/api/queue'),
+  });
+
   const clearLine = useMutation({
     mutationFn: (line_id: string) =>
       api.post<{ ok: true }>(`/api/reconciliation/lines/${line_id}/clear`, {}),
@@ -240,6 +291,15 @@ export default function Reconciliation() {
     (sum, a) => sum + a.summary.uncleared_count,
     0,
   );
+
+  const queueByKind = queue.data?.by_kind;
+  const blockerEntries: Array<{ kind: QueueKind; count: number }> = queueByKind
+    ? ADMIN_KINDS.flatMap((k) => {
+        const count = queueByKind[k] ?? 0;
+        return count > 0 ? [{ kind: k, count }] : [];
+      })
+    : [];
+  const totalBlockers = blockerEntries.reduce((s, e) => s + e.count, 0);
 
   return (
     <div className="pb-6">
@@ -455,14 +515,27 @@ export default function Reconciliation() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 pt-2 pb-1">
-              {totalUncleared > 0 && (
+              {totalBlockers > 0 && (
+                <div
+                  className="text-[10px] uppercase tracking-[0.18em] text-center"
+                  style={{ color: 'var(--cat-indulgence)' }}
+                >
+                  {totalBlockers} open {totalBlockers === 1 ? 'loop' : 'loops'} · seal acknowledges them outstanding
+                  <div className="mt-1 text-[10px] tracking-[0.14em] text-[color:var(--color-text-muted)] normal-case">
+                    {blockerEntries
+                      .map((e) => `${e.count} ${BLOCKER_LABEL[e.kind]}${e.count === 1 ? '' : 's'}`)
+                      .join(' · ')}
+                  </div>
+                </div>
+              )}
+              {totalBlockers === 0 && totalUncleared > 0 && (
                 <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-text-muted)]">
-                  {totalUncleared} uncleared {totalUncleared === 1 ? 'line' : 'lines'} · seal acknowledges them outstanding
+                  {totalUncleared} uncleared {totalUncleared === 1 ? 'line' : 'lines'}
                 </div>
               )}
               <button
                 className="postage"
-                onClick={() => complete.mutate(totalUncleared > 0)}
+                onClick={() => complete.mutate(totalBlockers > 0)}
                 disabled={complete.isPending}
                 style={{ opacity: complete.isPending ? 0.5 : 1 }}
               >

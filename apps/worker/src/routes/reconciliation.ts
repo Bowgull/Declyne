@@ -4,6 +4,7 @@ import { newId, nowIso } from '../lib/ids.js';
 import { writeEditLog } from '../lib/editlog.js';
 import { closeWeek, mostRecentSaturday } from '../lib/periodClose.js';
 import { maybeUnlockVocabulary } from '../lib/vocabularyMilestone.js';
+import { adminBlockers, loadMasterQueue } from '../lib/loadMasterQueue.js';
 
 export const reconciliationRoutes = new Hono<{ Bindings: Env }>();
 
@@ -431,11 +432,14 @@ reconciliationRoutes.post('/complete', async (c) => {
   const acknowledge = body?.acknowledge_outstanding === true;
 
   const accounts = await loadAccountSummaries(c.env, weekStart, today);
-  const fullyCleared = isWeekFullyReconciled(accounts.map((a) => a.summary));
-  if (!fullyCleared && !acknowledge) {
+  const queue = await loadMasterQueue(c.env, today);
+  const blockers = adminBlockers(queue.items);
+  if (blockers.count > 0 && !acknowledge) {
     return c.json(
       {
-        error: 'uncleared_lines_remain',
+        error: 'queue_outstanding',
+        outstanding_count: blockers.count,
+        by_kind: blockers.by_kind,
         accounts: accounts
           .filter((a) => a.summary.uncleared_count > 0)
           .map((a) => ({
@@ -495,6 +499,17 @@ reconciliationRoutes.post('/complete', async (c) => {
       reason: acknowledge && a.summary.uncleared_count > 0 ? 'reconciliation_seal_outstanding' : 'reconciliation_seal',
     });
   }
+  if (blockers.count > 0) {
+    logs.push({
+      entity_type: 'reconciliation' as const,
+      entity_id: eventId,
+      field: 'queue_acknowledged',
+      old_value: null,
+      new_value: JSON.stringify({ count: blockers.count, by_kind: blockers.by_kind }),
+      actor: 'user' as const,
+      reason: 'reconciliation_seal_outstanding',
+    });
+  }
   await writeEditLog(c.env, logs);
 
   // Auto-close the corresponding Sun→Sat week if the trial balance is equal.
@@ -523,7 +538,9 @@ reconciliationRoutes.post('/complete', async (c) => {
     reconciliation_streak: nextStreak,
     last_reconciliation_at: now,
     accounts_sealed: accounts.length,
-    acknowledged_outstanding: acknowledge && !fullyCleared,
+    acknowledged_outstanding: acknowledge && blockers.count > 0,
+    queue_outstanding: blockers.count,
+    queue_by_kind: blockers.by_kind,
     period_close,
     period_close_skipped,
     ...(vocabularyUnlock ? { vocabulary_unlock: vocabularyUnlock } : {}),
