@@ -32,6 +32,7 @@ const NetWorthTrend = lazy(() => import('./pages/NetWorthTrend'));
 const Forecast = lazy(() => import('./pages/Forecast'));
 const Subscriptions = lazy(() => import('./pages/Subscriptions'));
 const TaxYear = lazy(() => import('./pages/TaxYear'));
+const Queue = lazy(() => import('./pages/Queue'));
 
 // Mockup pages — lowest priority, never in the critical path.
 const ButtonsMockup = lazy(() => import('./pages/ButtonsMockup'));
@@ -116,6 +117,7 @@ export default function App() {
             <Route path="/paycheque/forecast" element={<Forecast />} />
             <Route path="/paycheque/subscriptions" element={<Subscriptions />} />
             <Route path="/settings/tax" element={<TaxYear />} />
+            <Route path="/queue" element={<Queue />} />
             <Route path="/budget/forecast" element={<Navigate to="/paycheque/forecast" replace />} />
             <Route path="/budget/net-worth" element={<Navigate to="/paycheque/net-worth" replace />} />
             <Route path="/budget/plan" element={<Navigate to="/paycheque/plan" replace />} />
