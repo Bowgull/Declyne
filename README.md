@@ -1,4 +1,23 @@
-# Declyne
+# declyne 🧾
+
+personal finance reset, built for exactly one person: me.
+
+🚧 still building. rough edges are mine 🙂
+
+
+**what it does**
+- every transaction is a receipt, every paycheque is a tank, every iou between friends is a tear-off chit
+- five phases: stabilize, clear debt, build credit, build buffer, grow
+- ai only checks investment ideas. never the math. the math is boring on purpose
+
+**what i did**
+designed the whole system, wrote the rules, and made the security way more grown-up than a one-person app needs: security checklist, privacy notice & threat model all live in here. the setup guide is called "boomer proof" because it should work without googling anything. ai tools wrote the code.
+
+**built with** react, vite, tailwind, cloudflare workers + d1, capacitor (ios)
+
+---
+
+## under the hood
 
 [![Deploy worker](https://github.com/Bowgull/Declyne/actions/workflows/deploy-worker.yml/badge.svg)](https://github.com/Bowgull/Declyne/actions/workflows/deploy-worker.yml)
 [![Security](https://github.com/Bowgull/Declyne/actions/workflows/security.yml/badge.svg)](https://github.com/Bowgull/Declyne/actions/workflows/security.yml)
