@@ -4,8 +4,25 @@ import tailwind from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
+// The client bundle is public (Vercel), so a secret in a VITE_* variable is a leak.
+// The API token lives only in Keychain/secure storage, pasted in Settings -> Token.
+const noTokenInBundle = {
+  name: 'declyne-no-token-in-bundle',
+  configResolved(config: { env: Record<string, unknown> }) {
+    for (const key of Object.keys(config.env)) {
+      if (/^VITE_.*(TOKEN|SECRET|PASSWORD)/i.test(key) || /^VITE_.*_KEY$/i.test(key)) {
+        throw new Error(
+          `${key} is set, and every VITE_* variable is compiled into the public JS bundle. ` +
+            'Remove it from .env.local / Vercel. Scripts read DECLYNE_API_TOKEN instead.',
+        );
+      }
+    }
+  },
+};
+
 export default defineConfig({
   plugins: [
+    noTokenInBundle,
     react(),
     tailwind(),
     VitePWA({

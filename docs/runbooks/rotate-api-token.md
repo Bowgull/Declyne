@@ -21,7 +21,8 @@ Time required: ~3 minutes.
 
 3. **Update the iOS app**:
    - **Quickest path:** open the iOS app, navigate to Settings → "Update API token", paste the new value. The app writes it into the iOS Keychain via `capacitor-secure-storage-plugin`. Subsequent requests read from Keychain. No rebuild needed.
-   - **Cold-restart path (e.g. forgot the in-app flow):** update `apps/client/.env.local` with the new `VITE_API_TOKEN`, call `clearToken()` from the JS console (or wipe app data), relaunch — the env value is read once on first launch and migrated into Keychain, then ignored.
+   - **Cold-restart path:** call `clearToken()` from the JS console (or wipe app data), relaunch, and paste the new token at the Settings → Token prompt. There is no build-time token: `VITE_*` values ship in the public bundle, and the Vite build refuses one.
+   - Update `DECLYNE_API_TOKEN` in `apps/client/.env.local` so `scripts/db-reseed.sh` keeps working.
 
 4. **Verify**:
    ```bash
@@ -39,7 +40,7 @@ Time required: ~3 minutes.
 
 - **Worker is rejecting both tokens:** the `wrangler secret put` may not have persisted. Re-run step 2.
 - **iOS app still gets 401s after update:** force-quit and relaunch — Capacitor caches env reads. After session 46 the Keychain read happens at every request, so force-quit isn't needed.
-- **You can't access wrangler:** log in with `npx wrangler login` (browser flow). Account is `you@example.com`.
+- **You can't access wrangler:** log in with `npx wrangler login` (browser flow). Use the account that owns the `declyne-api` worker.
 
 ## Why we don't auto-rotate
 

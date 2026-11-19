@@ -15,9 +15,9 @@ WORKER_URL="https://declyne-api.bocas-joshua.workers.dev"
 SEED_FILE="apps/worker/drizzle/seed_test.sql"
 
 # Load token from client env
-TOKEN=$(grep VITE_API_TOKEN apps/client/.env.local 2>/dev/null | cut -d= -f2)
+TOKEN=${DECLYNE_API_TOKEN:-$(grep '^DECLYNE_API_TOKEN=' apps/client/.env.local 2>/dev/null | cut -d= -f2)}
 if [ -z "$TOKEN" ]; then
-  echo "ERROR: VITE_API_TOKEN not found in apps/client/.env.local" >&2
+  echo "ERROR: DECLYNE_API_TOKEN not found (env or apps/client/.env.local)" >&2
   exit 1
 fi
 

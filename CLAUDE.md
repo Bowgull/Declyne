@@ -26,7 +26,7 @@ React 19 + Vite 7 + Tailwind v4 · Hono 4 on Cloudflare Workers · D1 + Drizzle 
 
 - Worker: `https://declyne-api.bocas-joshua.workers.dev`
 - D1 database: `declyne` (`0893ada8-cbdb-4b3c-896c-c93c792023f1`)
-- Cloudflare account: `you@example.com` (`59b6cf53e5d4cef04586e1deb177093c`)
+- Cloudflare account: the owner's (`wrangler whoami`). Not recorded here: this repo is public.
 - Worker secrets set: `API_TOKEN`, `OPENAI_API_KEY`, `TWELVE_DATA_KEY`, `FMP_KEY`
 - Latest worker version: `655ff9b6-6073-4f61-9c49-8ad4fc10137f` (session 100, manual deploy bundling sessions 99 + 100 — `/api/queue` is now live and Today reads from it).
 

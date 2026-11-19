@@ -3,7 +3,7 @@ import type { Env } from '../env.js';
 
 // Single-user app. A shared bearer token between client and worker is enough.
 // On the client the token lives in the iOS Keychain (capacitor-secure-storage-plugin)
-// after first run; VITE_API_TOKEN is a one-shot migration source only. Worker reads
+// after first run; there is no build-time token (it would ship in the bundle). Worker reads
 // API_TOKEN from Cloudflare Workers Secrets (set via `wrangler secret put`).
 export async function auth(c: Context<{ Bindings: Env }>, next: Next) {
   const expected = c.env.API_TOKEN;

@@ -74,9 +74,10 @@ fi
 
 cat > apps/client/.env.local <<EOF
 VITE_API_URL=${WORKER_URL}
-VITE_API_TOKEN=${API_TOKEN}
+DECLYNE_API_TOKEN=${API_TOKEN}
 EOF
 echo "▌ Wrote apps/client/.env.local"
+echo "▌ Paste the same token in the app: Settings -> Token (it is never bundled)."
 
 echo ""
 echo "▌ Done. What's next:"
