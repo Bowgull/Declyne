@@ -1,3 +1,4 @@
+import { AI_RETIRED } from '../ai-retired.js';
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import {
@@ -471,6 +472,10 @@ Rules:
 
   if (out.capacity_cents <= 0) {
     rationale = 'No overflow this paycheque. Mins only.';
+    observations = [];
+  } else if (AI_RETIRED) {
+    // AI retired 2026-11-23 (OpenAI spend stopped): the plan stands on its numbers, no AI note.
+    rationale = '';
     observations = [];
   } else {
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {

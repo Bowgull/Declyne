@@ -1,3 +1,4 @@
+import { AI_RETIRED } from '../ai-retired.js';
 import { Hono } from 'hono';
 import type { Env } from '../env.js';
 import { computeSignalsForSymbol } from '../lib/signals.js';
@@ -123,6 +124,9 @@ investmentRoutes.post('/recommend', async (c) => {
 11. Output JSON matching the schema in the payload. No prose outside the schema.
 12. If data is stale (older than 2 trading days), return action: "hold" and reason: "stale_data".
 13. Tone: dry, direct, short. No hype. No emojis. No em dashes.`;
+
+  // AI retired 2026-11-23 (OpenAI spend stopped): no coach call.
+  if (AI_RETIRED) return c.json({ error: 'ai_retired' }, 503);
 
   const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
